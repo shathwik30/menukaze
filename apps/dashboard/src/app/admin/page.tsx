@@ -68,6 +68,12 @@ export default async function DashboardAdminPage() {
           >
             Tables
           </Link>
+          <Link
+            href="/admin/settings"
+            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
+          >
+            Settings
+          </Link>
           <form action={signOutAction}>
             <button
               type="submit"

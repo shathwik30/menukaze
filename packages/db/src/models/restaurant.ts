@@ -69,6 +69,25 @@ export interface RestaurantDoc {
     geofenceRadiusM: number;
   };
 
+  /**
+   * Holiday mode blocks all new orders. When enabled, the storefront cart
+   * is disabled and shows the configured message.
+   */
+  holidayMode: {
+    enabled: boolean;
+    message?: string;
+  };
+
+  /**
+   * Concurrent-order cap for the kitchen. When the number of active
+   * orders meets or exceeds maxConcurrentOrders, the storefront blocks
+   * new checkouts with a "running at capacity" message.
+   */
+  throttling: {
+    enabled: boolean;
+    maxConcurrentOrders: number;
+  };
+
   taxRules: Array<{
     name: string;
     percent: number;
@@ -173,6 +192,14 @@ const restaurantSchema = new Schema<RestaurantDoc>(
       firstOrderDelayS: { type: Number, default: 0 },
       maxSessionsPerTable: { type: Number, default: 1 },
       geofenceRadiusM: { type: Number, default: 100 },
+    },
+    holidayMode: {
+      enabled: { type: Boolean, default: false },
+      message: String,
+    },
+    throttling: {
+      enabled: { type: Boolean, default: false },
+      maxConcurrentOrders: { type: Number, default: 20 },
     },
 
     taxRules: {
