@@ -20,6 +20,7 @@ export interface KdsCard {
     notes?: string;
   }>;
   tableId?: string;
+  tableNumber?: number;
 }
 
 interface Props {
@@ -69,10 +70,23 @@ function useNewOrderChime(enabled: boolean): () => void {
   };
 }
 
+const CHANNEL_FILTERS: Array<{
+  id: 'all' | 'storefront' | 'qr_dinein' | 'kiosk' | 'walk_in' | 'api';
+  label: string;
+}> = [
+  { id: 'all', label: 'All' },
+  { id: 'storefront', label: 'Storefront' },
+  { id: 'qr_dinein', label: 'QR' },
+  { id: 'kiosk', label: 'Kiosk' },
+  { id: 'walk_in', label: 'Walk-in' },
+  { id: 'api', label: 'API' },
+];
+
 export function KdsBoard({ restaurantId, initialCards }: Props) {
   const router = useRouter();
   const [cards, setCards] = useState<KdsCard[]>(initialCards);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [channelFilter, setChannelFilter] = useState<'all' | string>('all');
   const [isPending, start] = useTransition();
   const chime = useNewOrderChime(soundEnabled);
   const cardsRef = useRef(cards);
@@ -113,6 +127,7 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
       ready: [],
     };
     for (const card of cards) {
+      if (channelFilter !== 'all' && card.channel !== channelFilter) continue;
       if (card.status === 'received' || card.status === 'confirmed') {
         buckets.received.push(card);
       } else if (card.status === 'preparing') {
@@ -122,11 +137,11 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
       }
     }
     return buckets;
-  }, [cards]);
+  }, [cards, channelFilter]);
 
   return (
     <>
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex flex-wrap items-center gap-3 text-xs">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -135,6 +150,25 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
           />
           Sound alerts
         </label>
+        <div className="flex flex-wrap items-center gap-1">
+          {CHANNEL_FILTERS.map((f) => {
+            const active = channelFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setChannelFilter(f.id)}
+                className={
+                  active
+                    ? 'border-foreground bg-foreground text-background rounded-full border px-3 py-1'
+                    : 'border-input text-muted-foreground rounded-full border px-3 py-1'
+                }
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
@@ -222,7 +256,14 @@ function Card({
     <article className="border-border bg-background rounded-md border p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-foreground font-mono text-sm font-semibold">{card.publicOrderId}</p>
+          <p className="text-foreground font-mono text-sm font-semibold">
+            {card.publicOrderId}
+            {card.tableNumber !== undefined ? (
+              <span className="text-muted-foreground ml-2 text-xs font-semibold">
+                · Table {card.tableNumber}
+              </span>
+            ) : null}
+          </p>
           <p className="text-muted-foreground text-[11px]">
             <span
               className={`rounded-sm border px-1 py-0.5 ${CHANNEL_BADGE[card.channel] ?? 'border-border bg-muted'}`}

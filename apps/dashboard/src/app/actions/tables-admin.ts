@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generateQrToken } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { PermissionDeniedError, requireFlags } from '@/lib/session';
 
 const createInput = z.object({
   number: z.number().int().min(1).max(9999),
@@ -37,7 +37,15 @@ function firstZodError(err: z.ZodError): string {
 export async function createTableAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = createInput.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['tables.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to manage tables.' };
+    }
+    throw error;
+  }
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Table } = getModels(conn);
@@ -67,7 +75,15 @@ export async function updateTableAction(raw: unknown): Promise<ActionResult> {
   const parsed = updateInput.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
   if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown table.' };
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['tables.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to manage tables.' };
+    }
+    throw error;
+  }
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Table } = getModels(conn);
@@ -84,7 +100,15 @@ export async function updateTableAction(raw: unknown): Promise<ActionResult> {
 
 export async function deleteTableAction(id: string): Promise<ActionResult> {
   if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown table.' };
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['tables.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to manage tables.' };
+    }
+    throw error;
+  }
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Table } = getModels(conn);
@@ -95,7 +119,15 @@ export async function deleteTableAction(id: string): Promise<ActionResult> {
 
 export async function regenerateQrTokenAction(id: string): Promise<ActionResult> {
   if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown table.' };
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['tables.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to manage tables.' };
+    }
+    throw error;
+  }
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Table } = getModels(conn);

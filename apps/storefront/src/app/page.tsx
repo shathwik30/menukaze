@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getMongoConnection, getModels } from '@menukaze/db';
@@ -10,6 +11,32 @@ import { CartBoot } from './_components/cart-boot';
 import { CartButton } from './_components/cart-button';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Dynamic metadata per tenant — search crawlers hit the subdomain and need
+ * restaurant-specific title / description / og image. Failing to resolve a
+ * tenant here returns the default shell metadata from layout.tsx.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const restaurant = await resolveTenantOrNotFound();
+    const title = restaurant.name;
+    const description = restaurant.description ?? `Order from ${restaurant.name} on Menukaze.`;
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        ...(restaurant.logoUrl ? { images: [{ url: restaurant.logoUrl }] } : {}),
+        type: 'website',
+      },
+      twitter: { card: 'summary', title, description },
+    };
+  } catch {
+    return { title: 'Menukaze', description: 'Restaurant storefront' };
+  }
+}
 
 export default async function StorefrontHomePage() {
   // Short-circuit apex / reserved hosts so /admin.menukaze.com etc. doesn't
@@ -41,10 +68,41 @@ export default async function StorefrontHomePage() {
   const openStatus = computeOpenStatus(restaurant);
   const todayHours = formatTodayHours(restaurant);
 
+  // Schema.org Restaurant JSON-LD — helps Google, Bing, Yandex, Baidu, Naver
+  // render rich results (§6 bullet 15). Hours are serialized as the
+  // compressed "Mo-Su 09:00-22:00"-style openingHours string per spec.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: restaurant.name,
+    description: restaurant.description,
+    image: restaurant.logoUrl,
+    telephone: restaurant.phone,
+    priceRange: '$$',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: [restaurant.addressStructured.line1, restaurant.addressStructured.line2]
+        .filter(Boolean)
+        .join(', '),
+      addressLocality: restaurant.addressStructured.city,
+      addressRegion: restaurant.addressStructured.state,
+      postalCode: restaurant.addressStructured.postalCode,
+      addressCountry: restaurant.addressStructured.country,
+    },
+    servesCuisine: items.map((i) => i.name).slice(0, 5),
+    menu: `https://${h.get('host') ?? ''}/`,
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <StorefrontHeader
         name={restaurant.name}
+        description={restaurant.description}
         logoUrl={restaurant.logoUrl}
         address={restaurant.addressStructured}
         isOpen={openStatus.open}

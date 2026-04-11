@@ -30,8 +30,15 @@ export default async function SettingsPage() {
       <SettingsClient
         initial={{
           name: restaurant.name,
+          description: restaurant.description ?? '',
+          email: restaurant.email ?? '',
           phone: restaurant.phone ?? '',
           logoUrl: restaurant.logoUrl ?? '',
+          delivery: {
+            estimatedPrepMinutes: restaurant.estimatedPrepMinutes ?? 20,
+            minimumOrderMinor: restaurant.minimumOrderMinor ?? 0,
+            deliveryFeeMinor: restaurant.deliveryFeeMinor ?? 0,
+          },
           addressStructured: {
             line1: restaurant.addressStructured.line1,
             line2: restaurant.addressStructured.line2 ?? '',

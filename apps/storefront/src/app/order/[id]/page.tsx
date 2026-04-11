@@ -47,6 +47,19 @@ export default async function OrderConfirmationPage({
           <span className="text-foreground">{order.customer.email}</span>.
         </p>
 
+        {order.estimatedReadyAt ? (
+          <p className="text-foreground mt-3 text-sm">
+            Estimated ready by{' '}
+            <span className="font-semibold">
+              {new Date(order.estimatedReadyAt).toLocaleTimeString(locale, {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+            .
+          </p>
+        ) : null}
+
         <section className="mt-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide">Your order</h2>
           <ul className="divide-border mt-2 divide-y">

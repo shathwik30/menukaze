@@ -16,7 +16,7 @@ export default async function KdsPage() {
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Order } = getModels(conn);
+  const { Restaurant, Order, Table } = getModels(conn);
 
   const [restaurant, orders] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
@@ -28,6 +28,19 @@ export default async function KdsPage() {
       .lean()
       .exec(),
   ]);
+
+  // Resolve table numbers for the dine-in orders in the current feed so
+  // the KDS card can print "Table 4" instead of an ObjectId (spec §9).
+  const tableIds = Array.from(
+    new Set(orders.map((o) => o.tableId).filter((id): id is NonNullable<typeof id> => Boolean(id))),
+  );
+  const tables =
+    tableIds.length > 0
+      ? await Table.find({ restaurantId, _id: { $in: tableIds } })
+          .lean()
+          .exec()
+      : [];
+  const tableNumberById = new Map(tables.map((t) => [String(t._id), t.number]));
 
   const cards: KdsCard[] = orders.map((o) => ({
     id: String(o._id),
@@ -43,6 +56,7 @@ export default async function KdsPage() {
       notes: item.notes,
     })),
     tableId: o.tableId ? String(o.tableId) : undefined,
+    tableNumber: o.tableId ? tableNumberById.get(String(o.tableId)) : undefined,
   }));
 
   return (

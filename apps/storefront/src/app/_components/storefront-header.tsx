@@ -8,6 +8,7 @@ interface Address {
 
 interface Props {
   name: string;
+  description?: string;
   logoUrl?: string;
   address: Address;
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface Props {
  */
 export function StorefrontHeader({
   name,
+  description,
   logoUrl,
   address,
   isOpen,
@@ -57,6 +59,9 @@ export function StorefrontHeader({
           )}
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold sm:text-3xl">{name}</h1>
+            {description ? (
+              <p className="text-muted-foreground mt-1 max-w-prose text-sm">{description}</p>
+            ) : null}
             <p className="text-muted-foreground mt-1 truncate text-sm">{addressLine}</p>
           </div>
         </div>

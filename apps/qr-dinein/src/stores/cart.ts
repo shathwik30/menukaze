@@ -22,6 +22,7 @@ interface CartState {
   inc: (itemId: string) => void;
   dec: (itemId: string) => void;
   remove: (itemId: string) => void;
+  setNotes: (itemId: string, notes: string) => void;
   clear: () => void;
 }
 
@@ -59,5 +60,11 @@ export const useRoundCart = create<CartState>((set, get) => ({
     set({ lines: next });
   },
   remove: (itemId) => set({ lines: get().lines.filter((l) => l.itemId !== itemId) }),
+  setNotes: (itemId, notes) =>
+    set({
+      lines: get().lines.map((l) =>
+        l.itemId === itemId ? { ...l, notes: notes || undefined } : l,
+      ),
+    }),
   clear: () => set({ lines: [] }),
 }));

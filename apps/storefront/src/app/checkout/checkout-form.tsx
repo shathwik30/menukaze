@@ -17,6 +17,9 @@ interface Props {
   currency: string;
   locale: string;
   razorpayReady: boolean;
+  minimumOrderMinor: number;
+  deliveryFeeMinor: number;
+  estimatedPrepMinutes: number;
 }
 
 interface RazorpayCheckoutOptions {
@@ -50,6 +53,9 @@ export function CheckoutForm({
   currency,
   locale,
   razorpayReady,
+  minimumOrderMinor,
+  deliveryFeeMinor,
+  estimatedPrepMinutes,
 }: Props) {
   const router = useRouter();
   const lines = useCart((s) => s.lines);
@@ -61,10 +67,14 @@ export function CheckoutForm({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
+  const deliveryFee = orderType === 'delivery' ? deliveryFeeMinor : 0;
+  const total = subtotal + deliveryFee;
+  const belowMinimum = minimumOrderMinor > 0 && subtotal < minimumOrderMinor;
   const formatMoney = (minor: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -93,7 +103,7 @@ export function CheckoutForm({
 
     const payload: CheckoutInput = {
       restaurantId,
-      type: 'pickup',
+      type: orderType,
       customer: { name, email, ...(phone ? { phone } : {}) },
       lines: lines.map((l) => ({
         itemId: l.itemId,
@@ -205,13 +215,59 @@ export function CheckoutForm({
             );
           })}
         </ul>
-        <div className="border-border mt-3 flex items-center justify-between border-t pt-3">
-          <span className="text-sm font-semibold">Total</span>
-          <span className="font-mono text-base font-semibold">{formatMoney(subtotal)}</span>
+        <div className="border-border mt-3 flex flex-col gap-1 border-t pt-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-mono">{formatMoney(subtotal)}</span>
+          </div>
+          {orderType === 'delivery' && deliveryFeeMinor > 0 ? (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Delivery fee</span>
+              <span className="font-mono">{formatMoney(deliveryFeeMinor)}</span>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between font-semibold">
+            <span>Total</span>
+            <span className="font-mono text-base">{formatMoney(total)}</span>
+          </div>
         </div>
+        {belowMinimum ? (
+          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-xs">
+            Minimum order is {formatMoney(minimumOrderMinor)}. Add more items to continue.
+          </p>
+        ) : null}
+        <p className="text-muted-foreground mt-3 text-xs">
+          Estimated ready in ~{estimatedPrepMinutes} minutes after confirmation.
+        </p>
       </section>
 
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
+        <fieldset className="border-border flex gap-2 rounded-md border p-2">
+          <legend className="text-muted-foreground px-1 text-xs uppercase tracking-wide">
+            Order type
+          </legend>
+          <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="orderType"
+              value="pickup"
+              checked={orderType === 'pickup'}
+              onChange={() => setOrderType('pickup')}
+            />
+            Pickup
+          </label>
+          <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="orderType"
+              value="delivery"
+              checked={orderType === 'delivery'}
+              onChange={() => setOrderType('delivery')}
+            />
+            Delivery
+          </label>
+        </fieldset>
+
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium">Name</span>
           <input
@@ -258,10 +314,10 @@ export function CheckoutForm({
 
         <button
           type="submit"
-          disabled={submitting || !razorpayReady}
+          disabled={submitting || !razorpayReady || belowMinimum}
           className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-medium disabled:opacity-50"
         >
-          {submitting ? 'Processing…' : `Pay ${formatMoney(subtotal)}`}
+          {submitting ? 'Processing…' : `Pay ${formatMoney(total)}`}
         </button>
       </form>
     </>

@@ -7,6 +7,7 @@ import {
   updateHoursAction,
   updateHolidayModeAction,
   updateThrottlingAction,
+  updateDeliverySettingsAction,
   updateReceiptBrandingAction,
   updateNotificationPrefsAction,
 } from '@/app/actions/settings';
@@ -21,8 +22,15 @@ interface DayHours {
 
 interface InitialSettings {
   name: string;
+  description: string;
+  email: string;
   phone: string;
   logoUrl: string;
+  delivery: {
+    estimatedPrepMinutes: number;
+    minimumOrderMinor: number;
+    deliveryFeeMinor: number;
+  };
   addressStructured: {
     line1: string;
     line2: string;
@@ -81,6 +89,11 @@ export function SettingsClient({ initial }: { initial: InitialSettings }) {
         initial={initial}
         pending={isPending}
         onSubmit={(payload) => run('profile', () => updateProfileAction(payload))}
+      />
+      <DeliverySection
+        initial={initial.delivery}
+        pending={isPending}
+        onSubmit={(payload) => run('delivery', () => updateDeliverySettingsAction(payload))}
       />
       <HoursSection
         initial={initial.hours}
@@ -165,12 +178,16 @@ function ProfileSection({
   pending: boolean;
   onSubmit: (payload: {
     name: string;
+    description?: string;
+    email?: string;
     phone?: string;
     logoUrl?: string;
     addressStructured: InitialSettings['addressStructured'];
   }) => void;
 }) {
   const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description);
+  const [email, setEmail] = useState(initial.email);
   const [phone, setPhone] = useState(initial.phone);
   const [logoUrl, setLogoUrl] = useState(initial.logoUrl);
   const [addr, setAddr] = useState(initial.addressStructured);
@@ -181,6 +198,8 @@ function ProfileSection({
           e.preventDefault();
           onSubmit({
             name,
+            description: description || undefined,
+            email: email || undefined,
             phone: phone || undefined,
             logoUrl: logoUrl || undefined,
             addressStructured: {
@@ -194,6 +213,17 @@ function ProfileSection({
         className="flex flex-col gap-3"
       >
         <InputRow label="Name" value={name} onChange={setName} />
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-foreground">Description (shown on storefront hero)</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+          />
+        </label>
+        <InputRow label="Public email" value={email} onChange={setEmail} type="email" />
         <InputRow label="Phone" value={phone} onChange={setPhone} />
         <InputRow label="Logo URL" value={logoUrl} onChange={setLogoUrl} />
         <InputRow
@@ -228,6 +258,76 @@ function ProfileSection({
             onChange={(v) => setAddr({ ...addr, country: v.toUpperCase() })}
           />
         </div>
+        <SaveButton pending={pending} />
+      </form>
+    </Section>
+  );
+}
+
+function DeliverySection({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: InitialSettings['delivery'];
+  pending: boolean;
+  onSubmit: (payload: InitialSettings['delivery']) => void;
+}) {
+  const [prep, setPrep] = useState(String(initial.estimatedPrepMinutes));
+  const [minOrderMajor, setMinOrderMajor] = useState((initial.minimumOrderMinor / 100).toFixed(2));
+  const [deliveryFeeMajor, setDeliveryFeeMajor] = useState(
+    (initial.deliveryFeeMinor / 100).toFixed(2),
+  );
+
+  return (
+    <Section title="Delivery & prep time">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit({
+            estimatedPrepMinutes: Number.parseInt(prep, 10) || 20,
+            minimumOrderMinor: Math.round(Number.parseFloat(minOrderMajor || '0') * 100),
+            deliveryFeeMinor: Math.round(Number.parseFloat(deliveryFeeMajor || '0') * 100),
+          });
+        }}
+        className="flex flex-col gap-3"
+      >
+        <label className="flex items-center gap-3 text-sm">
+          <span className="w-48">Estimated prep time (minutes)</span>
+          <input
+            type="number"
+            min="1"
+            max="600"
+            value={prep}
+            onChange={(e) => setPrep(e.target.value)}
+            className="border-input bg-background h-9 w-24 rounded-md border px-2 text-sm"
+          />
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <span className="w-48">Minimum order (0 = disabled)</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={minOrderMajor}
+            onChange={(e) => setMinOrderMajor(e.target.value)}
+            className="border-input bg-background h-9 w-28 rounded-md border px-2 text-sm"
+          />
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <span className="w-48">Delivery fee (flat)</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={deliveryFeeMajor}
+            onChange={(e) => setDeliveryFeeMajor(e.target.value)}
+            className="border-input bg-background h-9 w-28 rounded-md border px-2 text-sm"
+          />
+        </label>
+        <p className="text-muted-foreground text-xs">
+          Zone-based delivery and in-store preparation timers ship post-MVP (§20 deferred list).
+        </p>
         <SaveButton pending={pending} />
       </form>
     </Section>

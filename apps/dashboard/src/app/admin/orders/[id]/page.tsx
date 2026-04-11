@@ -52,6 +52,11 @@ export default async function DashboardOrderDetailPage({
           {order.channel} · {order.type} · {order.payment.status}
         </p>
         <OrderStatusControl orderId={String(order._id)} currentStatus={order.status} />
+        {order.cancelReason ? (
+          <p className="bg-destructive/5 text-destructive mt-3 rounded-md px-3 py-2 text-xs">
+            Cancelled: {order.cancelReason}
+          </p>
+        ) : null}
         <ul className="text-muted-foreground mt-3 space-y-1 text-xs">
           {order.statusHistory.map((event, i) => (
             <li key={i}>

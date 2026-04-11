@@ -162,8 +162,28 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     return { ok: false, error: 'Your cart is empty.' };
   }
 
-  // Phase 4 Step 10: no tax / no tip. Tax rules wire up in Step 17.
-  const totalMinor = subtotalMinor;
+  // Settings-driven gates from Step 17 — holiday mode, minimum order value,
+  // flat delivery fee. Tax rules and zone-based delivery fees are still
+  // deferred per §20's MVP cut.
+  if (restaurant.holidayMode?.enabled) {
+    return {
+      ok: false,
+      error: restaurant.holidayMode.message ?? 'The restaurant is currently closed.',
+    };
+  }
+  const minOrder = restaurant.minimumOrderMinor ?? 0;
+  if (minOrder > 0 && subtotalMinor < minOrder) {
+    return {
+      ok: false,
+      error: `Minimum order is ${formatMoney(minOrder, restaurant.currency as CurrencyCode, restaurant.locale)}.`,
+    };
+  }
+
+  const deliveryFeeMinor = input.type === 'delivery' ? (restaurant.deliveryFeeMinor ?? 0) : 0;
+  const totalMinor = subtotalMinor + deliveryFeeMinor;
+
+  const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
+  const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
   const publicOrderId = generatePublicOrderId();
 
   // Razorpay order ids need a receipt string ≤40 chars that uniquely ids
@@ -194,6 +214,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     currency: restaurant.currency,
     status: 'received',
     statusHistory: [{ status: 'received', at: new Date() }],
+    estimatedReadyAt,
     payment: {
       gateway: 'razorpay',
       status: 'pending',

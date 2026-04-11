@@ -20,6 +20,24 @@ export interface RestaurantDoc {
   locale: string;
   timezone: string;
 
+  /** Short marketing tagline shown on the storefront hero (spec §6). */
+  description?: string;
+  /** Public-facing contact email. Distinct from the owner's BetterAuth user. */
+  email?: string;
+
+  /**
+   * Typical prep time in minutes, stamped into `Order.estimatedReadyAt`
+   * when a new order is created. Settings UI default: 20.
+   */
+  estimatedPrepMinutes: number;
+  /** Minimum cart total (in minor units) required to check out. 0 = disabled. */
+  minimumOrderMinor: number;
+  /**
+   * Flat delivery fee (in minor units) added at checkout when the customer
+   * picks delivery. Complex zone-based fees ship later (§20 deferred list).
+   */
+  deliveryFeeMinor: number;
+
   addressStructured: {
     line1: string;
     line2?: string;
@@ -122,6 +140,13 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     currency: { type: String, required: true },
     locale: { type: String, required: true },
     timezone: { type: String, required: true },
+
+    description: { type: String, maxlength: 1000 },
+    email: { type: String, maxlength: 320 },
+
+    estimatedPrepMinutes: { type: Number, required: true, default: 20, min: 1, max: 600 },
+    minimumOrderMinor: { type: Number, required: true, default: 0, min: 0 },
+    deliveryFeeMinor: { type: Number, required: true, default: 0, min: 0 },
 
     addressStructured: {
       line1: { type: String, required: true },

@@ -53,6 +53,7 @@ export function SessionClient({
   const add = useRoundCart((s) => s.add);
   const inc = useRoundCart((s) => s.inc);
   const dec = useRoundCart((s) => s.dec);
+  const setNotes = useRoundCart((s) => s.setNotes);
   const clear = useRoundCart((s) => s.clear);
 
   const [isPending, start] = useTransition();
@@ -220,27 +221,37 @@ export function SessionClient({
       {cartLines.length > 0 && !sessionLocked ? (
         <section className="border-border bg-background sticky bottom-3 rounded-lg border p-4 shadow-lg">
           <p className="text-muted-foreground text-xs uppercase tracking-wide">This round</p>
-          <ul className="mt-2 space-y-2 text-sm">
+          <ul className="mt-2 space-y-3 text-sm">
             {cartLines.map((line) => (
-              <li key={line.itemId} className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate">{line.name}</span>
-                <span className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => dec(line.itemId)}
-                    className="border-input h-6 w-6 rounded-md border text-xs"
-                  >
-                    −
-                  </button>
-                  <span className="w-5 text-center text-xs">{line.quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => inc(line.itemId)}
-                    className="border-input h-6 w-6 rounded-md border text-xs"
-                  >
-                    +
-                  </button>
-                </span>
+              <li key={line.itemId} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate">{line.name}</span>
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => dec(line.itemId)}
+                      className="border-input h-6 w-6 rounded-md border text-xs"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center text-xs">{line.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => inc(line.itemId)}
+                      className="border-input h-6 w-6 rounded-md border text-xs"
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={line.notes ?? ''}
+                  onChange={(e) => setNotes(line.itemId, e.target.value)}
+                  placeholder="Special instructions (optional)"
+                  maxLength={200}
+                  className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+                />
               </li>
             ))}
           </ul>

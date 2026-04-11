@@ -26,6 +26,9 @@ export default async function CheckoutPage() {
         currency={restaurant.currency}
         locale={restaurant.locale}
         razorpayReady={Boolean(restaurant.razorpayKeyIdEnc)}
+        minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
+        deliveryFeeMinor={restaurant.deliveryFeeMinor ?? 0}
+        estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
       />
     </main>
   );

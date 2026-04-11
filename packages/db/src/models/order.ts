@@ -125,6 +125,9 @@ export interface OrderDoc {
   /** Stamped when the order transitions to a terminal status. */
   completedAt?: Date;
 
+  /** Operator-supplied reason for cancellation / refund. Spec §5 line 205. */
+  cancelReason?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -243,6 +246,7 @@ const orderSchema = new Schema<OrderDoc>(
 
     estimatedReadyAt: Date,
     completedAt: Date,
+    cancelReason: { type: String, maxlength: 500 },
   },
   { timestamps: true, collection: 'orders' },
 );

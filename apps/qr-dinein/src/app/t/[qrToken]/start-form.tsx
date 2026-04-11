@@ -21,7 +21,7 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
           const result = await startOrJoinSessionAction(qrToken, {
             name,
             email,
-            ...(phone ? { phone } : {}),
+            phone,
           });
           if (!result.ok) {
             setError(result.error);
@@ -59,14 +59,19 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        <span>Phone (optional)</span>
+        <span>Phone</span>
         <input
           type="tel"
+          required
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          placeholder="+1 555 123 4567"
           className="border-input bg-background h-10 rounded-md border px-3 text-sm"
           autoComplete="tel"
         />
+        <span className="text-muted-foreground text-xs">
+          Stored for future SMS updates — we won&apos;t text you yet.
+        </span>
       </label>
 
       {error ? (

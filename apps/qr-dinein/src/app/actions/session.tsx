@@ -32,10 +32,18 @@ import { sendTransactionalEmail } from '@/lib/email';
  *      the session paid+closed, releases the table, sends the receipt.
  */
 
+// Spec §7 line 520 — phone is required on session start and is captured for
+// future use only (SMS channels light up at Step 51). We accept any string
+// that looks roughly phone-shaped and defer full libphonenumber validation
+// to Step 51 when SMS delivery actually ships.
 const customerSchema = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
-  phone: z.string().max(40).optional(),
+  phone: z
+    .string()
+    .min(7)
+    .max(40)
+    .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .'),
 });
 
 export type StartOrJoinResult =
@@ -47,7 +55,13 @@ export async function startOrJoinSessionAction(
   customerRaw: unknown,
 ): Promise<StartOrJoinResult> {
   const parsed = customerSchema.safeParse(customerRaw);
-  if (!parsed.success) return { ok: false, error: 'Please fill in your name and email.' };
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return {
+      ok: false,
+      error: first ? `${first.path.join('.')}: ${first.message}` : 'Please fill in every field.',
+    };
+  }
   if (!qrToken || qrToken.length < 10) return { ok: false, error: 'Invalid QR token.' };
 
   const conn = await getMongoConnection('live');

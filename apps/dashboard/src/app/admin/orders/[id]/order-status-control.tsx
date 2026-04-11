@@ -69,10 +69,19 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
           disabled={isPending}
           onClick={() => {
             setError(null);
+            // Cancel requires a reason per spec §5 line 205 — we prompt
+            // inline here rather than a modal to keep the UI minimal.
+            let cancelReason: string | undefined;
+            if (t.next === 'cancelled') {
+              const typed = window.prompt('Reason for cancelling this order?');
+              if (!typed || !typed.trim()) return;
+              cancelReason = typed.trim();
+            }
             start(async () => {
               const result = await updateOrderStatusAction({
                 orderId,
                 nextStatus: t.next,
+                ...(cancelReason ? { cancelReason } : {}),
               });
               if (!result.ok) {
                 setError(result.error);

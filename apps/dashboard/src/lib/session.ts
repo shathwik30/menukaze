@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { hasAllFlags, hasAnyFlag, type Flag } from '@menukaze/rbac';
 import { getAuth } from './auth';
 
 export interface SessionUser {
@@ -66,4 +67,70 @@ export async function requireOnboarded(): Promise<CurrentSession & { restaurantI
   const session = await requireSession();
   if (!session.restaurantId) redirect('/onboarding');
   return session as CurrentSession & { restaurantId: string };
+}
+
+/**
+ * Thrown by `requireFlags` / `requireAnyFlag` when the caller's StaffMembership
+ * doesn't have the permission needed for the action. Server actions catch
+ * this and surface `{ ok: false, error }` to the client.
+ */
+export class PermissionDeniedError extends Error {
+  public constructor(flags: Flag[]) {
+    super(`Permission denied: requires one of [${flags.join(', ')}]`);
+    this.name = 'PermissionDeniedError';
+  }
+}
+
+/**
+ * Load the current user's StaffMembership for the active restaurant. Used
+ * by the RBAC helpers below — not typically called by server actions
+ * directly.
+ */
+async function loadActiveMembership(session: CurrentSession & { restaurantId: string }) {
+  const conn = await getMongoConnection('live');
+  const { StaffMembership } = getModels(conn);
+  const membership = await StaffMembership.findOne({
+    restaurantId: new Types.ObjectId(session.restaurantId),
+    userId: new Types.ObjectId(session.user.id),
+    status: 'active',
+  }).exec();
+  if (!membership) throw new PermissionDeniedError([]);
+  return membership;
+}
+
+/**
+ * Require the caller to hold **every** flag in the list. Throws
+ * `PermissionDeniedError` if any is missing. The membership is returned
+ * so the caller can also use the staff member's role / user id.
+ */
+export async function requireFlags(
+  flags: Flag[],
+): Promise<{ session: CurrentSession & { restaurantId: string }; role: string }> {
+  const session = await requireOnboarded();
+  const membership = await loadActiveMembership(session);
+  if (
+    !hasAllFlags({ role: membership.role, customPermissions: membership.customPermissions }, flags)
+  ) {
+    throw new PermissionDeniedError(flags);
+  }
+  return { session, role: membership.role };
+}
+
+/**
+ * Require the caller to hold **at least one** of the flags in the list.
+ * Useful when an action is legal for several roles that have overlapping
+ * but non-identical permissions (e.g., waiters can update status for
+ * assigned orders; kitchen can update status for KDS).
+ */
+export async function requireAnyFlag(
+  flags: Flag[],
+): Promise<{ session: CurrentSession & { restaurantId: string }; role: string }> {
+  const session = await requireOnboarded();
+  const membership = await loadActiveMembership(session);
+  if (
+    !hasAnyFlag({ role: membership.role, customPermissions: membership.customPermissions }, flags)
+  ) {
+    throw new PermissionDeniedError(flags);
+  }
+  return { session, role: membership.role };
 }
