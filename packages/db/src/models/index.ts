@@ -54,6 +54,13 @@ export {
   type StaffInviteModel,
   type StaffRole,
 } from './staff-invite';
+export {
+  tableSessionModel,
+  type TableSessionDoc,
+  type TableSessionModel,
+  type TableSessionStatus,
+  type TableSessionParticipant,
+} from './table-session';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -65,6 +72,7 @@ import { itemModel } from './item';
 import { tableModel } from './table';
 import { orderModel } from './order';
 import { staffInviteModel } from './staff-invite';
+import { tableSessionModel } from './table-session';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -81,6 +89,7 @@ export function getModels(connection: Connection) {
     Table: tableModel(connection),
     Order: orderModel(connection),
     StaffInvite: staffInviteModel(connection),
+    TableSession: tableSessionModel(connection),
   };
 }
 

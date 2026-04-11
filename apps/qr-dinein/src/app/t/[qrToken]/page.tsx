@@ -1,27 +1,69 @@
-import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { getMongoConnection, getModels } from '@menukaze/db';
+import { StartSessionForm } from './start-form';
 
-interface Props {
+export const dynamic = 'force-dynamic';
+
+/**
+ * QR landing. Resolves the table by token (cross-tenant lookup — the QR
+ * token IS the tenant selector), checks for an existing active session,
+ * and either renders the start form or short-circuits to the session page.
+ */
+export default async function TableLandingPage({
+  params,
+}: {
   params: Promise<{ qrToken: string }>;
-}
-
-export default async function TableLanding({ params }: Props) {
+}) {
   const { qrToken } = await params;
-  const h = await headers();
-  const slug = h.get('x-tenant-slug');
+
+  const conn = await getMongoConnection('live');
+  const { Table, Restaurant, TableSession } = getModels(conn);
+
+  const table = await Table.findOne({ qrToken }, null, { skipTenantGuard: true }).exec();
+  if (!table) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 p-8 text-center">
+        <h1 className="text-2xl font-bold">Table not found</h1>
+        <p className="text-muted-foreground text-sm">
+          The QR sticker on this table is no longer valid. Please ask a staff member.
+        </p>
+      </main>
+    );
+  }
+
+  const restaurant = await Restaurant.findById(table.restaurantId).exec();
+  if (!restaurant || !restaurant.liveAt) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 p-8 text-center">
+        <h1 className="text-2xl font-bold">{restaurant?.name ?? 'Restaurant'}</h1>
+        <p className="text-muted-foreground text-sm">
+          This restaurant isn&apos;t accepting dine-in orders right now.
+        </p>
+      </main>
+    );
+  }
+
+  // Concurrent scan: if an active session already exists on this table, send
+  // everyone to the same place.
+  const existing = await TableSession.findOne({
+    restaurantId: table.restaurantId,
+    tableId: table._id,
+    status: { $in: ['active', 'bill_requested'] },
+  }).exec();
+  if (existing) {
+    redirect(`/session/${String(existing._id)}`);
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <h1 className="text-3xl font-bold">Table Session</h1>
-      <p className="text-muted-foreground text-base">
-        Restaurant:{' '}
-        <span className="text-foreground font-mono font-semibold">{slug ?? 'unknown'}</span>
-      </p>
-      <p className="text-muted-foreground text-base">
-        QR Token: <span className="text-foreground font-mono font-semibold">{qrToken}</span>
-      </p>
-      <p className="text-muted-foreground text-sm">
-        Phase 4 will add: name/email/phone form, geofence verification, menu, multi-round ordering.
-      </p>
+    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 p-6">
+      <header className="text-center">
+        <h1 className="text-3xl font-bold">{restaurant.name}</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          {table.name} · Seats {table.capacity}
+        </p>
+      </header>
+
+      <StartSessionForm qrToken={qrToken} />
     </main>
   );
 }

@@ -16,9 +16,16 @@
     "@menukaze/shared": "workspace:*",
     "@menukaze/tenant": "workspace:*",
     "@menukaze/ui": "workspace:*",
+    "@react-email/render": "1.0.3",
+    "ably": "2.7.0",
+    "mongoose": "9.4.1",
     "next": "16.2.3",
+    "razorpay": "2.9.6",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "resend": "4.0.1",
+    "zod": "4.2.0",
+    "zustand": "5.0.2"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",

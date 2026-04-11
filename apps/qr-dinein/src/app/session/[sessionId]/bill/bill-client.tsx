@@ -1,0 +1,140 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Script from 'next/script';
+import { requestBillAction, verifySessionPaymentAction } from '@/app/actions/session';
+
+export interface BillLine {
+  name: string;
+  quantity: number;
+  lineTotalLabel: string;
+}
+
+interface RazorpayOpts {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (r: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => void;
+  prefill?: { name?: string; email?: string; contact?: string };
+  modal?: { ondismiss?: () => void };
+}
+interface RazorpayInstance {
+  open: () => void;
+}
+declare global {
+  interface Window {
+    Razorpay?: new (o: RazorpayOpts) => RazorpayInstance;
+  }
+}
+
+export function BillClient({
+  sessionId,
+  restaurantName,
+  totalLabel,
+}: {
+  sessionId: string;
+  restaurantName: string;
+  totalLabel: string;
+}) {
+  const router = useRouter();
+  const [isPending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [paid, setPaid] = useState(false);
+
+  function pay() {
+    setError(null);
+    start(async () => {
+      const intent = await requestBillAction(sessionId);
+      if (!intent.ok) {
+        setError(intent.error);
+        return;
+      }
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        setError('Razorpay failed to load. Please refresh and try again.');
+        return;
+      }
+      const rzp = new window.Razorpay({
+        key: intent.razorpayKeyId,
+        amount: intent.amountMinor,
+        currency: intent.currency,
+        name: intent.restaurantName,
+        description: 'Dine-in bill',
+        order_id: intent.razorpayOrderId,
+        prefill: {
+          name: intent.customer.name,
+          email: intent.customer.email,
+          ...(intent.customer.phone ? { contact: intent.customer.phone } : {}),
+        },
+        handler: (response) => {
+          start(async () => {
+            const verified = await verifySessionPaymentAction({
+              sessionId: intent.sessionId,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            if (!verified.ok) {
+              setError(verified.error);
+              return;
+            }
+            setPaid(true);
+            router.refresh();
+          });
+        },
+        modal: {
+          ondismiss: () => {
+            /* user closed — no error, they can retry */
+          },
+        },
+      });
+      rzp.open();
+    });
+  }
+
+  if (paid) {
+    return (
+      <section className="border-border rounded-lg border p-6 text-center">
+        <h2 className="text-xl font-bold">Thanks for dining with us!</h2>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Your receipt is on its way. You&apos;re all set to leave.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <section className="border-border rounded-lg border p-5">
+        <p className="text-muted-foreground text-xs">
+          Tap Pay to settle the bill via Razorpay. If anything feels off, call the waiter from the
+          previous screen.
+        </p>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={pay}
+          className="bg-primary text-primary-foreground mt-4 h-11 w-full rounded-md text-sm font-semibold disabled:opacity-50"
+        >
+          {isPending ? 'Processing…' : `Pay ${totalLabel}`}
+        </button>
+        {error ? (
+          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-sm">
+            {error}
+          </p>
+        ) : null}
+      </section>
+      <p className="text-muted-foreground mt-2 text-[11px]">
+        Paying {restaurantName} · Razorpay test mode
+      </p>
+    </>
+  );
+}

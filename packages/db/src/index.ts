@@ -27,6 +27,7 @@ export {
   generatePublicOrderId,
   staffInviteModel,
   generateInviteToken,
+  tableSessionModel,
   type RestaurantDoc,
   type RestaurantModel,
   type UserDoc,
@@ -58,6 +59,10 @@ export {
   type StaffInviteDoc,
   type StaffInviteModel,
   type StaffRole,
+  type TableSessionDoc,
+  type TableSessionModel,
+  type TableSessionStatus,
+  type TableSessionParticipant,
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
