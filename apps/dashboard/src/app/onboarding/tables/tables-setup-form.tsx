@@ -32,7 +32,7 @@ export function TablesSetupForm() {
         setError(result.error);
         return;
       }
-      router.push('/admin');
+      router.push('/onboarding/razorpay');
       router.refresh();
     });
   }

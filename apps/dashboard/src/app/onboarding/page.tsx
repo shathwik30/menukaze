@@ -8,10 +8,11 @@ import { RestaurantProfileForm } from './restaurant-profile-form';
  * Onboarding root — wizard entry point.
  *
  * Routing map (reads `restaurant.onboardingStep`):
- *   no restaurant      → render the profile form (step 1)
- *   step === 'menu'    → 307 → /onboarding/menu
- *   step === 'tables'  → 307 → /onboarding/tables
- *   step === 'razorpay' | 'go-live' | 'complete' → 307 → /admin
+ *   no restaurant        → render the profile form (step 1)
+ *   step === 'menu'      → 307 → /onboarding/menu
+ *   step === 'tables'    → 307 → /onboarding/tables
+ *   step === 'razorpay'  → 307 → /onboarding/razorpay
+ *   step === 'go-live' | 'complete' → 307 → /admin
  */
 export default async function OnboardingPage() {
   const session = await requireSession();
@@ -27,6 +28,9 @@ export default async function OnboardingPage() {
         break;
       case 'tables':
         redirect('/onboarding/tables');
+        break;
+      case 'razorpay':
+        redirect('/onboarding/razorpay');
         break;
       default:
         redirect('/admin');

@@ -43,3 +43,4 @@ export {
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
+export { envelopeEncrypt, envelopeDecrypt } from './crypto';

@@ -62,6 +62,19 @@ export default async function DashboardAdminPage() {
           <dd className="text-foreground">{restaurant?.timezone}</dd>
           <dt>Subscription</dt>
           <dd className="text-foreground">{restaurant?.subscriptionStatus}</dd>
+          <dt>Razorpay</dt>
+          <dd className="text-foreground">
+            {restaurant?.razorpayKeyIdEnc ? (
+              <span className="inline-flex items-center gap-1">
+                <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                Connected <span className="text-muted-foreground">(test mode)</span>
+              </span>
+            ) : (
+              <Link href="/onboarding/razorpay" className="text-foreground underline">
+                Not connected — set up
+              </Link>
+            )}
+          </dd>
         </dl>
       </section>
 
@@ -164,8 +177,8 @@ export default async function DashboardAdminPage() {
 
       <section className="text-muted-foreground text-sm">
         <p>
-          Phase 4 next steps: Razorpay (Step 6), order feed (Step 13), single-station KDS (Step 14),
-          menu management (Step 15).
+          Phase 4 next steps: Go Live + checklist (Step 8), storefront (Step 9), cart + checkout
+          (Step 10), order feed (Step 13), single-station KDS (Step 14), menu management (Step 15).
         </p>
       </section>
     </main>
