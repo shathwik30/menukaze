@@ -5,25 +5,32 @@ import { requireSession } from '@/lib/session';
 import { RestaurantProfileForm } from './restaurant-profile-form';
 
 /**
- * Onboarding root — wizard step 1 (Restaurant Profile) when the user has no
- * restaurant yet, or a state-aware redirect to the right next step.
+ * Onboarding root — wizard entry point.
  *
- * Wizard step routing:
- *   - No restaurant         → render the profile form (this page)
- *   - Restaurant, no items  → /onboarding/menu (step 2)
- *   - Items exist           → /admin (onboarding complete)
+ * Routing map (reads `restaurant.onboardingStep`):
+ *   no restaurant      → render the profile form (step 1)
+ *   step === 'menu'    → 307 → /onboarding/menu
+ *   step === 'tables'  → 307 → /onboarding/tables
+ *   step === 'razorpay' | 'go-live' | 'complete' → 307 → /admin
  */
 export default async function OnboardingPage() {
   const session = await requireSession();
 
   if (session.restaurantId) {
     const conn = await getMongoConnection('live');
-    const { Item } = getModels(conn);
-    const itemCount = await Item.countDocuments({
-      restaurantId: new Types.ObjectId(session.restaurantId),
-    }).exec();
-    if (itemCount > 0) redirect('/admin');
-    redirect('/onboarding/menu');
+    const { Restaurant } = getModels(conn);
+    const restaurant = await Restaurant.findById(new Types.ObjectId(session.restaurantId)).exec();
+    const step = restaurant?.onboardingStep ?? 'menu';
+    switch (step) {
+      case 'menu':
+        redirect('/onboarding/menu');
+        break;
+      case 'tables':
+        redirect('/onboarding/tables');
+        break;
+      default:
+        redirect('/admin');
+    }
   }
 
   return (

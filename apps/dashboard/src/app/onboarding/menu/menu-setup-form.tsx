@@ -65,7 +65,7 @@ export function MenuSetupForm({ currency }: Props) {
         setError(result.error);
         return;
       }
-      router.push('/admin');
+      router.push('/onboarding/tables');
       router.refresh();
     });
   }

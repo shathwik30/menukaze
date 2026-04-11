@@ -102,6 +102,13 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
         soldOut: false,
       }));
       await Item.create(itemDocs, { session: dbSession });
+
+      // Advance the wizard pointer so /onboarding knows where to route next.
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { onboardingStep: 'tables' } },
+        { session: dbSession },
+      ).exec();
     });
 
     if (!menuId || !categoryIdOut) {

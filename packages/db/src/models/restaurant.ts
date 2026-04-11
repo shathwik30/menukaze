@@ -49,6 +49,13 @@ export interface RestaurantDoc {
   razorpayKeyIdEnc?: string;
   razorpayKeySecretEnc?: string;
 
+  /**
+   * Which onboarding wizard step the restaurant is on. Advances as each step
+   * is completed; `'complete'` means onboarding is done and the user can
+   * skip the wizard entirely.
+   */
+  onboardingStep: 'menu' | 'tables' | 'razorpay' | 'go-live' | 'complete';
+
   geofenceRadiusM: number;
   hardening: {
     strictMode: boolean;
@@ -147,6 +154,11 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     },
     razorpayKeyIdEnc: String,
     razorpayKeySecretEnc: String,
+    onboardingStep: {
+      type: String,
+      enum: ['menu', 'tables', 'razorpay', 'go-live', 'complete'],
+      default: 'menu',
+    },
 
     geofenceRadiusM: { type: Number, default: 100 },
     hardening: {

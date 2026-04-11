@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
@@ -13,16 +14,19 @@ export default async function DashboardAdminPage() {
   // pass an explicit _id filter — there's nothing tenant-scoped about
   // looking up the tenant root by primary key.
   const conn = await getMongoConnection('live');
-  const { Restaurant, Menu, Category, Item } = getModels(conn);
-  const [restaurant, menus, categories, items] = await Promise.all([
+  const { Restaurant, Menu, Category, Item, Table } = getModels(conn);
+  const [restaurant, menus, categories, items, tables] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Menu.find({ restaurantId }).sort({ order: 1 }).exec(),
     Category.find({ restaurantId }).sort({ order: 1 }).exec(),
     Item.find({ restaurantId }).sort({ createdAt: 1 }).exec(),
+    Table.find({ restaurantId }).sort({ number: 1 }).exec(),
   ]);
 
   const currency = (restaurant?.currency ?? 'USD') as CurrencyCode;
   const locale = restaurant?.locale ?? 'en-US';
+  const slug = restaurant?.slug ?? 'demo';
+  const firstTable = tables[0];
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 p-8">
@@ -111,10 +115,57 @@ export default async function DashboardAdminPage() {
         )}
       </section>
 
+      <section className="border-border rounded-lg border p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Tables</h2>
+          <span className="text-muted-foreground text-sm">
+            {tables.length} table{tables.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {tables.length === 0 ? (
+          <p className="text-muted-foreground mt-4 text-sm">
+            Takeaway / delivery only — no dine-in tables.
+          </p>
+        ) : (
+          <div className="mt-4 flex items-start gap-6">
+            <div className="flex-1">
+              <ul className="space-y-1 text-sm">
+                {tables.slice(0, 6).map((table) => (
+                  <li key={String(table._id)} className="flex items-center justify-between">
+                    <span className="text-foreground">
+                      {table.name}{' '}
+                      <span className="text-muted-foreground text-xs">(cap {table.capacity})</span>
+                    </span>
+                    <span className="text-muted-foreground text-xs capitalize">{table.status}</span>
+                  </li>
+                ))}
+                {tables.length > 6 ? (
+                  <li className="text-muted-foreground pt-2 text-xs">
+                    +{tables.length - 6} more tables
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+
+            {firstTable ? (
+              <div className="border-border flex flex-col items-center rounded-md border bg-white p-3">
+                <QRCodeSVG
+                  value={`https://${slug}.menukaze.com/t/${firstTable.qrToken}`}
+                  size={112}
+                  level="M"
+                />
+                <p className="text-muted-foreground mt-2 text-center text-xs">{firstTable.name}</p>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
       <section className="text-muted-foreground text-sm">
         <p>
-          Phase 4 next steps: tables (Step 5), Razorpay (Step 6), order feed (Step 13),
-          single-station KDS (Step 14), menu management (Step 15).
+          Phase 4 next steps: Razorpay (Step 6), order feed (Step 13), single-station KDS (Step 14),
+          menu management (Step 15).
         </p>
       </section>
     </main>

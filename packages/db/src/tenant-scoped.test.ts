@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Types, type Connection } from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createConnectionFromUri } from './client';
-import { getModels } from './models/index';
+import { getModels, generateQrToken } from './models/index';
 import { createTenantRepo } from './repos/create-tenant-repo';
 import { TenantContextMissingError } from './plugins/tenant-scoped';
 
@@ -150,6 +150,42 @@ describe('Menu / Category / Item models', () => {
     expect(await menuRepoA.countDocuments()).toBe(1);
     expect(await categoryRepoA.countDocuments()).toBe(1);
     expect(await itemRepoA.countDocuments()).toBe(1);
+  });
+
+  it('Table model enforces the tenant guard and unique qrToken', async () => {
+    const { Table } = getModels(connection);
+
+    // Guard fires on bare find
+    await expect(Table.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+
+    const repoA = createTenantRepo(Table, restaurantA);
+    await repoA.create({
+      number: 1,
+      name: 'Table 1',
+      capacity: 4,
+      qrToken: generateQrToken(),
+      status: 'available',
+    });
+    await repoA.create({
+      number: 2,
+      name: 'Table 2',
+      capacity: 2,
+      qrToken: generateQrToken(),
+      status: 'available',
+    });
+
+    // Tenant A sees 2 tables, Tenant B sees 0
+    expect(await repoA.countDocuments()).toBe(2);
+    expect(await createTenantRepo(Table, restaurantB).countDocuments()).toBe(0);
+  });
+
+  it('generateQrToken returns unique 24-char URL-safe strings', () => {
+    const a = generateQrToken();
+    const b = generateQrToken();
+    expect(a.length).toBe(24);
+    expect(b.length).toBe(24);
+    expect(a).not.toBe(b);
+    expect(/^[A-Za-z0-9_-]+$/.test(a)).toBe(true);
   });
 
   it('item modifier groups are persisted as embedded subdocuments', async () => {

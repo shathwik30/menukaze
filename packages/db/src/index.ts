@@ -21,6 +21,8 @@ export {
   menuModel,
   categoryModel,
   itemModel,
+  tableModel,
+  generateQrToken,
   type RestaurantDoc,
   type RestaurantModel,
   type UserDoc,
@@ -35,6 +37,9 @@ export {
   type ItemModel,
   type ItemModifierGroup,
   type ItemModifierOption,
+  type TableDoc,
+  type TableModel,
+  type TableStatus,
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
