@@ -84,7 +84,7 @@ export function RestaurantProfileForm() {
         setError(result.error);
         return;
       }
-      router.push('/admin');
+      router.push('/onboarding/menu');
       router.refresh();
     });
   }

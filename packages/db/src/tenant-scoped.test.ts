@@ -107,3 +107,81 @@ describe('createTenantRepo', () => {
     expect(count).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('Menu / Category / Item models', () => {
+  it('all three new models enforce the tenant guard', async () => {
+    const { Menu, Category, Item } = getModels(connection);
+    await expect(Menu.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+    await expect(Category.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+    await expect(Item.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+  });
+
+  it('createTenantRepo isolates a Menu → Category → Item chain to one restaurant', async () => {
+    const { Menu, Category, Item } = getModels(connection);
+
+    // Seed: tenant A gets a menu with one category + one item.
+    const menuRepoA = createTenantRepo(Menu, restaurantA);
+    const menuA = await menuRepoA.create({ name: 'Lunch', order: 0 });
+
+    const categoryRepoA = createTenantRepo(Category, restaurantA);
+    const categoryA = await categoryRepoA.create({
+      menuId: menuA._id,
+      name: 'Mains',
+      order: 0,
+    });
+
+    const itemRepoA = createTenantRepo(Item, restaurantA);
+    await itemRepoA.create({
+      categoryId: categoryA._id,
+      name: 'Margherita Pizza',
+      priceMinor: 1299,
+      currency: 'USD',
+      dietaryTags: ['vegetarian'],
+      modifiers: [],
+      soldOut: false,
+    });
+
+    // Tenant B sees nothing in any of the three collections.
+    expect(await createTenantRepo(Menu, restaurantB).countDocuments()).toBe(0);
+    expect(await createTenantRepo(Category, restaurantB).countDocuments()).toBe(0);
+    expect(await createTenantRepo(Item, restaurantB).countDocuments()).toBe(0);
+
+    // Tenant A sees its own seeded chain.
+    expect(await menuRepoA.countDocuments()).toBe(1);
+    expect(await categoryRepoA.countDocuments()).toBe(1);
+    expect(await itemRepoA.countDocuments()).toBe(1);
+  });
+
+  it('item modifier groups are persisted as embedded subdocuments', async () => {
+    const { Menu, Category, Item } = getModels(connection);
+    const menuRepoA = createTenantRepo(Menu, restaurantA);
+    const menu = await menuRepoA.create({ name: 'Modifier Menu', order: 1 });
+    const categoryRepoA = createTenantRepo(Category, restaurantA);
+    const category = await categoryRepoA.create({ menuId: menu._id, name: 'Burgers', order: 0 });
+    const itemRepoA = createTenantRepo(Item, restaurantA);
+
+    const created = await itemRepoA.create({
+      categoryId: category._id,
+      name: 'Cheeseburger',
+      priceMinor: 1500,
+      currency: 'USD',
+      dietaryTags: [],
+      modifiers: [
+        {
+          name: 'Patty',
+          required: true,
+          max: 1,
+          options: [
+            { name: 'Single', priceMinor: 0 },
+            { name: 'Double', priceMinor: 300 },
+          ],
+        },
+      ],
+      soldOut: false,
+    });
+
+    expect(created.modifiers.length).toBe(1);
+    expect(created.modifiers[0]?.options.length).toBe(2);
+    expect(created.modifiers[0]?.options[1]?.priceMinor).toBe(300);
+  });
+});

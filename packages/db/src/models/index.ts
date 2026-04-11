@@ -5,7 +5,7 @@
  * lets the same code run against either database without manual model
  * registration.
  *
- * As more collections are added (channels, items, orders, …), append their
+ * As more collections are added (channels, orders, tables, …), append their
  * exports here.
  */
 
@@ -16,11 +16,23 @@ export {
   type StaffMembershipDoc,
   type StaffMembershipModel,
 } from './staff-membership';
+export { menuModel, type MenuDoc, type MenuModel } from './menu';
+export { categoryModel, type CategoryDoc, type CategoryModel } from './category';
+export {
+  itemModel,
+  type ItemDoc,
+  type ItemModel,
+  type ItemModifierGroup,
+  type ItemModifierOption,
+} from './item';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
 import { userModel } from './user';
 import { staffMembershipModel } from './staff-membership';
+import { menuModel } from './menu';
+import { categoryModel } from './category';
+import { itemModel } from './item';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -31,6 +43,9 @@ export function getModels(connection: Connection) {
     Restaurant: restaurantModel(connection),
     User: userModel(connection),
     StaffMembership: staffMembershipModel(connection),
+    Menu: menuModel(connection),
+    Category: categoryModel(connection),
+    Item: itemModel(connection),
   };
 }
 

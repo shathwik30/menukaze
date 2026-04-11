@@ -1,17 +1,30 @@
+import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
+import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireSession } from '@/lib/session';
 import { RestaurantProfileForm } from './restaurant-profile-form';
 
 /**
- * Step 3 of the onboarding wizard — Restaurant Profile.
+ * Onboarding root — wizard step 1 (Restaurant Profile) when the user has no
+ * restaurant yet, or a state-aware redirect to the right next step.
  *
- * Guards:
- *   - Must be signed in → redirect to /login otherwise.
- *   - Must NOT already have a restaurant → bounce to /admin if they do.
+ * Wizard step routing:
+ *   - No restaurant         → render the profile form (this page)
+ *   - Restaurant, no items  → /onboarding/menu (step 2)
+ *   - Items exist           → /admin (onboarding complete)
  */
 export default async function OnboardingPage() {
   const session = await requireSession();
-  if (session.restaurantId) redirect('/admin');
+
+  if (session.restaurantId) {
+    const conn = await getMongoConnection('live');
+    const { Item } = getModels(conn);
+    const itemCount = await Item.countDocuments({
+      restaurantId: new Types.ObjectId(session.restaurantId),
+    }).exec();
+    if (itemCount > 0) redirect('/admin');
+    redirect('/onboarding/menu');
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-12">
