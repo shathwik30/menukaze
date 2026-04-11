@@ -43,14 +43,22 @@ export default async function DashboardAdminPage() {
             Signed in as <span className="text-foreground font-medium">{session.user.email}</span>
           </p>
         </div>
-        <form action={signOutAction}>
-          <button
-            type="submit"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/orders"
             className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
           >
-            Sign out
-          </button>
-        </form>
+            Orders
+          </Link>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       {showChecklist && checklist ? <OnboardingChecklistCard checklist={checklist} /> : null}
