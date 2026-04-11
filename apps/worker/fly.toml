@@ -1,0 +1,33 @@
+# Menukaze worker — Fly.io app config.
+# `flyctl launch --no-deploy` runs in Phase 6 to claim a name; this file is
+# the canonical config for that command.
+
+app = "menukaze-worker"
+primary_region = "bom"  # Mumbai — closest to launch tenants
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+[deploy]
+  release_command = ""
+  strategy = "rolling"
+
+# Worker is always-on (no HTTP port, no autoscale).
+[processes]
+  worker = "pnpm --filter @menukaze/worker start"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1

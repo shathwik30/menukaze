@@ -7,3 +7,5 @@ coverage
 playwright-report
 pnpm-lock.yaml
 *.md
+next-env.d.ts
+**/.next/**

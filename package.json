@@ -35,8 +35,10 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
       "esbuild",
       "mongodb-memory-server",
+      "sharp",
       "unrs-resolver"
     ]
   }
