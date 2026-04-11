@@ -18,6 +18,8 @@ interface CreateAuthOptions {
   baseURL?: string;
   /** Override the secret. Falls back to BETTER_AUTH_SECRET env. */
   secret?: string;
+  /** Framework-specific plugins (Next.js apps pass `nextCookies()` here). */
+  plugins?: BetterAuthOptions['plugins'];
 }
 
 function readEnv(name: string): string {
@@ -36,8 +38,10 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
     database: mongodbAdapter(connection.db!),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
-      autoSignIn: false,
+      // Defaults to ON for safety. Dev sets MENUKAZE_REQUIRE_EMAIL_VERIFICATION=false
+      // in .env.local until Phase 4 step 12 wires Resend for verification email.
+      requireEmailVerification: process.env['MENUKAZE_REQUIRE_EMAIL_VERIFICATION'] !== 'false',
+      autoSignIn: true,
       minPasswordLength: 8,
       maxPasswordLength: 128,
     },
@@ -47,8 +51,14 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
     },
     advanced: {
       cookiePrefix: 'menukaze',
-      useSecureCookies: process.env['NODE_ENV'] === 'production',
+      // Tie Secure-cookie behavior to the actual scheme of BETTER_AUTH_URL.
+      // `next start` forces NODE_ENV=production even in dev, so basing this
+      // on NODE_ENV would emit Secure cookies over plain HTTP and break dev.
+      useSecureCookies: (opts.baseURL ?? process.env['BETTER_AUTH_URL'] ?? '').startsWith(
+        'https://',
+      ),
     },
+    plugins: opts.plugins,
   };
 
   return betterAuth(config);
