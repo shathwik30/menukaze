@@ -16,6 +16,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "services:up": "docker-compose up -d --wait mongo redis",
+    "services:down": "docker-compose down",
+    "services:reset": "docker-compose down -v && docker-compose up -d --wait mongo redis",
+    "services:logs": "docker-compose logs -f",
+    "db:seed": "tsx packages/db/scripts/seed.ts",
+    "db:migrate": "tsx packages/db/scripts/migrate.ts up",
     "prepare": "husky"
   },
   "devDependencies": {
