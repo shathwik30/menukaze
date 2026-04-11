@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { AddToCartButton } from './add-to-cart-button';
 
 interface MenuSummary {
   id: string;
@@ -17,6 +18,7 @@ interface ItemSummary {
   name: string;
   description?: string;
   priceLabel: string;
+  priceMinor: number;
   dietaryTags: string[];
   soldOut: boolean;
 }
@@ -164,9 +166,15 @@ export function MenuBrowser({ menus, categories, items }: Props) {
                         </p>
                       ) : null}
                     </div>
-                    <span className="text-foreground shrink-0 font-mono text-sm">
-                      {item.priceLabel}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <span className="text-foreground font-mono text-sm">{item.priceLabel}</span>
+                      <AddToCartButton
+                        itemId={item.id}
+                        name={item.name}
+                        priceMinor={item.priceMinor}
+                        disabled={item.soldOut}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

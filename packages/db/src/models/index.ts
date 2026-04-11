@@ -32,6 +32,21 @@ export {
   type TableModel,
   type TableStatus,
 } from './table';
+export {
+  orderModel,
+  generatePublicOrderId,
+  type OrderDoc,
+  type OrderModel,
+  type OrderChannel,
+  type OrderType,
+  type OrderStatus,
+  type OrderLineItem,
+  type OrderModifierSnapshot,
+  type OrderStatusEvent,
+  type OrderPayment,
+  type PaymentGateway,
+  type PaymentStatus,
+} from './order';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -41,6 +56,7 @@ import { menuModel } from './menu';
 import { categoryModel } from './category';
 import { itemModel } from './item';
 import { tableModel } from './table';
+import { orderModel } from './order';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -55,6 +71,7 @@ export function getModels(connection: Connection) {
     Category: categoryModel(connection),
     Item: itemModel(connection),
     Table: tableModel(connection),
+    Order: orderModel(connection),
   };
 }
 

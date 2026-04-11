@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Types, type Connection } from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createConnectionFromUri } from './client';
-import { getModels, generateQrToken } from './models/index';
+import { getModels, generateQrToken, generatePublicOrderId } from './models/index';
 import { createTenantRepo } from './repos/create-tenant-repo';
 import { TenantContextMissingError } from './plugins/tenant-scoped';
 
@@ -186,6 +186,98 @@ describe('Menu / Category / Item models', () => {
     expect(b.length).toBe(24);
     expect(a).not.toBe(b);
     expect(/^[A-Za-z0-9_-]+$/.test(a)).toBe(true);
+  });
+
+  it('Order model enforces tenant guard and unique publicOrderId per restaurant', async () => {
+    const { Order, Menu, Category, Item } = getModels(connection);
+
+    await expect(Order.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+
+    const menuRepo = createTenantRepo(Menu, restaurantA);
+    const menu = await menuRepo.create({ name: 'Order Test Menu', order: 2 });
+    const categoryRepo = createTenantRepo(Category, restaurantA);
+    const category = await categoryRepo.create({ menuId: menu._id, name: 'Drinks', order: 0 });
+    const itemRepo = createTenantRepo(Item, restaurantA);
+    const item = await itemRepo.create({
+      categoryId: category._id,
+      name: 'Cola',
+      priceMinor: 299,
+      currency: 'USD',
+      dietaryTags: [],
+      modifiers: [],
+      soldOut: false,
+    });
+
+    const orderRepo = createTenantRepo(Order, restaurantA);
+    const publicId = generatePublicOrderId();
+    await orderRepo.create({
+      publicOrderId: publicId,
+      channel: 'storefront',
+      type: 'pickup',
+      customer: { name: 'Alice', email: 'alice@example.com' },
+      items: [
+        {
+          itemId: item._id,
+          name: 'Cola',
+          priceMinor: 299,
+          quantity: 2,
+          modifiers: [],
+          lineTotalMinor: 598,
+        },
+      ],
+      subtotalMinor: 598,
+      taxMinor: 0,
+      tipMinor: 0,
+      totalMinor: 598,
+      currency: 'USD',
+      status: 'received',
+      statusHistory: [{ status: 'received', at: new Date() }],
+      payment: {
+        gateway: 'razorpay',
+        status: 'pending',
+        amountMinor: 598,
+        currency: 'USD',
+      },
+    });
+
+    expect(await orderRepo.countDocuments()).toBe(1);
+    expect(await createTenantRepo(Order, restaurantB).countDocuments()).toBe(0);
+
+    const dup = orderRepo.create({
+      publicOrderId: publicId,
+      channel: 'storefront',
+      type: 'pickup',
+      customer: { name: 'Bob', email: 'bob@example.com' },
+      items: [
+        {
+          itemId: item._id,
+          name: 'Cola',
+          priceMinor: 299,
+          quantity: 1,
+          modifiers: [],
+          lineTotalMinor: 299,
+        },
+      ],
+      subtotalMinor: 299,
+      taxMinor: 0,
+      tipMinor: 0,
+      totalMinor: 299,
+      currency: 'USD',
+      status: 'received',
+      statusHistory: [{ status: 'received', at: new Date() }],
+      payment: {
+        gateway: 'razorpay',
+        status: 'pending',
+        amountMinor: 299,
+        currency: 'USD',
+      },
+    });
+    await expect(dup).rejects.toThrow();
+  });
+
+  it('generatePublicOrderId returns MK-prefixed 6-char codes', () => {
+    const id = generatePublicOrderId();
+    expect(/^MK-[A-Z2-9]{6}$/.test(id)).toBe(true);
   });
 
   it('item modifier groups are persisted as embedded subdocuments', async () => {

@@ -23,6 +23,8 @@ export {
   itemModel,
   tableModel,
   generateQrToken,
+  orderModel,
+  generatePublicOrderId,
   type RestaurantDoc,
   type RestaurantModel,
   type UserDoc,
@@ -40,6 +42,17 @@ export {
   type TableDoc,
   type TableModel,
   type TableStatus,
+  type OrderDoc,
+  type OrderModel,
+  type OrderChannel,
+  type OrderType,
+  type OrderStatus,
+  type OrderLineItem,
+  type OrderModifierSnapshot,
+  type OrderStatusEvent,
+  type OrderPayment,
+  type PaymentGateway,
+  type PaymentStatus,
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';

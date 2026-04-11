@@ -6,6 +6,8 @@ import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { computeOpenStatus, formatTodayHours } from '@/lib/hours';
 import { StorefrontHeader } from './_components/storefront-header';
 import { MenuBrowser } from './_components/menu-browser';
+import { CartBoot } from './_components/cart-boot';
+import { CartButton } from './_components/cart-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +76,7 @@ export default async function StorefrontHomePage() {
               name: i.name,
               description: i.description,
               priceLabel: formatMoney(i.priceMinor, currency, locale),
+              priceMinor: i.priceMinor,
               dietaryTags: i.dietaryTags,
               soldOut: i.soldOut,
             }))}
@@ -84,6 +87,9 @@ export default async function StorefrontHomePage() {
       <footer className="border-border text-muted-foreground border-t py-8 text-center text-xs">
         Powered by Menukaze
       </footer>
+
+      <CartBoot restaurantId={String(restaurantId)} currency={currency} locale={locale} />
+      <CartButton />
     </>
   );
 }
