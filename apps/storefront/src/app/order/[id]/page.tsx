@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { channels } from '@menukaze/realtime';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
+import { OrderTracker } from './order-tracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,9 +76,13 @@ export default async function OrderConfirmationPage({
           </div>
         </section>
 
-        <p className="text-muted-foreground mt-6 text-xs">
-          Status: {order.status} · Payment: {order.payment.status}
-        </p>
+        <OrderTracker
+          restaurantId={String(restaurant._id)}
+          orderId={String(order._id)}
+          channelName={channels.customerOrder(String(restaurant._id), String(order._id))}
+          initialStatus={order.status}
+          initialPaymentStatus={order.payment.status}
+        />
       </div>
     </main>
   );

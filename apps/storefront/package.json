@@ -16,6 +16,7 @@
     "@menukaze/shared": "workspace:*",
     "@menukaze/tenant": "workspace:*",
     "@menukaze/ui": "workspace:*",
+    "ably": "2.7.0",
     "mongoose": "9.4.1",
     "next": "16.2.3",
     "razorpay": "2.9.6",

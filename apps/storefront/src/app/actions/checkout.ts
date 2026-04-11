@@ -4,6 +4,8 @@ import { createHmac } from 'node:crypto';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generatePublicOrderId } from '@menukaze/db';
+import { channels } from '@menukaze/realtime';
+import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 
 const modifierInput = z.object({
@@ -291,6 +293,32 @@ export async function verifyPaymentAction(raw: unknown): Promise<VerifyPaymentRe
       $push: { statusHistory: { status: 'confirmed', at: now } },
     },
   ).exec();
+
+  // Best-effort realtime fan-out to the customer tracking page + the
+  // dashboard orders feed. A publish failure must not reject the whole
+  // payment verification — the DB write is already committed.
+  const restaurantIdStr = String(order.restaurantId);
+  const orderIdStr = String(order._id);
+  try {
+    await Promise.all([
+      publishRealtimeEvent(channels.customerOrder(restaurantIdStr, orderIdStr), {
+        type: 'order.status_changed',
+        orderId: orderIdStr,
+        status: 'confirmed',
+        changedAt: now.toISOString(),
+      }),
+      publishRealtimeEvent(channels.orders(restaurantIdStr), {
+        type: 'order.created',
+        orderId: orderIdStr,
+        channelId: 'storefront',
+        totalMinor: order.totalMinor,
+        currency: order.currency,
+        createdAt: now.toISOString(),
+      }),
+    ]);
+  } catch (error) {
+    console.warn('[checkout] ably publish failed', error);
+  }
 
   return { ok: true, publicOrderId: order.publicOrderId };
 }

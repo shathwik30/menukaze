@@ -21,6 +21,15 @@ describe('channels', () => {
     expect(channels.customerSession(RID, SID)).toBe(`restaurant.${RID}.sessions.${SID}`);
   });
 
+  it('builds a customer order channel', () => {
+    const oid = '507f1f77bcf86cd799439033';
+    expect(channels.customerOrder(RID, oid)).toBe(`restaurant.${RID}.order.${oid}`);
+  });
+
+  it('rejects an invalid order id on customerOrder', () => {
+    expect(() => channels.customerOrder(RID, 'short')).toThrow(/invalid order id/);
+  });
+
   it('rejects an invalid restaurant id', () => {
     expect(() => channels.orders('not-an-id')).toThrow(/invalid restaurant id/);
   });

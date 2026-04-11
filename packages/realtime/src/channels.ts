@@ -47,6 +47,14 @@ export const channels = {
     return `restaurant.${restaurantId}.sessions.${sessionId}`;
   },
 
+  customerOrder(restaurantId: string, orderId: string): string {
+    ensureRestaurantId(restaurantId);
+    if (!ID_RE.test(orderId)) {
+      throw new Error(`[realtime] invalid order id: ${orderId}`);
+    }
+    return `restaurant.${restaurantId}.order.${orderId}`;
+  },
+
   superAdminHealth(): string {
     return 'super.health';
   },
