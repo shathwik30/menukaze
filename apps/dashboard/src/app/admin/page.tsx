@@ -56,6 +56,12 @@ export default async function DashboardAdminPage() {
           >
             KDS
           </Link>
+          <Link
+            href="/admin/menu"
+            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
+          >
+            Menu
+          </Link>
           <form action={signOutAction}>
             <button
               type="submit"
