@@ -540,7 +540,7 @@ The package versions in §3.2 / §3.3 above are *family-level* guidance ("which 
 | `tsup` | `8.x` | bundle internal packages |
 | `prettier` | `3.8.2` | + `prettier-plugin-tailwindcss@0.6.14` |
 | `husky` · `lint-staged` | `9.x` · `15.x` | pre-commit |
-| `eslint` | `9.15.x` (flat config) | + `typescript-eslint@8.15`, `eslint-plugin-unicorn@56`, `eslint-plugin-boundaries@5`, `eslint-config-next@16.1.0` |
+| `eslint` | `9.15.x` (flat config) | + `typescript-eslint@8.15`, `eslint-plugin-unicorn@56`, `eslint-plugin-boundaries@5`, `eslint-config-next@16.2.3` |
 
 **Compatibility verification done before this matrix was locked** (full peer-dep chain):
 
