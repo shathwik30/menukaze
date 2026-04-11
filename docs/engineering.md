@@ -144,7 +144,7 @@ Ably. Publish only from the server after a mutation commits (via the outbox drai
 | **MongoDB Atlas** | Primary database, replica set, two DBs (`menukaze_live`, `menukaze_sandbox`) | `MONGODB_URI`, `MONGODB_DB_LIVE`, `MONGODB_DB_SANDBOX` | Enabled encryption at rest. PITR backups. |
 | **Upstash Redis** | Cache, rate-limit counters, idempotency records, webhook dedup, BullMQ backend | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | HTTPS transport — serverless-safe. |
 | **Ably** | Real-time pub/sub for KDS, tracking, waiter alerts | `ABLY_API_KEY`, `NEXT_PUBLIC_ABLY_CLIENT_ID_SALT` | Publish server-only; subscribe via token endpoint. |
-| **Resend** | Transactional email delivery | `RESEND_API_KEY`, `RESEND_FROM_DOMAIN` | Per-restaurant `From` name; Enterprise unlocks custom domain via Resend Domains API. |
+| **Resend** | Transactional email delivery | `RESEND_API_KEY`, `RESEND_FROM_ADDRESS` | Per-restaurant `From` name; Enterprise unlocks custom domain via Resend Domains API. |
 | **UploadThing** | File storage (menu images, logos, receipts, DSAR exports) | `UPLOADTHING_SECRET`, `UPLOADTHING_APP_ID` | Tenant-scoped router; public CDN URLs for menu/logo, signed URLs for private assets. |
 | **Razorpay** | Payment gateway (launch) — cards, UPI, wallets, netbanking, EMI | `RAZORPAY_WEBHOOK_SECRET` (platform wrapper); per-tenant keys encrypted in DB | Each restaurant uses its own account; webhook path is `/api/webhooks/razorpay/{restaurantId}`. |
 | **MaxMind GeoLite2** | IP geolocation for QR misuse prevention fallback | `MAXMIND_LICENSE_KEY` | Bundled in `packages/geofence`, refreshed monthly by cron. |
@@ -1304,7 +1304,9 @@ UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 ABLY_API_KEY
 RESEND_API_KEY
-RESEND_FROM_DOMAIN
+RESEND_FROM_ADDRESS
+MENUKAZE_SKIP_EMAIL
+NEXT_PUBLIC_STOREFRONT_HOST
 UPLOADTHING_SECRET
 UPLOADTHING_APP_ID
 RAZORPAY_WEBHOOK_SECRET

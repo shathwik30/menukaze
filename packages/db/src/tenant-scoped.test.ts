@@ -14,7 +14,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Types, type Connection } from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createConnectionFromUri } from './client';
-import { getModels, generateQrToken, generatePublicOrderId } from './models/index';
+import {
+  getModels,
+  generateQrToken,
+  generatePublicOrderId,
+  generateInviteToken,
+} from './models/index';
 import { createTenantRepo } from './repos/create-tenant-repo';
 import { TenantContextMissingError } from './plugins/tenant-scoped';
 
@@ -278,6 +283,83 @@ describe('Menu / Category / Item models', () => {
   it('generatePublicOrderId returns MK-prefixed 6-char codes', () => {
     const id = generatePublicOrderId();
     expect(/^MK-[A-Z2-9]{6}$/.test(id)).toBe(true);
+  });
+
+  it('StaffInvite model enforces tenant guard and globally-unique tokens', async () => {
+    const { StaffInvite } = getModels(connection);
+
+    // Guard fires on a bare find().
+    await expect(StaffInvite.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+
+    const repoA = createTenantRepo(StaffInvite, restaurantA);
+    const repoB = createTenantRepo(StaffInvite, restaurantB);
+    const inviterAId = new Types.ObjectId();
+    const inviterBId = new Types.ObjectId();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const token = generateInviteToken();
+    await repoA.create({
+      email: 'alice@example.com',
+      role: 'waiter',
+      token,
+      invitedByUserId: inviterAId,
+      expiresAt,
+    });
+
+    // Tenant A sees its own invite; tenant B sees zero.
+    expect(await repoA.countDocuments()).toBe(1);
+    expect(await repoB.countDocuments()).toBe(0);
+
+    // Duplicate token — even across tenants — should be rejected by the
+    // unique index on `token`.
+    await expect(
+      repoB.create({
+        email: 'bob@example.com',
+        role: 'kitchen',
+        token,
+        invitedByUserId: inviterBId,
+        expiresAt,
+      }),
+    ).rejects.toThrow();
+
+    // Tokens are 32 random bytes → 43 url-safe base64 chars (no padding).
+    const fresh = generateInviteToken();
+    expect(fresh.length).toBeGreaterThanOrEqual(32);
+    expect(/^[A-Za-z0-9_-]+$/.test(fresh)).toBe(true);
+  });
+
+  it('TableSession model enforces the tenant guard and isolates per tenant', async () => {
+    const { Table, TableSession } = getModels(connection);
+
+    // Guard fires on a bare find().
+    await expect(TableSession.find({}).exec()).rejects.toBeInstanceOf(TenantContextMissingError);
+
+    const tableRepoA = createTenantRepo(Table, restaurantA);
+    const sessionRepoA = createTenantRepo(TableSession, restaurantA);
+    const sessionRepoB = createTenantRepo(TableSession, restaurantB);
+
+    // Seed: tenant A gets a dedicated table for the session.
+    const table = await tableRepoA.create({
+      number: 42,
+      name: 'Table 42',
+      capacity: 2,
+      qrToken: generateQrToken(),
+      status: 'occupied',
+    });
+
+    const startedAt = new Date();
+    await sessionRepoA.create({
+      tableId: table._id,
+      status: 'active',
+      customer: { name: 'Alice', email: 'alice@example.com' },
+      participants: [{ label: 'Alice', joinedAt: startedAt }],
+      startedAt,
+      lastActivityAt: startedAt,
+    });
+
+    // Tenant A sees its session; tenant B sees zero.
+    expect(await sessionRepoA.countDocuments()).toBe(1);
+    expect(await sessionRepoB.countDocuments()).toBe(0);
   });
 
   it('item modifier groups are persisted as embedded subdocuments', async () => {

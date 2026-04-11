@@ -3,13 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { getMongoConnection, getModels, generateInviteToken, type StaffRole } from '@menukaze/db';
+import { getMongoConnection, getModels, generateInviteToken } from '@menukaze/db';
 import { hasAnyFlag } from '@menukaze/rbac';
 import { requireOnboarded, requireSession } from '@/lib/session';
 import { sendTransactionalEmail } from '@/lib/email';
 import { StaffInviteEmail } from '@/emails/staff-invite';
-
-const ROLES: StaffRole[] = ['owner', 'manager', 'waiter', 'kitchen', 'cashier'];
 
 export type ActionResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; data: T })
@@ -230,5 +228,3 @@ export async function acceptInviteAction(
 
   return { ok: true, data: { restaurantId: String(restaurantId) } };
 }
-
-export { ROLES };

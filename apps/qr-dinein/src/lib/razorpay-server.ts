@@ -3,6 +3,14 @@ import Razorpay from 'razorpay';
 import { envelopeDecrypt, type RestaurantDoc } from '@menukaze/db';
 import type { HydratedDocument } from 'mongoose';
 
+/**
+ * Build a Razorpay SDK client from a restaurant's encrypted credentials.
+ * Returns null if the restaurant hasn't connected a gateway — callers must
+ * treat that case as "checkout unavailable".
+ *
+ * Called per-request inside server actions, not memoized, because credentials
+ * are per-tenant and may rotate.
+ */
 export function getRazorpayClient(
   restaurant: HydratedDocument<RestaurantDoc>,
 ): { client: Razorpay; keyId: string; keySecret: string } | null {
