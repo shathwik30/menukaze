@@ -25,7 +25,7 @@ export function RazorpayConnectForm() {
         setError(result.error);
         return;
       }
-      router.push('/admin');
+      router.push('/onboarding/go-live');
       router.refresh();
     });
   }

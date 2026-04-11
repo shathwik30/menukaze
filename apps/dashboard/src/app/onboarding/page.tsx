@@ -12,7 +12,8 @@ import { RestaurantProfileForm } from './restaurant-profile-form';
  *   step === 'menu'      → 307 → /onboarding/menu
  *   step === 'tables'    → 307 → /onboarding/tables
  *   step === 'razorpay'  → 307 → /onboarding/razorpay
- *   step === 'go-live' | 'complete' → 307 → /admin
+ *   step === 'go-live'   → 307 → /onboarding/go-live
+ *   step === 'complete'  → 307 → /admin
  */
 export default async function OnboardingPage() {
   const session = await requireSession();
@@ -31,6 +32,9 @@ export default async function OnboardingPage() {
         break;
       case 'razorpay':
         redirect('/onboarding/razorpay');
+        break;
+      case 'go-live':
+        redirect('/onboarding/go-live');
         break;
       default:
         redirect('/admin');

@@ -55,6 +55,10 @@ export interface RestaurantDoc {
    * skip the wizard entirely.
    */
   onboardingStep: 'menu' | 'tables' | 'razorpay' | 'go-live' | 'complete';
+  /** Set when the user clicks Go Live. Null until activation. */
+  liveAt?: Date;
+  /** User has hidden the post-onboarding checklist card on /admin. */
+  checklistDismissed: boolean;
 
   geofenceRadiusM: number;
   hardening: {
@@ -159,6 +163,8 @@ const restaurantSchema = new Schema<RestaurantDoc>(
       enum: ['menu', 'tables', 'razorpay', 'go-live', 'complete'],
       default: 'menu',
     },
+    liveAt: Date,
+    checklistDismissed: { type: Boolean, default: false },
 
     geofenceRadiusM: { type: Number, default: 100 },
     hardening: {

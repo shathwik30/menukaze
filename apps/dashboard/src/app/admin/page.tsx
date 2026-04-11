@@ -4,7 +4,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
+import { computeChecklist } from '@/lib/onboarding-checklist';
 import { signOutAction } from '@/app/actions/auth';
+import { OnboardingChecklistCard } from './onboarding-checklist-card';
 
 export default async function DashboardAdminPage() {
   const session = await requireOnboarded();
@@ -28,6 +30,10 @@ export default async function DashboardAdminPage() {
   const slug = restaurant?.slug ?? 'demo';
   const firstTable = tables[0];
 
+  // Post-onboarding checklist — only rendered if the user hasn't dismissed it.
+  const showChecklist = restaurant && !restaurant.checklistDismissed;
+  const checklist = restaurant ? computeChecklist(restaurant, items, tables) : null;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 p-8">
       <header className="flex items-center justify-between">
@@ -46,6 +52,8 @@ export default async function DashboardAdminPage() {
           </button>
         </form>
       </header>
+
+      {showChecklist && checklist ? <OnboardingChecklistCard checklist={checklist} /> : null}
 
       <section className="border-border rounded-lg border p-6">
         <h2 className="text-xl font-semibold">Restaurant profile</h2>
@@ -177,8 +185,8 @@ export default async function DashboardAdminPage() {
 
       <section className="text-muted-foreground text-sm">
         <p>
-          Phase 4 next steps: Go Live + checklist (Step 8), storefront (Step 9), cart + checkout
-          (Step 10), order feed (Step 13), single-station KDS (Step 14), menu management (Step 15).
+          Phase 4 next steps: storefront (Step 9), cart + checkout (Step 10), order feed (Step 13),
+          single-station KDS (Step 14), menu management (Step 15).
         </p>
       </section>
     </main>
