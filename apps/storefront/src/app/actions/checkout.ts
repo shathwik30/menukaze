@@ -6,7 +6,11 @@ import { z } from 'zod';
 import { getMongoConnection, getModels, generatePublicOrderId } from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
+import { formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
+import { sendTransactionalEmail } from '@/lib/email';
+import { OrderConfirmationEmail } from '@/emails/order-confirmation';
+import { OrderReceiptEmail } from '@/emails/order-receipt';
 
 const modifierInput = z.object({
   groupName: z.string().min(1),
@@ -318,6 +322,53 @@ export async function verifyPaymentAction(raw: unknown): Promise<VerifyPaymentRe
     ]);
   } catch (error) {
     console.warn('[checkout] ably publish failed', error);
+  }
+
+  // Best-effort transactional emails — confirmation + receipt. Also fire
+  // and do not reject the verification if Resend is down.
+  try {
+    const currency = order.currency as CurrencyCode;
+    const locale = restaurant.locale;
+    const baseHost =
+      process.env['NEXT_PUBLIC_STOREFRONT_HOST'] ?? `${restaurant.slug}.menukaze.dev`;
+    const scheme = baseHost.includes('localhost') ? 'http' : 'https';
+    const trackingUrl = `${scheme}://${baseHost}/order/${orderIdStr}`;
+
+    const items = order.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      lineTotalLabel: formatMoney(item.lineTotalMinor, currency, locale),
+    }));
+
+    await sendTransactionalEmail({
+      to: order.customer.email,
+      subject: `Order ${order.publicOrderId} confirmed · ${restaurant.name}`,
+      react: OrderConfirmationEmail({
+        restaurantName: restaurant.name,
+        customerName: order.customer.name,
+        publicOrderId: order.publicOrderId,
+        trackingUrl,
+        items,
+        totalLabel: formatMoney(order.totalMinor, currency, locale),
+      }),
+    });
+
+    await sendTransactionalEmail({
+      to: order.customer.email,
+      subject: `Receipt · ${order.publicOrderId}`,
+      react: OrderReceiptEmail({
+        restaurantName: restaurant.name,
+        publicOrderId: order.publicOrderId,
+        paidAt: now.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+        items,
+        subtotalLabel: formatMoney(order.subtotalMinor, currency, locale),
+        taxLabel: formatMoney(order.taxMinor, currency, locale),
+        totalLabel: formatMoney(order.totalMinor, currency, locale),
+        paymentMethodLabel: 'Razorpay (test mode)',
+      }),
+    });
+  } catch (error) {
+    console.warn('[checkout] email send failed', error);
   }
 
   return { ok: true, publicOrderId: order.publicOrderId };
