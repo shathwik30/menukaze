@@ -50,6 +50,12 @@ export default async function DashboardAdminPage() {
           >
             Orders
           </Link>
+          <Link
+            href="/admin/kds"
+            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
+          >
+            KDS
+          </Link>
           <form action={signOutAction}>
             <button
               type="submit"
