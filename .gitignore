@@ -1,0 +1,61 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build outputs
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# env (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+!.env.example
+
+# test + coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+*.snap.new
+
+# IDE / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# Fly.io
+.fly/
+fly.toml.local
+
+# Claude Code / graph tools
+.claude/
+.code-review-graph/
+
+# scratch + credentials (never commit)
+*.pem
+*.key
+*.p12
+secrets/

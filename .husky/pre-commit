@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+# 1. Run prettier (and later, eslint) on staged files via lint-staged.
+pnpm exec lint-staged
+LINT_EXIT=$?
+if [ $LINT_EXIT -ne 0 ]; then
+  echo "✗ lint-staged failed"
+  exit $LINT_EXIT
+fi
+
+# 2. Run gitleaks if available; warn if missing so the hook is still functional on dev
+#    machines that haven't installed it. CI runs gitleaks unconditionally.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml
+  LEAK_EXIT=$?
+  if [ $LEAK_EXIT -ne 0 ]; then
+    echo "✗ gitleaks found a secret in staged changes — commit blocked"
+    exit $LEAK_EXIT
+  fi
+else
+  echo "⚠ gitleaks not installed locally — skipping secret scan."
+  echo "  Install with: sudo apt install gitleaks   (or brew install gitleaks)"
+fi

@@ -1,0 +1,14 @@
+# Menukaze gitleaks config — used by the pre-commit hook + CI.
+# Allowlists the .env.example template file (it is intentionally a template, no real values).
+title = "menukaze"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow committed templates and docs"
+paths = [
+  '''\.env\.example$''',
+  '''docs/.*\.md$''',
+  '''README\.md$''',
+]

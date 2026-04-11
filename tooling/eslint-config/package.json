@@ -1,0 +1,30 @@
+{
+  "name": "@menukaze/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./base.js",
+  "exports": {
+    "./base": "./base.js",
+    "./next": "./next.js",
+    "./node": "./node.js"
+  },
+  "files": [
+    "base.js",
+    "next.js",
+    "node.js"
+  ],
+  "dependencies": {
+    "@eslint/js": "^9.15.0",
+    "typescript-eslint": "^8.15.0",
+    "eslint-plugin-unicorn": "^56.0.1",
+    "eslint-plugin-boundaries": "^5.0.1",
+    "eslint-config-next": "^15.0.3",
+    "globals": "^15.12.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3"
+  }
+}
