@@ -436,6 +436,129 @@ Every npm dependency used inside `packages/*` and `apps/worker`. All free and op
 
 ---
 
+## 3.4 Verified Compatible Version Matrix (locked 2026-04-11)
+
+The package versions in §3.2 / §3.3 above are *family-level* guidance ("which library, what major"). The exact pins below are the **verified compatible matrix** as of the lock date — every peer dependency was checked against the npm registry, and every chosen version is at least 2–4 weeks old (avoids "released yesterday" patches that haven't shaken out bugs). All future installs are reproducible from `pnpm-lock.yaml`; new packages are added with `save-exact=true` (`.npmrc`) so versions never drift implicitly.
+
+**Anchor versions** (everything else flows from these):
+
+| Package | Pin | Released | Why |
+|---|---|---|---|
+| `node` | `22.x` (engines) | LTS Jod, supported until Apr 2027 | Production runtime |
+| `pnpm` | `10.33.0` | active | packageManager + workspaces |
+| `typescript` | `5.9.3` | stable | tRPC v11 needs ≥ 5.7.2 |
+| `next` | `16.1.0` | 2025-12-18 | 4 mo old; skip 16.2.x (3 days old) |
+| `react` / `react-dom` | `19.1.0` | 2025-03-28 | 1 yr old, very stable; required by Next 16 |
+| `tailwindcss` | `4.1.16` | Aug 2025 | Tailwind 4 LTS line; CSS-first config; skip 4.2.x (1 mo) |
+| `mongoose` | `9.3.3` | Mar 2026 | Latest 9.3.x; skip 9.4.x (1 wk) |
+| `mongodb` | `7.x` | matches mongoose 9 | native driver |
+| `zod` | `4.2.0` | 2025-12-15 | 4 mo old; major has been stable for over a year |
+| `vitest` | `3.2.x` | Jun 2025 | 10 mo old; skip Vitest 4 (still maturing) |
+| `pino` | `9.x` | active | Skip pino 10 (very fresh) |
+
+**Auth, API, real-time**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `better-auth` | `1.5.6` | 2026-03-22, ~3 wks; supports Next 14/15/16, mongodb 6/7 |
+| `argon2` | `0.43.x` | password hashing for BetterAuth |
+| `@trpc/server` · `@trpc/client` · `@trpc/react-query` | `11.10.0` | 2026-02-09, 9 wks |
+| `@tanstack/react-query` | `5.x` | tRPC peer |
+| `hono` | `4.11.0` | 2025-12-13, 4 mo |
+| `@hono/zod-validator` | `0.7.x` | accepts Zod 3.25+ AND Zod 4 |
+| `@hono/zod-openapi` | `1.x` | matches Hono 4 |
+| `ably` | `2.x` | server + client SDK |
+
+**Queue, cache, storage, payments**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `bullmq` | `5.x` | latest 5 line; needs `ioredis@5` |
+| `ioredis` | `5.x` | BullMQ TCP client |
+| `@upstash/redis` | `1.x` | REST client for cache + idempotency |
+| `@upstash/ratelimit` | `2.x` | sliding window |
+| `resend` | `6.x` | latest |
+| `react-email` · `@react-email/components` · `@react-email/render` | `5.x` · `1.x` · `2.x` | server-rendered email |
+| `uploadthing` · `@uploadthing/react` | `7.7.x` · `7.3.x` | per peer chain |
+| `razorpay` | `2.x` | official Node SDK |
+| `@react-pdf/renderer` | `4.x` | receipt PDFs |
+| `migrate-mongo` | `14.x` | versioned migrations |
+| `@maxmind/geoip2-node` | `6.x` | GeoLite2 reader |
+
+**Observability**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `@sentry/nextjs` · `@sentry/node` | `10.40.0` | 2026-02-24, 7 wks; supports Next 13/14/15/16 |
+| `@axiomhq/pino` | `1.x` | pino transport |
+| `@opentelemetry/sdk-node` | `0.214.x` | OTel slow track |
+| `@opentelemetry/auto-instrumentations-node` | `0.72.x` | matches |
+
+**Frontend (apps + packages/ui)**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `next-intl` | `4.8.x` | i18n; supports Next 12–16, React 16–19 |
+| `react-hook-form` | `7.55.x` | forms |
+| `@hookform/resolvers` | `3.x` or `5.x` | Zod 4 resolver |
+| `@radix-ui/react-*` | latest stable per primitive | shadcn pulls these |
+| `class-variance-authority` | `0.7.x` | shadcn variants |
+| `clsx` | `2.x` | combined into `cn()` |
+| `tailwind-merge` | `3.x` | matches Tailwind 4 |
+| `lucide-react` | latest | icon set |
+| `sonner` | `2.x` | toasts |
+| `vaul` | `1.x` | mobile drawer |
+| `cmdk` | `1.x` | command palette |
+| `next-themes` | `0.4.x` | dark mode |
+| `input-otp` | `1.x` | OTP input |
+| `embla-carousel-react` | `8.x` | carousel |
+| `recharts` | `2.x` | analytics charts |
+| `react-day-picker` | `9.x` | date picker |
+| `date-fns` | `4.x` | locale-aware dates |
+| `@uploadthing/react` | `7.3.x` | matches uploadthing 7.7 |
+| `@fingerprintjs/fingerprintjs` | `4.x` | device fingerprint (Step 24) |
+| `qrcode` · `qrcode.react` | `1.x` · `4.x` | QR rendering |
+| `@serwist/next` · `serwist` · `idb` | `9.5.x` · `9.5.x` · `8.x` | PWA + offline |
+
+**Testing**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `vitest` · `@vitest/coverage-v8` | `3.2.x` | unit + integration |
+| `mongodb-memory-server` | `10.x` | matches mongoose 9 |
+| `ioredis-mock` | `8.x` | in-memory Redis |
+| `msw` | `2.x` | HTTP mocking |
+| `@playwright/test` | `1.5x` | E2E + Next 16 peer |
+| `supertest` | `7.x` | Hono assertions |
+
+**Build / dev tooling**:
+
+| Package | Pin | Notes |
+|---|---|---|
+| `turbo` | `2.9.6` | monorepo orchestrator |
+| `tsx` | `4.x` | TS script runner |
+| `tsup` | `8.x` | bundle internal packages |
+| `prettier` | `3.8.2` | + `prettier-plugin-tailwindcss@0.6.14` |
+| `husky` · `lint-staged` | `9.x` · `15.x` | pre-commit |
+| `eslint` | `9.15.x` (flat config) | + `typescript-eslint@8.15`, `eslint-plugin-unicorn@56`, `eslint-plugin-boundaries@5`, `eslint-config-next@16.1.0` |
+
+**Compatibility verification done before this matrix was locked** (full peer-dep chain):
+
+- ✓ Next 16 → React 18 OR 19
+- ✓ React 19 → all UI deps (radix, shadcn, react-hook-form, react-day-picker, ably, uploadthing/react, react-email/components)
+- ✓ @sentry/nextjs 10 → Next 13/14/15/16
+- ✓ better-auth 1.5 → Next 14/15/16, React 18/19, mongodb 6/7
+- ✓ @hono/zod-validator → zod 3.25+ AND zod 4
+- ✓ tRPC 11 → TypeScript ≥ 5.7.2 (we have 5.9.3)
+- ✓ Mongoose 9 → no React peer
+- ✓ react-hook-form → React 16-19 + @hookform/resolvers compatible with Zod 4
+- ✓ Vitest 3.2 → Vite 5/6/7
+- ✓ Ably 2 → React ≥ 16.8
+
+**Re-lock policy**: re-run the verification check (every package's `npm view <pkg> peerDependencies` against the matrix) before any major version bump in the matrix above.
+
+---
+
 ## 4. Monorepo Layout
 
 ```
