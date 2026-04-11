@@ -15,6 +15,7 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "services:up": "docker-compose up -d --wait mongo redis",
     "services:down": "docker-compose down",

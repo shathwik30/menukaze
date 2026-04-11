@@ -102,10 +102,10 @@ Ably. Publish only from the server after a mutation commits (via the outbox drai
 |---|---|---|
 | Runtime | **Node.js 22 LTS** (Jod) | Target for every app and the worker. No Edge runtime (Mongoose needs TCP). |
 | Language | **TypeScript 5.5** strict | Shared contract across tRPC, Hono, Mongoose, and zod. `noImplicitAny`, `strictNullChecks`, `noUncheckedIndexedAccess`. |
-| Framework | **Next.js 14 App Router** | Every web app. RSC for storefront SEO. Middleware for subdomain routing. Route handlers for API mounts. |
+| Framework | **Next.js 16 App Router** (with React 19) | Every web app. RSC for storefront SEO. Middleware for subdomain routing. Route handlers for API mounts. Pinned in §3.4. |
 | Monorepo | **Turborepo + pnpm 10 workspaces** | Incremental builds, remote cache in CI, workspace protocol `workspace:*` for internal deps. |
 | Database | **MongoDB 7** (Atlas prod, Docker replset local) | Single cluster, two DBs. All tenant-scoped models go through Mongoose plugins. |
-| ODM | **Mongoose 8** | Typed models, pre-hooks for tenant middleware, transaction sessions. |
+| ODM | **Mongoose 9** | Typed models, async pre-hooks for tenant middleware, transaction sessions. Pinned in §3.4. |
 | Validation | **zod 3** | One schema per entity in `packages/shared`, reused by tRPC, Hono, Mongoose pre-validate hooks, and React Hook Form on the client. |
 | Auth | **BetterAuth 1.x** with MongoDB adapter | Identity + sessions only. Multi-tenant role resolution lives in `packages/rbac`, not BetterAuth. Session cookies (HttpOnly, Secure, SameSite=Lax). |
 | Internal API | **tRPC v11** | Dashboard ↔ server. Zero-cost type-safe contract for operator surfaces. |
@@ -197,8 +197,8 @@ Every npm dependency used inside `apps/storefront`, `apps/qr-dinein`, `apps/kios
 ### Core framework
 | Package | Purpose |
 |---|---|
-| `next@^14.2` | App Router, RSC, middleware, route handlers, `next/image`, `next/font` |
-| `react@^18.3` · `react-dom@^18.3` | — |
+| `next@16.1.0` | App Router, RSC, middleware, route handlers, `next/image`, `next/font` |
+| `react@19.1.0` · `react-dom@19.1.0` | — |
 | `typescript@^5.5` | Strict mode on every app |
 
 ### Data fetching, forms, validation
@@ -206,7 +206,7 @@ Every npm dependency used inside `apps/storefront`, `apps/qr-dinein`, `apps/kios
 |---|---|
 | `@tanstack/react-query@^5` | Query cache backing the tRPC client |
 | `@trpc/client` · `@trpc/react-query` · `@trpc/next` | Dashboard + super-admin tRPC clients |
-| `zod@^3.23` | Schemas imported from `packages/shared` |
+| `zod@4.2.0` | Schemas imported from `packages/shared` |
 | `react-hook-form@^7` · `@hookform/resolvers` | Dashboard forms; one `zodResolver` per shared schema |
 | `usehooks-ts` | Small hooks (`useLocalStorage`, `useMediaQuery`, `useDebounce`) |
 
@@ -267,7 +267,7 @@ import { Button, Dialog, Form } from '@menukaze/ui';
 
 | Package | Purpose |
 |---|---|
-| `tailwindcss@^3.4` · `postcss` · `autoprefixer` | Utility CSS engine |
+| `tailwindcss@4.1.16` | CSS-first config (no `tailwind.config.ts`); see `packages/ui/src/styles/globals.css` |
 | `tailwindcss-animate` | Animation utilities shadcn components rely on |
 | `@radix-ui/react-accordion` · `react-alert-dialog` · `react-avatar` · `react-checkbox` · `react-dialog` · `react-dropdown-menu` · `react-label` · `react-popover` · `react-progress` · `react-radio-group` · `react-scroll-area` · `react-select` · `react-separator` · `react-slot` · `react-switch` · `react-tabs` · `react-toast` · `react-toggle` · `react-tooltip` | The unstyled Radix primitives shadcn components wrap. Installed individually, not as `@radix-ui/react-*` bulk |
 | `class-variance-authority@^0.7` | Variant API used by every shadcn component |
@@ -297,13 +297,13 @@ import { Button, Dialog, Form } from '@menukaze/ui';
 ### i18n + locale
 | Package | Purpose |
 |---|---|
-| `next-intl@^3` | Multi-language menu + UI, RTL-aware |
+| `next-intl@^4` | Multi-language menu + UI, RTL-aware |
 | `@formatjs/intl-localematcher` | Negotiates preferred language from browser |
 
 ### PWA + offline (storefront, QR, kiosk, KDS)
 | Package | Purpose |
 |---|---|
-| `@serwist/next` · `serwist` | Workbox successor — service worker generation for Next.js 14 App Router |
+| `@serwist/next` · `serwist` | Workbox successor — service worker generation for Next.js App Router |
 | `idb` | Small IndexedDB wrapper for offline mutation queue |
 
 ### Observability (client)
@@ -333,18 +333,18 @@ Every npm dependency used inside `packages/*` and `apps/worker`. All free and op
 |---|---|
 | `node@22` (engines field) | LTS (Jod) |
 | `typescript@^5.5` | — |
-| `next@^14.2` | Route handlers for Hono mount + dashboard SSR |
+| `next@16.1.0` | Route handlers for Hono mount + dashboard SSR |
 | `hono@^4` | Public `/v1` API router |
 | `@hono/zod-validator` | Route-level zod validation middleware |
 | `@hono/zod-openapi` | Auto-generate OpenAPI / Swagger spec for `/v1` |
 | `@trpc/server@^11` | Internal dashboard API |
-| `zod@^3.23` | Schemas imported from `packages/shared` |
+| `zod@4.2.0` | Schemas imported from `packages/shared` |
 
 ### Database & migrations
 | Package | Purpose |
 |---|---|
 | `mongodb@^6` | Native driver (peer of Mongoose + used directly for sessions/transactions) |
-| `mongoose@^8` | ODM, tenant plugin, hooks, transactions |
+| `mongoose@9.4.1` | ODM, tenant plugin, hooks, transactions |
 | `migrate-mongo` | Versioned migration changelog |
 
 ### Auth & RBAC
@@ -372,7 +372,7 @@ Every npm dependency used inside `packages/*` and `apps/worker`. All free and op
 | Package | Purpose |
 |---|---|
 | `resend` | API client |
-| `react-email@^3` · `@react-email/components` · `@react-email/render` | Template components + HTML/text render |
+| `react-email@^5` · `@react-email/components@^1` · `@react-email/render@^2` | Template components + HTML/text render |
 
 ### File uploads
 | Package | Purpose |
