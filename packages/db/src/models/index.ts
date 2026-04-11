@@ -47,6 +47,13 @@ export {
   type PaymentGateway,
   type PaymentStatus,
 } from './order';
+export {
+  staffInviteModel,
+  generateInviteToken,
+  type StaffInviteDoc,
+  type StaffInviteModel,
+  type StaffRole,
+} from './staff-invite';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -57,6 +64,7 @@ import { categoryModel } from './category';
 import { itemModel } from './item';
 import { tableModel } from './table';
 import { orderModel } from './order';
+import { staffInviteModel } from './staff-invite';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -72,6 +80,7 @@ export function getModels(connection: Connection) {
     Item: itemModel(connection),
     Table: tableModel(connection),
     Order: orderModel(connection),
+    StaffInvite: staffInviteModel(connection),
   };
 }
 

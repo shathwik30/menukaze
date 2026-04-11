@@ -25,6 +25,8 @@ export {
   generateQrToken,
   orderModel,
   generatePublicOrderId,
+  staffInviteModel,
+  generateInviteToken,
   type RestaurantDoc,
   type RestaurantModel,
   type UserDoc,
@@ -53,6 +55,9 @@ export {
   type OrderPayment,
   type PaymentGateway,
   type PaymentStatus,
+  type StaffInviteDoc,
+  type StaffInviteModel,
+  type StaffRole,
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
