@@ -31,5 +31,12 @@
     "prettier-plugin-tailwindcss": "0.6.14",
     "husky": "9.1.7",
     "lint-staged": "15.5.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "mongodb-memory-server",
+      "unrs-resolver"
+    ]
   }
 }
