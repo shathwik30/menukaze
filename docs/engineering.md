@@ -197,7 +197,7 @@ Every npm dependency used inside `apps/storefront`, `apps/qr-dinein`, `apps/kios
 ### Core framework
 | Package | Purpose |
 |---|---|
-| `next@16.1.0` | App Router, RSC, middleware, route handlers, `next/image`, `next/font` |
+| `next@16.2.3` | App Router, RSC, middleware, route handlers, `next/image`, `next/font` |
 | `react@19.1.0` · `react-dom@19.1.0` | — |
 | `typescript@^5.5` | Strict mode on every app |
 
@@ -333,7 +333,7 @@ Every npm dependency used inside `packages/*` and `apps/worker`. All free and op
 |---|---|
 | `node@22` (engines field) | LTS (Jod) |
 | `typescript@^5.5` | — |
-| `next@16.1.0` | Route handlers for Hono mount + dashboard SSR |
+| `next@16.2.3` | Route handlers for Hono mount + dashboard SSR |
 | `hono@^4` | Public `/v1` API router |
 | `@hono/zod-validator` | Route-level zod validation middleware |
 | `@hono/zod-openapi` | Auto-generate OpenAPI / Swagger spec for `/v1` |
@@ -447,7 +447,7 @@ The package versions in §3.2 / §3.3 above are *family-level* guidance ("which 
 | `node` | `22.x` (engines) | LTS Jod, supported until Apr 2027 | Production runtime |
 | `pnpm` | `10.33.0` | active | packageManager + workspaces |
 | `typescript` | `5.9.3` | stable | tRPC v11 needs ≥ 5.7.2 |
-| `next` | `16.1.0` | 2025-12-18 | 4 mo old; skip 16.2.x (3 days old) |
+| `next` | `16.2.3` | 2026-04-08 | Bumped from 16.1.0 to clear 9 audit findings (2 high). Patches Next.js cache poisoning + middleware route bypass CVEs. |
 | `react` / `react-dom` | `19.1.0` | 2025-03-28 | 1 yr old, very stable; required by Next 16 |
 | `tailwindcss` | `4.1.16` | Aug 2025 | Tailwind 4 LTS line; CSS-first config; skip 4.2.x (1 mo) |
 | `mongoose` | `9.3.3` | Mar 2026 | Latest 9.3.x; skip 9.4.x (1 wk) |
