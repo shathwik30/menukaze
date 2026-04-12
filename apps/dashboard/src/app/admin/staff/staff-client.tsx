@@ -32,8 +32,13 @@ export interface StaffInviteRow {
 
 interface Props {
   currentUserId: string;
+  currentUserRole: StaffRole;
   members: StaffMember[];
   invites: StaffInviteRow[];
+  canInvite: boolean;
+  canEdit: boolean;
+  canRemove: boolean;
+  roleOptions: StaffRole[];
 }
 
 const ROLE_OPTIONS: StaffRole[] = ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'];
@@ -107,14 +112,24 @@ function FlagChecklist({
 
 function InviteForm({
   pending,
+  roleOptions,
   onSubmit,
 }: {
   pending: boolean;
+  roleOptions: StaffRole[];
   onSubmit: (payload: { email: string; role: StaffRole; customPermissions: string[] }) => void;
 }) {
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<StaffRole>('waiter');
+  const defaultInviteRole = roleOptions[0] ?? 'waiter';
+  const [inviteRole, setInviteRole] = useState<StaffRole>(defaultInviteRole);
   const [customPermissions, setCustomPermissions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!roleOptions.includes(inviteRole) && roleOptions[0]) {
+      setInviteRole(roleOptions[0]);
+      setCustomPermissions([]);
+    }
+  }, [inviteRole, roleOptions]);
 
   function toggleFlag(flag: string) {
     setCustomPermissions((current) =>
@@ -133,7 +148,7 @@ function InviteForm({
           customPermissions: inviteRole === 'custom' ? customPermissions : [],
         });
         setInviteEmail('');
-        setInviteRole('waiter');
+        setInviteRole(defaultInviteRole);
         setCustomPermissions([]);
       }}
       className="mt-3 flex flex-col gap-3"
@@ -161,7 +176,7 @@ function InviteForm({
             }}
             className="border-input bg-background h-9 rounded-md border px-3 text-sm"
           >
-            {ROLE_OPTIONS.map((role) => (
+            {roleOptions.map((role) => (
               <option key={role} value={role}>
                 {titleCase(role)}
               </option>
@@ -187,18 +202,35 @@ function InviteForm({
 function MemberRow({
   member,
   isCurrentUser,
+  currentUserRole,
   pending,
+  roleOptions,
+  canEdit,
+  canRemove,
   onSave,
   onRemove,
 }: {
   member: StaffMember;
   isCurrentUser: boolean;
+  currentUserRole: StaffRole;
   pending: boolean;
+  roleOptions: StaffRole[];
+  canEdit: boolean;
+  canRemove: boolean;
   onSave: (payload: { membershipId: string; role: StaffRole; customPermissions: string[] }) => void;
   onRemove: (membershipId: string, email: string) => void;
 }) {
   const [role, setRole] = useState<StaffRole>(member.role);
   const [customPermissions, setCustomPermissions] = useState<string[]>(member.customPermissions);
+  const canManageOwnerMember = member.role !== 'owner' || currentUserRole === 'owner';
+  const canManageCustomMember = member.role !== 'custom' || roleOptions.includes('custom');
+  const canEditMember = canEdit && !isCurrentUser && canManageOwnerMember && canManageCustomMember;
+  const canRemoveMember =
+    canRemove && !isCurrentUser && canManageOwnerMember && member.status === 'active';
+  const canShowMemberActions = canEditMember || canRemoveMember;
+  const memberRoleOptions = roleOptions.includes(member.role)
+    ? roleOptions
+    : [member.role, ...roleOptions];
 
   // Re-sync when RSC passes fresh member props after a save + router.refresh().
   useEffect(() => {
@@ -233,63 +265,74 @@ function MemberRow({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={role}
-            disabled={pending || isCurrentUser}
-            onChange={(e) => {
-              if (!isStaffRole(e.target.value)) return;
-              const nextRole = e.target.value;
-              setRole(nextRole);
-              if (nextRole !== 'custom') setCustomPermissions([]);
-            }}
-            className="border-input bg-background h-8 rounded-md border px-2 text-xs"
-          >
-            {ROLE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {titleCase(option)}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={pending || isCurrentUser}
-            onClick={() =>
-              onSave({
-                membershipId: member.membershipId,
-                role,
-                customPermissions: role === 'custom' ? customPermissions : [],
-              })
-            }
-            className="border-input h-8 rounded-md border px-3 text-xs disabled:opacity-50"
-          >
-            Save role
-          </button>
-          {!isCurrentUser && member.status === 'active' ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => onRemove(member.membershipId, member.email)}
-              className="text-destructive text-xs underline"
-            >
-              Remove
-            </button>
-          ) : null}
-        </div>
+        {canShowMemberActions ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {canEditMember ? (
+              <>
+                <select
+                  value={role}
+                  disabled={pending}
+                  onChange={(e) => {
+                    if (!isStaffRole(e.target.value)) return;
+                    const nextRole = e.target.value;
+                    setRole(nextRole);
+                    if (nextRole !== 'custom') setCustomPermissions([]);
+                  }}
+                  className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+                >
+                  {memberRoleOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {titleCase(option)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    onSave({
+                      membershipId: member.membershipId,
+                      role,
+                      customPermissions: role === 'custom' ? customPermissions : [],
+                    })
+                  }
+                  className="border-input h-8 rounded-md border px-3 text-xs disabled:opacity-50"
+                >
+                  Save role
+                </button>
+              </>
+            ) : null}
+            {canRemoveMember ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onRemove(member.membershipId, member.email)}
+                className="text-destructive text-xs underline"
+              >
+                Remove
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      {role === 'custom' ? (
-        <FlagChecklist
-          selected={customPermissions}
-          disabled={pending || isCurrentUser}
-          onToggle={toggleFlag}
-        />
+      {role === 'custom' && canEditMember ? (
+        <FlagChecklist selected={customPermissions} disabled={pending} onToggle={toggleFlag} />
       ) : null}
     </li>
   );
 }
 
-export function StaffClient({ currentUserId, members, invites }: Props) {
+export function StaffClient({
+  currentUserId,
+  currentUserRole,
+  members,
+  invites,
+  canInvite,
+  canEdit,
+  canRemove,
+  roleOptions,
+}: Props) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -307,13 +350,16 @@ export function StaffClient({ currentUserId, members, invites }: Props) {
 
   return (
     <>
-      <section className="border-border rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Invite a team member</h2>
-        <InviteForm
-          pending={isPending}
-          onSubmit={(payload) => run(() => inviteStaffAction(payload))}
-        />
-      </section>
+      {canInvite && roleOptions.length > 0 ? (
+        <section className="border-border rounded-lg border p-4">
+          <h2 className="text-lg font-semibold">Invite a team member</h2>
+          <InviteForm
+            pending={isPending}
+            roleOptions={roleOptions}
+            onSubmit={(payload) => run(() => inviteStaffAction(payload))}
+          />
+        </section>
+      ) : null}
 
       {invites.length > 0 ? (
         <section className="border-border rounded-lg border p-4">
@@ -334,14 +380,16 @@ export function StaffClient({ currentUserId, members, invites }: Props) {
                   <span className="text-muted-foreground">
                     expires {new Date(invite.expiresAt).toLocaleDateString()}
                   </span>
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => run(() => revokeInviteAction(invite.id))}
-                    className="text-destructive underline"
-                  >
-                    Revoke
-                  </button>
+                  {canInvite ? (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => run(() => revokeInviteAction(invite.id))}
+                      className="text-destructive underline"
+                    >
+                      Revoke
+                    </button>
+                  ) : null}
                 </span>
               </li>
             ))}
@@ -360,7 +408,11 @@ export function StaffClient({ currentUserId, members, invites }: Props) {
                 key={member.membershipId}
                 member={member}
                 isCurrentUser={member.userId === currentUserId}
+                currentUserRole={currentUserRole}
                 pending={isPending}
+                roleOptions={roleOptions}
+                canEdit={canEdit}
+                canRemove={canRemove}
                 onSave={(payload) => run(() => changeRoleAction(payload))}
                 onRemove={(membershipId, email) => {
                   if (window.confirm(`Remove ${email}?`)) {

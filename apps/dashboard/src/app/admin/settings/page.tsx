@@ -2,13 +2,20 @@ import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requireAnyPageFlag } from '@/lib/session';
 import { SettingsClient } from './settings-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const session = await requireOnboarded();
+  const { session, permissions } = await requireAnyPageFlag([
+    'settings.edit_profile',
+    'settings.edit_hours',
+    'settings.toggle_holiday',
+    'settings.edit_delivery',
+    'settings.edit_branding',
+    'settings.edit_notifications',
+  ]);
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);
@@ -80,6 +87,14 @@ export default async function SettingsPage() {
             inclusive: r.inclusive,
             label: r.label,
           })),
+        }}
+        permissions={{
+          canEditProfile: permissions.includes('settings.edit_profile'),
+          canEditHours: permissions.includes('settings.edit_hours'),
+          canToggleHoliday: permissions.includes('settings.toggle_holiday'),
+          canEditDelivery: permissions.includes('settings.edit_delivery'),
+          canEditBranding: permissions.includes('settings.edit_branding'),
+          canEditNotifications: permissions.includes('settings.edit_notifications'),
         }}
       />
     </main>

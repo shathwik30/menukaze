@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 import { MenuSetupForm } from './menu-setup-form';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  *   - Must be on the 'menu' step → redirect away otherwise.
  */
 export default async function OnboardingMenuPage() {
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['menu.edit']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');

@@ -2,14 +2,21 @@ import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { requireAnyPageFlag } from '@/lib/session';
 import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MenuManagementPage() {
-  const session = await requireOnboarded();
+  const { session, permissions } = await requireAnyPageFlag([
+    'menu.view',
+    'menu.edit',
+    'menu.toggle_availability',
+    'menu.schedule',
+  ]);
   const restaurantId = new Types.ObjectId(session.restaurantId);
+  const canEditMenu = permissions.includes('menu.edit');
+  const canToggleAvailability = permissions.includes('menu.toggle_availability');
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Menu, Category, Item } = getModels(conn);
@@ -96,6 +103,8 @@ export default async function MenuManagementPage() {
         menus={menuTree}
         currencyLabel={`${currency} (${locale})`}
         availableItems={availableItems}
+        canEdit={canEditMenu}
+        canToggleAvailability={canToggleAvailability}
       />
     </main>
   );

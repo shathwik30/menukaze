@@ -43,23 +43,27 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
       user: {
         create: {
           after: async (user) => {
+            const emailLower = user.email.toLowerCase();
+            const escapedEmail = user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             // Auto-verify email for users who have a pending staff invite.
             // The invite email itself proves ownership — no need for a
             // separate verification step. This is standard SaaS practice
             // (Slack, Linear, Notion all do this).
             const invite = await db.collection('staff_invites').findOne({
-              email: {
-                $regex: new RegExp(`^${user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
-              },
+              $or: [
+                { email: emailLower },
+                { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } },
+              ],
               usedAt: { $exists: false },
               revokedAt: { $exists: false },
               expiresAt: { $gt: new Date() },
             });
-            if (invite) {
-              await db
-                .collection('user')
-                .updateOne({ email: user.email }, { $set: { emailVerified: true } });
-            }
+            await db
+              .collection('user')
+              .updateOne(
+                { email: user.email },
+                { $set: { emailLower, type: 'staff', ...(invite ? { emailVerified: true } : {}) } },
+              );
           },
         },
       },

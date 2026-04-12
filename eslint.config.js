@@ -25,6 +25,7 @@ export default [
       '**/vitest.config.ts',
       '**/e2e/**',
       'packages/db/scripts/**',
+      'scripts/smoke.js',
       'tooling/**',
       '.prettierrc.cjs',
       'eslint.config.js',

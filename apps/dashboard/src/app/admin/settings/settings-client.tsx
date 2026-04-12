@@ -62,6 +62,15 @@ interface InitialSettings {
   taxRules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
 }
 
+interface SettingsPermissions {
+  canEditProfile: boolean;
+  canEditHours: boolean;
+  canToggleHoliday: boolean;
+  canEditDelivery: boolean;
+  canEditBranding: boolean;
+  canEditNotifications: boolean;
+}
+
 const DAY_LABEL: Record<DayKey, string> = {
   mon: 'Mon',
   tue: 'Tue',
@@ -72,7 +81,13 @@ const DAY_LABEL: Record<DayKey, string> = {
   sun: 'Sun',
 };
 
-export function SettingsClient({ initial }: { initial: InitialSettings }) {
+export function SettingsClient({
+  initial,
+  permissions,
+}: {
+  initial: InitialSettings;
+  permissions: SettingsPermissions;
+}) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -101,51 +116,71 @@ export function SettingsClient({ initial }: { initial: InitialSettings }) {
         <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
       ) : null}
 
-      <ProfileSection
-        initial={initial}
-        pending={isPending}
-        onSubmit={(payload) => run('profile', () => updateProfileAction(payload))}
-      />
-      <DeliverySection
-        initial={initial.delivery}
-        pending={isPending}
-        onSubmit={(payload) => run('delivery', () => updateDeliverySettingsAction(payload))}
-      />
-      <QrDineInSection
-        initial={initial.qrDineIn}
-        pending={isPending}
-        onSubmit={(payload) => run('QR dine-in', () => updateQrDineInSettingsAction(payload))}
-      />
-      <HoursSection
-        initial={initial.hours}
-        pending={isPending}
-        onSubmit={(hours) => run('hours', () => updateHoursAction({ hours }))}
-      />
-      <HolidaySection
-        initial={initial.holidayMode}
-        pending={isPending}
-        onSubmit={(payload) => run('holiday mode', () => updateHolidayModeAction(payload))}
-      />
-      <ThrottlingSection
-        initial={initial.throttling}
-        pending={isPending}
-        onSubmit={(payload) => run('throttling', () => updateThrottlingAction(payload))}
-      />
-      <BrandingSection
-        initial={initial.receiptBranding}
-        pending={isPending}
-        onSubmit={(payload) => run('receipt branding', () => updateReceiptBrandingAction(payload))}
-      />
-      <NotificationsSection
-        initial={initial.notificationPrefs}
-        pending={isPending}
-        onSubmit={(payload) => run('notifications', () => updateNotificationPrefsAction(payload))}
-      />
-      <TaxRulesSection
-        initial={initial.taxRules}
-        pending={isPending}
-        onSubmit={(taxRules) => run('tax rules', () => updateTaxRulesAction({ taxRules }))}
-      />
+      {permissions.canEditProfile ? (
+        <ProfileSection
+          initial={initial}
+          pending={isPending}
+          onSubmit={(payload) => run('profile', () => updateProfileAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditDelivery ? (
+        <DeliverySection
+          initial={initial.delivery}
+          pending={isPending}
+          onSubmit={(payload) => run('delivery', () => updateDeliverySettingsAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditProfile ? (
+        <QrDineInSection
+          initial={initial.qrDineIn}
+          pending={isPending}
+          onSubmit={(payload) => run('QR dine-in', () => updateQrDineInSettingsAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditHours ? (
+        <HoursSection
+          initial={initial.hours}
+          pending={isPending}
+          onSubmit={(hours) => run('hours', () => updateHoursAction({ hours }))}
+        />
+      ) : null}
+      {permissions.canToggleHoliday ? (
+        <HolidaySection
+          initial={initial.holidayMode}
+          pending={isPending}
+          onSubmit={(payload) => run('holiday mode', () => updateHolidayModeAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditProfile ? (
+        <ThrottlingSection
+          initial={initial.throttling}
+          pending={isPending}
+          onSubmit={(payload) => run('throttling', () => updateThrottlingAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditBranding ? (
+        <BrandingSection
+          initial={initial.receiptBranding}
+          pending={isPending}
+          onSubmit={(payload) =>
+            run('receipt branding', () => updateReceiptBrandingAction(payload))
+          }
+        />
+      ) : null}
+      {permissions.canEditNotifications ? (
+        <NotificationsSection
+          initial={initial.notificationPrefs}
+          pending={isPending}
+          onSubmit={(payload) => run('notifications', () => updateNotificationPrefsAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditProfile ? (
+        <TaxRulesSection
+          initial={initial.taxRules}
+          pending={isPending}
+          onSubmit={(taxRules) => run('tax rules', () => updateTaxRulesAction({ taxRules }))}
+        />
+      ) : null}
     </>
   );
 }
@@ -643,7 +678,12 @@ function NotificationsSection({
   );
 }
 
-type TaxRuleEntry = { name: string; percent: number; inclusive: boolean; label?: string };
+interface TaxRuleEntry {
+  name: string;
+  percent: number;
+  inclusive: boolean;
+  label?: string;
+}
 
 function TaxRulesSection({
   initial,

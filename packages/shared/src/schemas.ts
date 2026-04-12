@@ -50,6 +50,12 @@ export const minorAmountSchema = z.number().int().nonnegative();
 
 export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must be a 6-digit hex color');
 
+export const geoPointSchema = z.object({
+  type: z.literal('Point').default('Point'),
+  // GeoJSON coordinate order is [longitude, latitude].
+  coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
+});
+
 // ---------------------------------------------------------------------------
 // User
 // ---------------------------------------------------------------------------
@@ -57,10 +63,12 @@ export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must be a 6
 export const userSchema = z.object({
   _id: objectIdSchema,
   email: emailSchema,
-  emailLower: z.string().toLowerCase(),
+  emailLower: emailSchema.toLowerCase().optional(),
   emailVerified: z.boolean(),
   name: z.string().min(1).max(120),
+  image: z.string().max(2048).nullable().optional(),
   locale: isoLocaleSchema.default('en-US'),
+  type: z.enum(['staff', 'customer']).default('staff'),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -129,6 +137,18 @@ export const taxRuleSchema = z.object({
   label: z.string().max(64).optional(),
 });
 
+export const restaurantHolidayModeSchema = z.object({
+  enabled: z.boolean().default(false),
+  message: z.string().max(500).optional(),
+});
+
+export const restaurantThrottlingSchema = z.object({
+  enabled: z.boolean().default(false),
+  maxConcurrentOrders: z.number().int().positive().default(20),
+});
+
+export const onboardingStepSchema = z.enum(['menu', 'tables', 'razorpay', 'go-live', 'complete']);
+
 export const restaurantHardeningSchema = z.object({
   strictMode: z.boolean().default(false),
   wifiGate: z.boolean().default(false),
@@ -143,24 +163,26 @@ export const restaurantSchema = z.object({
   name: z.string().min(1).max(120),
   customDomain: z.string().max(253).optional(),
   sslStatus: z.enum(['pending', 'active', 'failed']).optional(),
+  description: z.string().max(1000).optional(),
+  email: emailSchema.optional(),
   country: isoCountrySchema,
   currency: currencySchema,
   locale: isoLocaleSchema,
   timezone: ianaTimezoneSchema,
+  estimatedPrepMinutes: z.number().int().min(1).max(600).default(20),
+  minimumOrderMinor: minorAmountSchema.default(0),
+  deliveryFeeMinor: minorAmountSchema.default(0),
   addressStructured: z
     .object({
-      line1: z.string(),
+      line1: z.string().min(1).max(200),
       line2: z.string().optional(),
-      city: z.string(),
+      city: z.string().min(1).max(120),
       state: z.string().optional(),
       postalCode: z.string().optional(),
       country: isoCountrySchema,
     })
     .partial({ line2: true, state: true, postalCode: true }),
-  geo: z.object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
-  }),
+  geo: geoPointSchema,
   wifiPublicIps: z.array(z.string()).default([]),
   logoUrl: z.string().url().optional(),
   phone: phoneE164Schema.optional(),
@@ -170,8 +192,13 @@ export const restaurantSchema = z.object({
     .enum(['trial', 'active', 'past_due', 'suspended', 'cancelled'])
     .default('trial'),
   dineInSessionTimeoutMinutes: z.number().int().min(30).max(720).default(180),
+  onboardingStep: onboardingStepSchema.default('menu'),
+  liveAt: z.date().optional(),
+  checklistDismissed: z.boolean().default(false),
   geofenceRadiusM: z.number().int().positive().default(100),
   hardening: restaurantHardeningSchema.prefault({}),
+  holidayMode: restaurantHolidayModeSchema.prefault({}),
+  throttling: restaurantThrottlingSchema.prefault({}),
   taxRules: z.array(taxRuleSchema).default([]),
   featureFlags: z.record(z.string(), z.boolean()).default({}),
   receiptBranding: z

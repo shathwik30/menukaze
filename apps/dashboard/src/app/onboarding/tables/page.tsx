@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 import { TablesSetupForm } from './tables-setup-form';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  *     /admin (the /admin page's own routing then decides where to go).
  */
 export default async function OnboardingTablesPage() {
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['tables.edit']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');

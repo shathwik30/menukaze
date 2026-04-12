@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Types } from 'mongoose';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * multi-table PDF from the companion route.
  */
 export default async function PrintAllTablesPage() {
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['tables.qr_print']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');

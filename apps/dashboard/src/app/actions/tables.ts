@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import { z } from 'zod';
 import { generateQrToken, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { PermissionDeniedError, requireFlags } from '@/lib/session';
 
 const inputSchema = z
   .object({
@@ -35,7 +35,15 @@ export type CreateTablesStarterResult =
  * tables step (onboardingStep is past 'tables'), the action no-ops.
  */
 export async function createTablesStarterAction(raw: unknown): Promise<CreateTablesStarterResult> {
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['tables.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to set up tables.' };
+    }
+    throw error;
+  }
 
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) {

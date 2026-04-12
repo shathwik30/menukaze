@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
 import { AcceptInviteForm } from './accept-form';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function AcceptInvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   if (!token || token.length < 16) redirect('/');
-  const session = await requireSession();
+  const session = await getSession();
 
   const conn = await getMongoConnection('live');
   const { StaffInvite, Restaurant } = getModels(conn);
@@ -55,6 +55,34 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ t
   }
 
   const restaurant = await Restaurant.findById(invite.restaurantId).exec();
+
+  if (!session) {
+    const encodedToken = encodeURIComponent(token);
+    return (
+      <InviteShell>
+        <h1 className="text-2xl font-bold">Join {restaurant?.name}</h1>
+        <p className="text-muted-foreground text-sm">
+          This invite was sent to <strong>{invite.email}</strong> for the{' '}
+          <strong>{invite.role}</strong> role. Sign in or create an account with that same email to
+          accept it.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/login?invite=${encodedToken}`}
+            className="bg-primary text-primary-foreground inline-flex h-10 items-center rounded-md px-4 text-sm font-medium"
+          >
+            Log in to accept
+          </Link>
+          <Link
+            href={`/signup?invite=${encodedToken}`}
+            className="border-input inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium"
+          >
+            Create staff account
+          </Link>
+        </div>
+      </InviteShell>
+    );
+  }
 
   if (invite.email.toLowerCase() !== session.user.email.toLowerCase()) {
     return (

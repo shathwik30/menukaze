@@ -1,10 +1,12 @@
 import 'server-only';
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { cookies, headers } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
 import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { hasAllFlags, hasAnyFlag, type Flag } from '@menukaze/rbac';
+import { hasAllFlags, hasAnyFlag, resolveFlags, type Flag, type StaffRole } from '@menukaze/rbac';
 import { getAuth } from './auth';
+
+const ACTIVE_RESTAURANT_COOKIE = 'menukaze_active_restaurant_id';
 
 export interface SessionUser {
   id: string;
@@ -16,6 +18,14 @@ export interface CurrentSession {
   user: SessionUser;
   /** Null if the user has signed up but not completed onboarding yet. */
   restaurantId: string | null;
+  role: StaffRole | null;
+  permissions: Flag[];
+}
+
+export interface AuthorizedSession {
+  session: CurrentSession & { restaurantId: string };
+  role: StaffRole;
+  permissions: readonly Flag[];
 }
 
 /**
@@ -32,11 +42,37 @@ export async function getSession(): Promise<CurrentSession | null> {
   // first one. Phase 4.x will add a tenant switcher.
   const conn = await getMongoConnection('live');
   const { StaffMembership } = getModels(conn);
-  const membership = await StaffMembership.findOne(
-    { userId: new Types.ObjectId(session.user.id), status: 'active' },
-    { restaurantId: 1 },
-    { skipTenantGuard: true },
-  ).exec();
+  const userId = new Types.ObjectId(session.user.id);
+  const preferredRestaurantId = (await cookies()).get(ACTIVE_RESTAURANT_COOKIE)?.value;
+  const preferredMembership =
+    preferredRestaurantId && Types.ObjectId.isValid(preferredRestaurantId)
+      ? await StaffMembership.findOne(
+          {
+            userId,
+            restaurantId: new Types.ObjectId(preferredRestaurantId),
+            status: 'active',
+          },
+          { restaurantId: 1, role: 1, customPermissions: 1 },
+          { skipTenantGuard: true },
+        ).exec()
+      : null;
+  const membership =
+    preferredMembership ??
+    (await StaffMembership.findOne(
+      { userId, status: 'active' },
+      { restaurantId: 1, role: 1, customPermissions: 1 },
+      { skipTenantGuard: true },
+    )
+      .sort({ updatedAt: -1 })
+      .exec());
+  const permissions = membership
+    ? Array.from(
+        resolveFlags({
+          role: membership.role,
+          customPermissions: membership.customPermissions,
+        }),
+      )
+    : [];
 
   return {
     user: {
@@ -45,6 +81,8 @@ export async function getSession(): Promise<CurrentSession | null> {
       name: session.user.name ?? '',
     },
     restaurantId: membership ? String(membership.restaurantId) : null,
+    role: membership?.role ?? null,
+    permissions,
   };
 }
 
@@ -98,14 +136,21 @@ async function loadActiveMembership(session: CurrentSession & { restaurantId: st
   return membership;
 }
 
+function permissionsForMembership(membership: Awaited<ReturnType<typeof loadActiveMembership>>) {
+  return Array.from(
+    resolveFlags({
+      role: membership.role,
+      customPermissions: membership.customPermissions,
+    }),
+  );
+}
+
 /**
  * Require the caller to hold **every** flag in the list. Throws
  * `PermissionDeniedError` if any is missing. The membership is returned
  * so the caller can also use the staff member's role / user id.
  */
-export async function requireFlags(
-  flags: Flag[],
-): Promise<{ session: CurrentSession & { restaurantId: string }; role: string }> {
+export async function requireFlags(flags: Flag[]): Promise<AuthorizedSession> {
   const session = await requireOnboarded();
   const membership = await loadActiveMembership(session);
   if (
@@ -113,7 +158,7 @@ export async function requireFlags(
   ) {
     throw new PermissionDeniedError(flags);
   }
-  return { session, role: membership.role };
+  return { session, role: membership.role, permissions: permissionsForMembership(membership) };
 }
 
 /**
@@ -122,9 +167,7 @@ export async function requireFlags(
  * but non-identical permissions (e.g., waiters can update status for
  * assigned orders; kitchen can update status for KDS).
  */
-export async function requireAnyFlag(
-  flags: Flag[],
-): Promise<{ session: CurrentSession & { restaurantId: string }; role: string }> {
+export async function requireAnyFlag(flags: Flag[]): Promise<AuthorizedSession> {
   const session = await requireOnboarded();
   const membership = await loadActiveMembership(session);
   if (
@@ -132,5 +175,23 @@ export async function requireAnyFlag(
   ) {
     throw new PermissionDeniedError(flags);
   }
-  return { session, role: membership.role };
+  return { session, role: membership.role, permissions: permissionsForMembership(membership) };
+}
+
+export async function requireAnyPageFlag(flags: Flag[]): Promise<AuthorizedSession> {
+  try {
+    return await requireAnyFlag(flags);
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) notFound();
+    throw error;
+  }
+}
+
+export async function requirePageFlag(flags: Flag[]): Promise<AuthorizedSession> {
+  try {
+    return await requireFlags(flags);
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) notFound();
+    throw error;
+  }
 }

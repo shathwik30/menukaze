@@ -83,6 +83,8 @@ interface Props {
   menus: ManagerMenu[];
   currencyLabel: string;
   availableItems: ManagerItemChoice[];
+  canEdit: boolean;
+  canToggleAvailability: boolean;
 }
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -174,7 +176,13 @@ async function handleImageUpload(
  * refresh the tree in place. Inline state is only used for transient form
  * fields (new menu name, new item details).
  */
-export function MenuManagerClient({ menus, currencyLabel, availableItems }: Props) {
+export function MenuManagerClient({
+  menus,
+  currencyLabel,
+  availableItems,
+  canEdit,
+  canToggleAvailability,
+}: Props) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -192,10 +200,12 @@ export function MenuManagerClient({ menus, currencyLabel, availableItems }: Prop
     <>
       <p className="text-muted-foreground text-xs">Currency: {currencyLabel}</p>
 
-      <CreateMenuForm
-        onSubmit={(name, order) => run(() => createMenuAction({ name, order }))}
-        pending={isPending}
-      />
+      {canEdit ? (
+        <CreateMenuForm
+          onSubmit={(name, order) => run(() => createMenuAction({ name, order }))}
+          pending={isPending}
+        />
+      ) : null}
 
       {menus.length === 0 ? (
         <p className="text-muted-foreground text-sm">
@@ -214,31 +224,35 @@ export function MenuManagerClient({ menus, currencyLabel, availableItems }: Prop
                   : 'Always active'}
               </p>
             </div>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => {
-                if (
-                  window.confirm(`Delete "${menu.name}" and every category + item underneath it?`)
-                ) {
-                  run(() => deleteMenuAction(menu.id));
-                }
-              }}
-              className="text-destructive text-xs underline"
-            >
-              Delete menu
-            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(`Delete "${menu.name}" and every category + item underneath it?`)
+                  ) {
+                    run(() => deleteMenuAction(menu.id));
+                  }
+                }}
+                className="text-destructive text-xs underline"
+              >
+                Delete menu
+              </button>
+            ) : null}
           </div>
 
-          <MenuSettingsForm menu={menu} pending={isPending} run={run} />
+          {canEdit ? <MenuSettingsForm menu={menu} pending={isPending} run={run} /> : null}
 
-          <CreateCategoryForm
-            menuId={menu.id}
-            onSubmit={(name, order) =>
-              run(() => createCategoryAction({ menuId: menu.id, name, order }))
-            }
-            pending={isPending}
-          />
+          {canEdit ? (
+            <CreateCategoryForm
+              menuId={menu.id}
+              onSubmit={(name, order) =>
+                run(() => createCategoryAction({ menuId: menu.id, name, order }))
+              }
+              pending={isPending}
+            />
+          ) : null}
 
           <div className="mt-4 flex flex-col gap-4">
             {menu.categories.map((category) => (
@@ -248,6 +262,8 @@ export function MenuManagerClient({ menus, currencyLabel, availableItems }: Prop
                 availableItems={availableItems}
                 pending={isPending}
                 run={run}
+                canEdit={canEdit}
+                canToggleAvailability={canToggleAvailability}
               />
             ))}
           </div>
@@ -457,11 +473,15 @@ function CategoryBlock({
   availableItems,
   pending,
   run,
+  canEdit,
+  canToggleAvailability,
 }: {
   category: ManagerCategory;
   availableItems: ManagerItemChoice[];
   pending: boolean;
   run: ActionRunner;
+  canEdit: boolean;
+  canToggleAvailability: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
@@ -522,33 +542,41 @@ function CategoryBlock({
               <h3 className="text-sm font-semibold">{category.name}</h3>
               <p className="text-muted-foreground text-[11px]">Order {category.order}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setEditing(true)} className="text-xs underline">
-                Edit
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  if (window.confirm(`Delete "${category.name}" and every item underneath?`)) {
-                    run(() => deleteCategoryAction(category.id));
-                  }
-                }}
-                className="text-destructive text-xs underline"
-              >
-                Delete category
-              </button>
-            </div>
+            {canEdit ? (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-xs underline"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    if (window.confirm(`Delete "${category.name}" and every item underneath?`)) {
+                      run(() => deleteCategoryAction(category.id));
+                    }
+                  }}
+                  className="text-destructive text-xs underline"
+                >
+                  Delete category
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
 
-      <ItemCreateRow
-        categoryId={category.id}
-        availableItems={availableItems}
-        pending={pending}
-        run={run}
-      />
+      {canEdit ? (
+        <ItemCreateRow
+          categoryId={category.id}
+          availableItems={availableItems}
+          pending={pending}
+          run={run}
+        />
+      ) : null}
 
       <ul className="divide-border mt-3 divide-y text-sm">
         {category.items.map((item) => (
@@ -558,6 +586,8 @@ function CategoryBlock({
             availableItems={availableItems}
             pending={pending}
             run={run}
+            canEdit={canEdit}
+            canToggleAvailability={canToggleAvailability}
           />
         ))}
       </ul>
@@ -733,11 +763,15 @@ function ItemRow({
   availableItems,
   pending,
   run,
+  canEdit,
+  canToggleAvailability,
 }: {
   item: ManagerItem;
   availableItems: ManagerItemChoice[];
   pending: boolean;
   run: ActionRunner;
+  canEdit: boolean;
+  canToggleAvailability: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
@@ -792,31 +826,37 @@ function ItemRow({
           </div>
         </div>
         <span className="text-foreground shrink-0 font-mono text-xs">{item.priceLabel}</span>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            run(() => toggleItemSoldOutAction({ id: item.id, soldOut: !item.soldOut }))
-          }
-          className="text-xs underline"
-        >
-          {item.soldOut ? 'Restock' : 'Sold out'}
-        </button>
-        <button type="button" onClick={() => setEditing(true)} className="text-xs underline">
-          Edit
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            if (window.confirm(`Delete "${item.name}"?`)) {
-              run(() => deleteItemAction(item.id));
+        {canToggleAvailability ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              run(() => toggleItemSoldOutAction({ id: item.id, soldOut: !item.soldOut }))
             }
-          }}
-          className="text-destructive text-xs underline"
-        >
-          Delete
-        </button>
+            className="text-xs underline"
+          >
+            {item.soldOut ? 'Restock' : 'Sold out'}
+          </button>
+        ) : null}
+        {canEdit ? (
+          <>
+            <button type="button" onClick={() => setEditing(true)} className="text-xs underline">
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (window.confirm(`Delete "${item.name}"?`)) {
+                  run(() => deleteItemAction(item.id));
+                }
+              }}
+              className="text-destructive text-xs underline"
+            >
+              Delete
+            </button>
+          </>
+        ) : null}
       </li>
     );
   }

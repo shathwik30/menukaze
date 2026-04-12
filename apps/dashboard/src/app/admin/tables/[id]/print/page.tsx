@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { notFound } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function PrintableQrPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!Types.ObjectId.isValid(id)) notFound();
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['tables.qr_print']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');

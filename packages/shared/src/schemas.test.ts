@@ -3,11 +3,13 @@ import {
   channelSchema,
   createRestaurantInputSchema,
   emailSchema,
+  geoPointSchema,
   objectIdSchema,
   phoneE164Schema,
   restaurantSchema,
   slugSchema,
   staffMembershipSchema,
+  userSchema,
 } from './schemas';
 
 describe('primitive schemas', () => {
@@ -37,6 +39,34 @@ describe('primitive schemas', () => {
     expect(() => phoneE164Schema.parse('14155552671')).toThrow();
     expect(() => phoneE164Schema.parse('+0123')).toThrow();
   });
+
+  it('geoPointSchema accepts GeoJSON longitude-latitude order', () => {
+    expect(geoPointSchema.parse({ coordinates: [-122.4194, 37.7749] })).toEqual({
+      type: 'Point',
+      coordinates: [-122.4194, 37.7749],
+    });
+    expect(() =>
+      geoPointSchema.parse({ type: 'Point', coordinates: [37.7749, -122.4194] }),
+    ).toThrow();
+  });
+});
+
+describe('userSchema', () => {
+  it('accepts BetterAuth-compatible optional fields', () => {
+    const parsed = userSchema.parse({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'Owner@Joes.Pizza',
+      emailLower: 'OWNER@JOES.PIZZA',
+      emailVerified: false,
+      name: 'Joe',
+      image: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    expect(parsed.emailLower).toBe('owner@joes.pizza');
+    expect(parsed.locale).toBe('en-US');
+    expect(parsed.type).toBe('staff');
+  });
 });
 
 describe('createRestaurantInputSchema', () => {
@@ -53,7 +83,7 @@ describe('createRestaurantInputSchema', () => {
         city: 'San Francisco',
         country: 'US',
       },
-      geo: { lat: 37.7749, lng: -122.4194 },
+      geo: { type: 'Point', coordinates: [-122.4194, 37.7749] },
     };
     const parsed = createRestaurantInputSchema.parse(input);
     expect(parsed.slug).toBe('joes-pizza');
@@ -70,7 +100,7 @@ describe('createRestaurantInputSchema', () => {
         locale: 'en-US',
         timezone: 'UTC',
         addressStructured: { line1: '1 St', city: 'X', country: 'US' },
-        geo: { lat: 0, lng: 0 },
+        geo: { type: 'Point', coordinates: [0, 0] },
       }),
     ).toThrow();
   });
@@ -85,7 +115,7 @@ describe('createRestaurantInputSchema', () => {
         locale: 'en-US',
         timezone: 'UTC',
         addressStructured: { line1: '1 St', city: 'X', country: 'US' },
-        geo: { lat: 91, lng: 0 },
+        geo: { type: 'Point', coordinates: [0, 91] },
       }),
     ).toThrow();
   });
@@ -131,7 +161,7 @@ describe('restaurantSchema defaults', () => {
       locale: 'en-US',
       timezone: 'America/Los_Angeles',
       addressStructured: { line1: '1', city: 'SF', country: 'US' },
-      geo: { lat: 37.7, lng: -122.4 },
+      geo: { type: 'Point', coordinates: [-122.4, 37.7] },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -139,6 +169,10 @@ describe('restaurantSchema defaults', () => {
     expect(parsed.dineInSessionTimeoutMinutes).toBe(180);
     expect(parsed.geofenceRadiusM).toBe(100);
     expect(parsed.hardening.maxSessionsPerTable).toBe(1);
+    expect(parsed.holidayMode.enabled).toBe(false);
+    expect(parsed.throttling.maxConcurrentOrders).toBe(20);
+    expect(parsed.onboardingStep).toBe('menu');
+    expect(parsed.checklistDismissed).toBe(false);
     expect(parsed.subscriptionStatus).toBe('trial');
   });
 });

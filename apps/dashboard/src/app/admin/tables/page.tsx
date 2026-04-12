@@ -1,14 +1,17 @@
 import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 import { TablesManager, type ManagerTable } from './tables-manager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TablesPage() {
-  const session = await requireOnboarded();
+  const { session, permissions } = await requirePageFlag(['tables.view']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
+  const canEditTables = permissions.includes('tables.edit');
+  const canPrintQr = permissions.includes('tables.qr_print');
+  const canProcessPayments = permissions.includes('payments.process');
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table, TableSession } = getModels(conn);
@@ -44,9 +47,9 @@ export default async function TablesPage() {
     name: t.name,
     capacity: t.capacity,
     zone: t.zone,
-    qrToken: t.qrToken,
+    qrToken: canPrintQr ? t.qrToken : '',
     status: t.status,
-    qrUrl: `https://${slug}.menukaze.com/t/${t.qrToken}`,
+    qrUrl: canPrintQr ? `https://${slug}.menukaze.com/t/${t.qrToken}` : '',
   }));
 
   return (
@@ -59,7 +62,7 @@ export default async function TablesPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {rows.length > 0 ? (
+          {rows.length > 0 && canPrintQr ? (
             <>
               <Link
                 href="/admin/tables/print"
@@ -82,7 +85,13 @@ export default async function TablesPage() {
         </div>
       </header>
 
-      <TablesManager restaurantId={session.restaurantId} tables={rows} />
+      <TablesManager
+        restaurantId={session.restaurantId}
+        tables={rows}
+        canEdit={canEditTables}
+        canPrintQr={canPrintQr}
+        canProcessPayments={canProcessPayments}
+      />
     </main>
   );
 }

@@ -29,6 +29,9 @@ export interface ManagerTable {
 interface Props {
   restaurantId: string;
   tables: ManagerTable[];
+  canEdit: boolean;
+  canPrintQr: boolean;
+  canProcessPayments: boolean;
 }
 
 const STATUS_LABEL: Record<ManagerTable['status'], string> = {
@@ -53,7 +56,13 @@ interface TableAlert {
   createdAt: string;
 }
 
-export function TablesManager({ restaurantId, tables }: Props) {
+export function TablesManager({
+  restaurantId,
+  tables,
+  canEdit,
+  canPrintQr,
+  canProcessPayments,
+}: Props) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [rows, setRows] = useState(tables);
@@ -139,11 +148,13 @@ export function TablesManager({ restaurantId, tables }: Props) {
 
   return (
     <>
-      <CreateTableForm
-        nextNumber={(rows.at(-1)?.number ?? 0) + 1}
-        onSubmit={(input) => run(() => createTableAction(input))}
-        pending={isPending}
-      />
+      {canEdit ? (
+        <CreateTableForm
+          nextNumber={(rows.at(-1)?.number ?? 0) + 1}
+          onSubmit={(input) => run(() => createTableAction(input))}
+          pending={isPending}
+        />
+      ) : null}
 
       <section className="border-border rounded-lg border p-3">
         <div className="flex items-center justify-between gap-3">
@@ -226,6 +237,9 @@ export function TablesManager({ restaurantId, tables }: Props) {
                 )
               }
               pending={isPending}
+              canEdit={canEdit}
+              canPrintQr={canPrintQr}
+              canProcessPayments={canProcessPayments}
             />
           ))}
         </div>
@@ -325,6 +339,9 @@ function TableCard({
   onRegenerate,
   onSettleAtCounter,
   pending,
+  canEdit,
+  canPrintQr,
+  canProcessPayments,
 }: {
   table: ManagerTable;
   onUpdate: (patch: { name?: string; capacity?: number; zone?: string }) => void;
@@ -332,6 +349,9 @@ function TableCard({
   onRegenerate: () => void;
   onSettleAtCounter: (method: 'cash' | 'terminal') => void;
   pending: boolean;
+  canEdit: boolean;
+  canPrintQr: boolean;
+  canProcessPayments: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(table.name);
@@ -368,11 +388,15 @@ function TableCard({
         </span>
       </div>
 
-      <div className="border-border mt-3 flex items-center justify-center rounded-md border bg-white p-3">
-        <QRCodeSVG value={table.qrUrl} size={120} level="M" />
-      </div>
+      {canPrintQr && table.qrUrl ? (
+        <>
+          <div className="border-border mt-3 flex items-center justify-center rounded-md border bg-white p-3">
+            <QRCodeSVG value={table.qrUrl} size={120} level="M" />
+          </div>
 
-      <p className="text-muted-foreground mt-2 truncate text-[10px]">{table.qrUrl}</p>
+          <p className="text-muted-foreground mt-2 truncate text-[10px]">{table.qrUrl}</p>
+        </>
+      ) : null}
 
       {editing ? (
         <form
@@ -426,37 +450,44 @@ function TableCard({
         </form>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => window.open(`/admin/tables/${table.id}/print`, '_blank')}
-            className="border-input rounded-md border px-2 py-1"
-          >
-            Print
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="border-input rounded-md border px-2 py-1"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onRegenerate}
-            className="border-input rounded-md border px-2 py-1 disabled:opacity-50"
-          >
-            New QR
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onDelete}
-            className="text-destructive rounded-md px-2 py-1 disabled:opacity-50"
-          >
-            Delete
-          </button>
-          {table.activeSessionId &&
+          {canPrintQr ? (
+            <button
+              type="button"
+              onClick={() => window.open(`/admin/tables/${table.id}/print`, '_blank')}
+              className="border-input rounded-md border px-2 py-1"
+            >
+              Print
+            </button>
+          ) : null}
+          {canEdit ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="border-input rounded-md border px-2 py-1"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onRegenerate}
+                className="border-input rounded-md border px-2 py-1 disabled:opacity-50"
+              >
+                New QR
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onDelete}
+                className="text-destructive rounded-md px-2 py-1 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </>
+          ) : null}
+          {canProcessPayments &&
+          table.activeSessionId &&
           (table.status === 'bill_requested' || table.status === 'needs_review') ? (
             <>
               <button

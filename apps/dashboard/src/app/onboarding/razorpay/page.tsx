@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 import { RazorpayConnectForm } from './razorpay-connect-form';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  *   - Must be on the 'razorpay' step → otherwise bounce to /admin.
  */
 export default async function OnboardingRazorpayPage() {
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['payments.configure']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');

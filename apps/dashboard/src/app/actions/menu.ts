@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { PermissionDeniedError, requireFlags } from '@/lib/session';
 import { parseMenuCsvImport } from '@/lib/menu-import';
 
 const itemInputSchema = z.object({
@@ -52,7 +52,15 @@ function majorToMinor(major: number, currency: string): number {
  * restaurant already has any items (re-onboarding guard).
  */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['menu.edit']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to set up the menu.' };
+    }
+    throw error;
+  }
 
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) {

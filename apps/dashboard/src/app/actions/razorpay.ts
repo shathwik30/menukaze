@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import { z } from 'zod';
 import { envelopeEncrypt, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { PermissionDeniedError, requireFlags } from '@/lib/session';
 import { verifyRazorpayKeys } from '@/lib/razorpay';
 
 const inputSchema = z.object({
@@ -36,7 +36,15 @@ export type ConnectRazorpayResult = { ok: true } | { ok: false; error: string };
  * envelope-encoded strings land in MongoDB.
  */
 export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorpayResult> {
-  const session = await requireOnboarded();
+  let session;
+  try {
+    ({ session } = await requireFlags(['payments.configure']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to configure payments.' };
+    }
+    throw error;
+  }
 
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) {

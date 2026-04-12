@@ -1,14 +1,29 @@
 import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { requireOnboarded } from '@/lib/session';
+import { resolveFlags, type StaffRole } from '@menukaze/rbac';
+import { requirePageFlag } from '@/lib/session';
 import { StaffClient, type StaffMember, type StaffInviteRow } from './staff-client';
 
 export const dynamic = 'force-dynamic';
 
+const ROLE_OPTIONS: StaffRole[] = ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'];
+
 export default async function StaffPage() {
-  const session = await requireOnboarded();
+  const { session, role, permissions } = await requirePageFlag(['staff.view']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
+  const canInvite = permissions.includes('staff.invite');
+  const canEdit = permissions.includes('staff.edit');
+  const canRemove = permissions.includes('staff.remove');
+  const canManageCustomRoles = permissions.includes('staff.manage_custom_roles');
+  const roleOptions = ROLE_OPTIONS.filter((candidate) => {
+    if (candidate === 'owner') return role === 'owner';
+    if (candidate === 'custom') return canManageCustomRoles;
+    if (role === 'owner') return true;
+    return Array.from(resolveFlags({ role: candidate })).every((flag) =>
+      permissions.includes(flag),
+    );
+  });
 
   const conn = await getMongoConnection('live');
   const { StaffMembership, User, StaffInvite } = getModels(conn);
@@ -66,7 +81,16 @@ export default async function StaffPage() {
         </Link>
       </header>
 
-      <StaffClient currentUserId={session.user.id} members={members} invites={inviteRows} />
+      <StaffClient
+        currentUserId={session.user.id}
+        currentUserRole={role}
+        members={members}
+        invites={inviteRows}
+        canInvite={canInvite}
+        canEdit={canEdit}
+        canRemove={canRemove}
+        roleOptions={roleOptions}
+      />
     </main>
   );
 }

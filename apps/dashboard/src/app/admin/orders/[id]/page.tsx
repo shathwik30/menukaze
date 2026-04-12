@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { requirePageFlag } from '@/lib/session';
 import { OrderStatusControl } from './order-status-control';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export default async function DashboardOrderDetailPage({
   const { id } = await params;
   if (!Types.ObjectId.isValid(id)) notFound();
 
-  const session = await requireOnboarded();
+  const { session } = await requirePageFlag(['orders.view_all']);
   const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Restaurant, Order } = getModels(conn);

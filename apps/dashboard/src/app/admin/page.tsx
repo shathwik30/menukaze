@@ -31,9 +31,23 @@ export default async function DashboardAdminPage() {
   const locale = restaurant?.locale ?? 'en-US';
   const slug = restaurant?.slug ?? 'demo';
   const firstTable = tables[0];
+  const hasPermission = (flag: (typeof session.permissions)[number]) =>
+    session.permissions.includes(flag);
+  const canViewSettings = session.permissions.some((flag) => flag.startsWith('settings.'));
+  const canViewStaff = hasPermission('staff.view');
+  const canEditMenu = hasPermission('menu.edit');
+  const canPrintQr = hasPermission('tables.qr_print');
+  const navLinks = [
+    { href: '/admin/orders', label: 'Orders', visible: hasPermission('orders.view_all') },
+    { href: '/admin/kds', label: 'KDS', visible: hasPermission('kds.view') },
+    { href: '/admin/menu', label: 'Menu', visible: hasPermission('menu.view') },
+    { href: '/admin/tables', label: 'Tables', visible: hasPermission('tables.view') },
+    { href: '/admin/settings', label: 'Settings', visible: canViewSettings },
+    { href: '/admin/staff', label: 'Staff', visible: canViewStaff },
+  ];
 
   // Post-onboarding checklist — only rendered if the user hasn't dismissed it.
-  const showChecklist = restaurant && !restaurant.checklistDismissed;
+  const showChecklist = restaurant && !restaurant.checklistDismissed && canViewSettings;
   const checklist = restaurant ? computeChecklist(restaurant, items, tables) : null;
 
   return (
@@ -46,42 +60,17 @@ export default async function DashboardAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/admin/orders"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            Orders
-          </Link>
-          <Link
-            href="/admin/kds"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            KDS
-          </Link>
-          <Link
-            href="/admin/menu"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            Menu
-          </Link>
-          <Link
-            href="/admin/tables"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            Tables
-          </Link>
-          <Link
-            href="/admin/settings"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            Settings
-          </Link>
-          <Link
-            href="/admin/staff"
-            className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
-            Staff
-          </Link>
+          {navLinks
+            .filter((link) => link.visible)
+            .map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
+              >
+                {link.label}
+              </Link>
+            ))}
           <form action={signOutAction}>
             <button
               type="submit"
@@ -117,10 +106,12 @@ export default async function DashboardAdminPage() {
                 <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                 Connected <span className="text-muted-foreground">(test mode)</span>
               </span>
-            ) : (
+            ) : hasPermission('payments.configure') ? (
               <Link href="/onboarding/razorpay" className="text-foreground underline">
                 Not connected — set up
               </Link>
+            ) : (
+              'Not connected'
             )}
           </dd>
         </dl>
@@ -139,12 +130,14 @@ export default async function DashboardAdminPage() {
         {items.length === 0 ? (
           <div className="mt-4">
             <p className="text-muted-foreground text-sm">No menu items yet.</p>
-            <Link
-              href="/onboarding/menu"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
-            >
-              Set up your menu
-            </Link>
+            {canEditMenu ? (
+              <Link
+                href="/onboarding/menu"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
+              >
+                Set up your menu
+              </Link>
+            ) : null}
           </div>
         ) : (
           <ul className="mt-4 space-y-2 text-sm">
@@ -209,7 +202,7 @@ export default async function DashboardAdminPage() {
               </ul>
             </div>
 
-            {firstTable ? (
+            {firstTable && canPrintQr ? (
               <div className="border-border flex flex-col items-center rounded-md border bg-white p-3">
                 <QRCodeSVG
                   value={`https://${slug}.menukaze.com/t/${firstTable.qrToken}`}
