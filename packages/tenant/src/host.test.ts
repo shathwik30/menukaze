@@ -33,7 +33,7 @@ describe('parseHost', () => {
   });
 
   it('detects local dev tenant subdomains', () => {
-    expect(parseHost('demo.localhost.menukaze.dev:3001')).toEqual({
+    expect(parseHost('demo.localhost:3001')).toEqual({
       kind: 'subdomain',
       slug: 'demo',
     });

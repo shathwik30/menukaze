@@ -20,12 +20,7 @@ function isReservedSubdomain(value: string): value is ReservedSubdomain {
   return RESERVED_SET.has(value);
 }
 
-const APEX_DOMAINS = new Set([
-  'menukaze.com',
-  'menukaze.dev',
-  'localhost',
-  'localhost.menukaze.dev',
-]);
+const APEX_DOMAINS = new Set(['menukaze.com', 'menukaze.dev', 'localhost']);
 
 /**
  * Strip port + lowercase the host header.
@@ -53,7 +48,7 @@ export function parseHost(rawHost: string | null | undefined): HostKind {
 
   if (APEX_DOMAINS.has(host)) return { kind: 'apex' };
 
-  // Match `<sub>.menukaze.{com,dev}` or `<sub>.localhost.menukaze.dev`
+  // Match `<sub>.menukaze.{com,dev}` or `<sub>.localhost`
   for (const apex of APEX_DOMAINS) {
     const suffix = '.' + apex;
     if (host.endsWith(suffix)) {

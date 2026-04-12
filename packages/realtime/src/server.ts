@@ -1,4 +1,3 @@
-import 'server-only';
 import Ably from 'ably';
 import type { RealtimeEvent } from './events';
 

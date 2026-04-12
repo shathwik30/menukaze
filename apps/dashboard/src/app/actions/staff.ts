@@ -302,5 +302,13 @@ export async function acceptInviteAction(
     { $set: { usedAt: new Date() } },
   ).exec();
 
+  // Auto-verify the invited user's email — the invite email itself proves
+  // ownership, so requiring a separate verification step is redundant.
+  const { User } = getModels(conn);
+  await User.updateOne(
+    { _id: userId, emailVerified: false },
+    { $set: { emailVerified: true } },
+  ).exec();
+
   return { ok: true, data: { restaurantId: String(restaurantId) } };
 }

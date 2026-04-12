@@ -12,6 +12,7 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { getMongoConnection, type DbName } from '@menukaze/db';
+import { Resend } from 'resend';
 
 interface CreateAuthOptions {
   dbName?: DbName;
@@ -32,10 +33,37 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
   const dbName = opts.dbName ?? 'live';
   const connection = await getMongoConnection(dbName);
 
+  const db = connection.db!;
+
   const config: BetterAuthOptions = {
     secret: opts.secret ?? readEnv('BETTER_AUTH_SECRET'),
     baseURL: opts.baseURL ?? process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
-    database: mongodbAdapter(connection.db!),
+    database: mongodbAdapter(db),
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            // Auto-verify email for users who have a pending staff invite.
+            // The invite email itself proves ownership — no need for a
+            // separate verification step. This is standard SaaS practice
+            // (Slack, Linear, Notion all do this).
+            const invite = await db.collection('staff_invites').findOne({
+              email: {
+                $regex: new RegExp(`^${user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+              },
+              usedAt: { $exists: false },
+              revokedAt: { $exists: false },
+              expiresAt: { $gt: new Date() },
+            });
+            if (invite) {
+              await db
+                .collection('users')
+                .updateOne({ _id: user._id }, { $set: { emailVerified: true } });
+            }
+          },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       // Defaults to ON for safety. Dev sets MENUKAZE_REQUIRE_EMAIL_VERIFICATION=false
@@ -44,6 +72,24 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
       autoSignIn: true,
       minPasswordLength: 8,
       maxPasswordLength: 128,
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        const apiKey = process.env['RESEND_API_KEY'];
+        if (!apiKey) {
+          console.warn(`[auth] No RESEND_API_KEY — skipping verification email to ${user.email}`);
+          return;
+        }
+        const from = process.env['RESEND_FROM_ADDRESS'] ?? 'Menukaze <noreply@menukaze.com>';
+        const resend = new Resend(apiKey);
+        await resend.emails.send({
+          from,
+          to: user.email,
+          subject: 'Verify your Menukaze email',
+          html: `<p>Hi ${user.name ?? ''},</p><p>Click the link below to verify your email address:</p><p><a href="${url}">${url}</a></p><p>This link expires in 1 hour.</p>`,
+        });
+      },
     },
     session: {
       expiresIn: 60 * 60 * 24 * 30, // 30 days

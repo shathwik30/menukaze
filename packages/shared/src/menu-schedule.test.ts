@@ -6,6 +6,12 @@ describe('isMenuScheduleActive', () => {
     expect(isMenuScheduleActive(undefined, 'Asia/Kolkata')).toBe(true);
   });
 
+  it('treats empty-days schedule as always active', () => {
+    expect(isMenuScheduleActive({ days: [], startTime: '', endTime: '' }, 'Asia/Kolkata')).toBe(
+      true,
+    );
+  });
+
   it('matches same-day schedules in the restaurant timezone', () => {
     expect(
       isMenuScheduleActive(

@@ -66,7 +66,7 @@ export function isMenuScheduleActive(
   now: Date = new Date(),
 ): boolean {
   if (!schedule) return true;
-  if (schedule.days.length === 0) return false;
+  if (schedule.days.length === 0) return true;
 
   const { day, minutes } = getZonedDateParts(now, timeZone);
   const start = parseMinutes(schedule.startTime);

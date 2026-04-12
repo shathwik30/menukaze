@@ -3,12 +3,14 @@
  * one of these helpers — no raw strings allowed elsewhere. This is the only
  * way to keep server publish and browser subscribe in lockstep.
  *
+ * Uses `:` as the separator so Ably namespace wildcards work in capabilities.
+ *
  * Vocabulary (locked):
- *   restaurant.{id}.orders                    — every order's lifecycle
- *   restaurant.{id}.tables                    — table state changes
- *   restaurant.{id}.kds.{station}             — kitchen display station feed
- *   restaurant.{id}.sessions.{sessionId}      — customer order tracking page
- *   restaurant.{id}.super.health              — super-admin live metrics
+ *   restaurant:{id}:orders                    — every order's lifecycle
+ *   restaurant:{id}:tables                    — table state changes
+ *   restaurant:{id}:kds:{station}             — kitchen display station feed
+ *   restaurant:{id}:sessions:{sessionId}      — customer order tracking page
+ *   restaurant:{id}:super:health              — super-admin live metrics
  */
 
 const STATION_RE = /^[a-z0-9-]+$/;
@@ -23,12 +25,12 @@ function ensureRestaurantId(id: string): void {
 export const channels = {
   orders(restaurantId: string): string {
     ensureRestaurantId(restaurantId);
-    return `restaurant.${restaurantId}.orders`;
+    return `restaurant:${restaurantId}:orders`;
   },
 
   tables(restaurantId: string): string {
     ensureRestaurantId(restaurantId);
-    return `restaurant.${restaurantId}.tables`;
+    return `restaurant:${restaurantId}:tables`;
   },
 
   kdsStation(restaurantId: string, station: string): string {
@@ -36,7 +38,7 @@ export const channels = {
     if (!STATION_RE.test(station)) {
       throw new Error(`[realtime] invalid station: ${station}`);
     }
-    return `restaurant.${restaurantId}.kds.${station}`;
+    return `restaurant:${restaurantId}:kds:${station}`;
   },
 
   customerSession(restaurantId: string, sessionId: string): string {
@@ -44,7 +46,7 @@ export const channels = {
     if (!ID_RE.test(sessionId)) {
       throw new Error(`[realtime] invalid session id: ${sessionId}`);
     }
-    return `restaurant.${restaurantId}.sessions.${sessionId}`;
+    return `restaurant:${restaurantId}:sessions:${sessionId}`;
   },
 
   customerOrder(restaurantId: string, orderId: string): string {
@@ -52,27 +54,27 @@ export const channels = {
     if (!ID_RE.test(orderId)) {
       throw new Error(`[realtime] invalid order id: ${orderId}`);
     }
-    return `restaurant.${restaurantId}.order.${orderId}`;
+    return `restaurant:${restaurantId}:order:${orderId}`;
   },
 
   superAdminHealth(): string {
-    return 'super.health';
+    return 'super:health';
   },
 };
 
 /**
  * Wildcard patterns used when issuing Ably token requests with capability
- * scoping. The dashboard subscribes to `restaurant.{id}.*`; the customer
+ * scoping. The dashboard subscribes to `restaurant:{id}:*`; the customer
  * tracking page subscribes only to one specific session channel.
  */
 export const channelPatterns = {
   allRestaurant(restaurantId: string): string {
     ensureRestaurantId(restaurantId);
-    return `restaurant.${restaurantId}.*`;
+    return `restaurant:${restaurantId}:*`;
   },
 
   allRestaurantKds(restaurantId: string): string {
     ensureRestaurantId(restaurantId);
-    return `restaurant.${restaurantId}.kds.*`;
+    return `restaurant:${restaurantId}:kds:*`;
   },
 };

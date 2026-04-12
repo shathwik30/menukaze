@@ -75,7 +75,7 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
             status: 'available' as const,
           };
         });
-        const result = await Table.create(tables, { session: dbSession });
+        const result = await Table.create(tables, { session: dbSession, ordered: true });
         created = result.length;
       }
 

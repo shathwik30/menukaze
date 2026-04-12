@@ -135,7 +135,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
           modifiers: [],
           soldOut: false,
         }));
-        await Item.create(itemDocs, { session: dbSession });
+        await Item.create(itemDocs, { session: dbSession, ordered: true });
         itemCount += itemDocs.length;
       }
 

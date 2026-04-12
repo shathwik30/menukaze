@@ -27,11 +27,11 @@ export default async function OnboardingGoLivePage() {
   if (!restaurant) redirect('/onboarding');
   if (restaurant.onboardingStep !== 'go-live') redirect('/admin');
 
-  // In local dev the storefront runs on :3001 at {slug}.localhost.menukaze.dev.
+  // In local dev the storefront runs on :3001 at {slug}.localhost.
   // In production it's {slug}.menukaze.com. We render both so the user can
   // pick whichever their environment supports.
   const prodStorefront = `https://${restaurant.slug}.menukaze.com`;
-  const devStorefront = `http://${restaurant.slug}.localhost.menukaze.dev:3001`;
+  const devStorefront = `http://${restaurant.slug}.localhost:3001`;
   const hasRazorpay = Boolean(restaurant.razorpayKeyIdEnc);
 
   return (

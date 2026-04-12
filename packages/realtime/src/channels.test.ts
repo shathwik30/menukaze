@@ -6,24 +6,24 @@ const SID = '507f1f77bcf86cd799439022';
 
 describe('channels', () => {
   it('builds the orders channel', () => {
-    expect(channels.orders(RID)).toBe(`restaurant.${RID}.orders`);
+    expect(channels.orders(RID)).toBe(`restaurant:${RID}:orders`);
   });
 
   it('builds the tables channel', () => {
-    expect(channels.tables(RID)).toBe(`restaurant.${RID}.tables`);
+    expect(channels.tables(RID)).toBe(`restaurant:${RID}:tables`);
   });
 
   it('builds a kds station channel', () => {
-    expect(channels.kdsStation(RID, 'grill')).toBe(`restaurant.${RID}.kds.grill`);
+    expect(channels.kdsStation(RID, 'grill')).toBe(`restaurant:${RID}:kds:grill`);
   });
 
   it('builds a customer session channel', () => {
-    expect(channels.customerSession(RID, SID)).toBe(`restaurant.${RID}.sessions.${SID}`);
+    expect(channels.customerSession(RID, SID)).toBe(`restaurant:${RID}:sessions:${SID}`);
   });
 
   it('builds a customer order channel', () => {
     const oid = '507f1f77bcf86cd799439033';
-    expect(channels.customerOrder(RID, oid)).toBe(`restaurant.${RID}.order.${oid}`);
+    expect(channels.customerOrder(RID, oid)).toBe(`restaurant:${RID}:order:${oid}`);
   });
 
   it('rejects an invalid order id on customerOrder', () => {
@@ -45,10 +45,10 @@ describe('channels', () => {
 
 describe('channelPatterns', () => {
   it('builds the dashboard wildcard', () => {
-    expect(channelPatterns.allRestaurant(RID)).toBe(`restaurant.${RID}.*`);
+    expect(channelPatterns.allRestaurant(RID)).toBe(`restaurant:${RID}:*`);
   });
 
   it('builds the kds wildcard', () => {
-    expect(channelPatterns.allRestaurantKds(RID)).toBe(`restaurant.${RID}.kds.*`);
+    expect(channelPatterns.allRestaurantKds(RID)).toBe(`restaurant:${RID}:kds:*`);
   });
 });
