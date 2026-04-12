@@ -1,14 +1,14 @@
-/**
- * Menukaze worker — long-running Node service that drains the BullMQ outbox,
- * sends emails, generates receipts, runs cron jobs (billing month-end,
- * dunning, retention purge, reservation reminders, custom-domain verify).
- *
- * Phase 3: minimal scaffold that boots, logs ready, and exits cleanly on
- * SIGTERM. Phase 4 wires up the actual BullMQ queues + processors as the
- * dependent packages (jobs, webhooks, email) come online.
- */
+import { closeAllConnections } from '@menukaze/db';
+import { sweepTimedOutSessions } from './session-sweeper';
 
 const startedAt = new Date();
+const sweepIntervalMs = Number.parseInt(
+  process.env['WORKER_SESSION_SWEEP_INTERVAL_MS'] ?? '60000',
+  10,
+);
+let shuttingDown = false;
+let sweepInFlight = false;
+let timer: NodeJS.Timeout | null = null;
 
 function log(message: string, extra?: Record<string, unknown>): void {
   const entry = {
@@ -21,23 +21,47 @@ function log(message: string, extra?: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify(entry) + '\n');
 }
 
-function shutdown(signal: NodeJS.Signals): void {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function runSweep(): Promise<void> {
+  if (shuttingDown || sweepInFlight) return;
+  sweepInFlight = true;
+  try {
+    const result = await sweepTimedOutSessions();
+    if (result.expired > 0) {
+      log('timed out sessions swept', { scanned: result.scanned, expired: result.expired });
+    }
+  } catch (error) {
+    log('timed out session sweep failed', { error: errorMessage(error) });
+  } finally {
+    sweepInFlight = false;
+  }
+}
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  if (timer) clearInterval(timer);
+  await closeAllConnections().catch((error: unknown) => {
+    log('worker connection shutdown failed', { error: errorMessage(error) });
+  });
   log('shutdown received', { signal, uptimeMs: Date.now() - startedAt.getTime() });
-  // Phase 4: gracefully drain BullMQ workers, close Mongo connections.
   process.exit(0);
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
 log('worker ready', {
   pid: process.pid,
   node: process.version,
   env: process.env['NODE_ENV'] ?? 'development',
+  sweepIntervalMs,
 });
 
-// Keep the event loop alive. Phase 4 replaces this with the BullMQ worker
-// run loop, which holds the loop open via the Redis connection.
-setInterval(() => {
-  // heartbeat — every 30s. Will be replaced by real queue processing.
-}, 30_000);
+void runSweep();
+timer = setInterval(() => {
+  void runSweep();
+}, sweepIntervalMs);

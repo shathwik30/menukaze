@@ -39,6 +39,8 @@ export interface ItemDoc {
   imageUrl?: string;
   dietaryTags: string[];
   modifiers: ItemModifierGroup[];
+  /** Fixed bundle contents for combo / meal-deal items. */
+  comboOf?: Types.ObjectId[];
   /** Real-time availability toggle (Step 5 sold-out toggle). */
   soldOut: boolean;
   ageRestricted?: boolean;
@@ -77,6 +79,7 @@ const itemSchema = new Schema<ItemDoc>(
     imageUrl: String,
     dietaryTags: { type: [String], default: [] },
     modifiers: { type: [itemModifierGroupSchema], default: [] },
+    comboOf: { type: [Schema.Types.ObjectId], default: undefined },
     soldOut: { type: Boolean, default: false },
     ageRestricted: Boolean,
     stationIds: { type: [Schema.Types.ObjectId], default: undefined },

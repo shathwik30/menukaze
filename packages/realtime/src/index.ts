@@ -4,6 +4,10 @@ export type {
   OrderCreatedEvent,
   OrderStatusChangedEvent,
   TableStatusChangedEvent,
+  TableStatusReason,
   WaiterCalledEvent,
+  WaiterAlertReason,
+  SessionUpdatedEvent,
+  SessionUpdateReason,
   OrderStatus,
 } from './events';

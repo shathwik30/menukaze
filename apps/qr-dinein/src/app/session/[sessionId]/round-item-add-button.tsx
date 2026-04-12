@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { maxSelectionsForModifierGroup, validateModifierSelection } from '@menukaze/shared';
-import { useCart } from '@/stores/cart';
+import { useRoundCart } from '@/stores/cart';
 
 interface ModifierOption {
   name: string;
@@ -27,7 +27,7 @@ interface Props {
   disabled?: boolean;
 }
 
-export function AddToCartButton({
+export function RoundItemAddButton({
   itemId,
   name,
   priceMinor,
@@ -36,16 +36,18 @@ export function AddToCartButton({
   modifiers,
   disabled,
 }: Props) {
-  const addLine = useCart((s) => s.addLine);
-  const [justAdded, setJustAdded] = useState(false);
+  const add = useRoundCart((state) => state.add);
   const [open, setOpen] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
 
-  if (disabled) {
-    return (
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">Unavailable</span>
-    );
+  function formatMoney(minor: number) {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(minor / 100);
   }
 
   function flashAdded() {
@@ -57,14 +59,6 @@ export function AddToCartButton({
     setOpen(false);
     setError(null);
     setSelected({});
-  }
-
-  function formatMoney(minor: number) {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(minor / 100);
   }
 
   function toggleOption(group: ModifierGroup, optionName: string) {
@@ -106,7 +100,7 @@ export function AddToCartButton({
       return;
     }
 
-    addLine({
+    add({
       itemId,
       name,
       priceMinor,
@@ -131,16 +125,17 @@ export function AddToCartButton({
       );
     }, 0);
 
+  if (disabled) return null;
+
   if (modifiers.length === 0) {
     return (
       <button
         type="button"
         onClick={() => {
-          addLine({ itemId, name, priceMinor, modifiers: [] });
+          add({ itemId, name, priceMinor, modifiers: [] });
           flashAdded();
         }}
-        className="border-input hover:bg-accent hover:text-accent-foreground shrink-0 rounded-md border px-3 py-1 text-xs font-medium"
-        aria-label={`Add ${name} to cart`}
+        className="border-input rounded-md border px-2 py-1 text-xs"
       >
         {justAdded ? 'Added ✓' : 'Add'}
       </button>
@@ -155,8 +150,7 @@ export function AddToCartButton({
           setError(null);
           setOpen(true);
         }}
-        className="border-input hover:bg-accent hover:text-accent-foreground shrink-0 rounded-md border px-3 py-1 text-xs font-medium"
-        aria-label={`Customize ${name}`}
+        className="border-input rounded-md border px-2 py-1 text-xs"
       >
         {justAdded ? 'Added ✓' : 'Customize'}
       </button>
@@ -248,7 +242,7 @@ export function AddToCartButton({
                 onClick={addConfiguredItem}
                 className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold"
               >
-                Add to cart
+                Add to round
               </button>
             </div>
           </div>

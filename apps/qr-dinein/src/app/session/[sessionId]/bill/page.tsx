@@ -86,7 +86,10 @@ export default async function BillPage({ params }: { params: Promise<{ sessionId
       </section>
 
       <BillClient
+        restaurantId={String(session.restaurantId)}
         sessionId={sessionId}
+        status={session.status}
+        paymentModeRequested={session.paymentModeRequested}
         restaurantName={restaurant.name}
         totalLabel={formatMoney(totalMinor, currency, locale)}
       />

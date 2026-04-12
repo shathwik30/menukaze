@@ -1,7 +1,12 @@
 import { Types } from 'mongoose';
 import { notFound, redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import {
+  filterActiveMenus,
+  formatMoney,
+  normalizeDineInSessionTimeoutMinutes,
+  type CurrencyCode,
+} from '@menukaze/shared';
 import { SessionClient, type SessionItem, type SessionRound } from './session-client';
 
 export const dynamic = 'force-dynamic';
@@ -32,12 +37,20 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
     Order.find({ restaurantId, sessionId: session._id }).sort({ createdAt: 1 }).lean().exec(),
   ]);
   if (!restaurant || !table) notFound();
+  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
+  const activeMenuIds = new Set(activeMenus.map((menu) => String(menu._id)));
+  const activeCategories = categories.filter((category) =>
+    activeMenuIds.has(String(category.menuId)),
+  );
+  const activeCategoryIds = new Set(activeCategories.map((category) => String(category._id)));
+  const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
+  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
 
   const currency = restaurant.currency as CurrencyCode;
   const locale = restaurant.locale;
 
-  const sessionItems: SessionItem[] = items.map((i) => {
-    const category = categories.find((c) => String(c._id) === String(i.categoryId));
+  const sessionItems: SessionItem[] = activeItems.map((i) => {
+    const category = activeCategories.find((c) => String(c._id) === String(i.categoryId));
     return {
       id: String(i._id),
       name: i.name,
@@ -47,11 +60,24 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
       categoryId: String(i.categoryId),
       categoryName: category?.name ?? 'Menu',
       soldOut: i.soldOut,
+      imageUrl: i.imageUrl,
+      comboItemNames:
+        i.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ?? [],
+      modifiers: i.modifiers.map((group) => ({
+        name: group.name,
+        required: group.required,
+        max: group.max,
+        options: group.options.map((option) => ({
+          name: option.name,
+          priceMinor: option.priceMinor,
+          priceLabel: formatMoney(option.priceMinor, currency, locale),
+        })),
+      })),
     };
   });
 
-  const menuTabs = menus.map((m) => ({ id: String(m._id), name: m.name }));
-  const categoryList = categories.map((c) => ({
+  const menuTabs = activeMenus.map((m) => ({ id: String(m._id), name: m.name }));
+  const categoryList = activeCategories.map((c) => ({
     id: String(c._id),
     name: c.name,
     menuId: String(c.menuId),
@@ -80,8 +106,11 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
       </header>
 
       <SessionClient
+        restaurantId={String(restaurantId)}
         sessionId={String(session._id)}
         status={session.status}
+        customerName={session.customer.name}
+        participants={session.participants.map((participant) => participant.label)}
         menus={menuTabs}
         categories={categoryList}
         items={sessionItems}
@@ -89,6 +118,11 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         totalLabel={formatMoney(totalMinor, currency, locale)}
         currency={currency}
         locale={locale}
+        lastActivityAt={session.lastActivityAt.toISOString()}
+        sessionTimeoutMinutes={normalizeDineInSessionTimeoutMinutes(
+          restaurant.dineInSessionTimeoutMinutes,
+        )}
+        paymentModeRequested={session.paymentModeRequested}
       />
     </main>
   );

@@ -37,6 +37,8 @@ export interface RestaurantDoc {
    * picks delivery. Complex zone-based fees ship later (§20 deferred list).
    */
   deliveryFeeMinor: number;
+  /** Inactivity timeout for QR dine-in sessions. Defaults to 3 hours. */
+  dineInSessionTimeoutMinutes: number;
 
   addressStructured: {
     line1: string;
@@ -147,6 +149,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     estimatedPrepMinutes: { type: Number, required: true, default: 20, min: 1, max: 600 },
     minimumOrderMinor: { type: Number, required: true, default: 0, min: 0 },
     deliveryFeeMinor: { type: Number, required: true, default: 0, min: 0 },
+    dineInSessionTimeoutMinutes: { type: Number, required: true, default: 180, min: 30, max: 720 },
 
     addressStructured: {
       line1: { type: String, required: true },

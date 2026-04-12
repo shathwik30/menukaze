@@ -21,12 +21,26 @@ interface ItemSummary {
   priceMinor: number;
   dietaryTags: string[];
   soldOut: boolean;
+  imageUrl?: string;
+  comboItemNames: string[];
+  modifiers: Array<{
+    name: string;
+    required: boolean;
+    max: number;
+    options: Array<{
+      name: string;
+      priceMinor: number;
+      priceLabel: string;
+    }>;
+  }>;
 }
 
 interface Props {
   menus: MenuSummary[];
   categories: CategorySummary[];
   items: ItemSummary[];
+  currency: string;
+  locale: string;
 }
 
 /**
@@ -34,7 +48,7 @@ interface Props {
  * menu-tab switcher when a restaurant has more than one menu. Rendering
  * lives here instead of the server page so filters don't cost a round trip.
  */
-export function MenuBrowser({ menus, categories, items }: Props) {
+export function MenuBrowser({ menus, categories, items, currency, locale }: Props) {
   const [activeMenuId, setActiveMenuId] = useState<string>(menus[0]?.id ?? '');
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -145,26 +159,51 @@ export function MenuBrowser({ menus, categories, items }: Props) {
                     }
                   >
                     <div className="min-w-0">
-                      <p className="text-foreground font-medium">
-                        {item.name}
-                        {item.soldOut ? (
-                          <span className="text-muted-foreground ml-2 text-xs uppercase">
-                            sold out
-                          </span>
+                      <div className="flex items-start gap-3">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt=""
+                            className="h-16 w-16 shrink-0 rounded-md border object-cover"
+                          />
                         ) : null}
-                      </p>
-                      {item.description ? (
-                        <p className="text-muted-foreground mt-1 text-sm">{item.description}</p>
-                      ) : null}
-                      {item.dietaryTags.length > 0 ? (
-                        <p className="text-muted-foreground mt-1 flex flex-wrap gap-1 text-[10px] uppercase">
-                          {item.dietaryTags.map((t) => (
-                            <span key={t} className="border-border rounded-sm border px-1.5 py-0.5">
-                              {t}
-                            </span>
-                          ))}
-                        </p>
-                      ) : null}
+                        <div className="min-w-0">
+                          <p className="text-foreground font-medium">
+                            {item.name}
+                            {item.soldOut ? (
+                              <span className="text-muted-foreground ml-2 text-xs uppercase">
+                                sold out
+                              </span>
+                            ) : null}
+                          </p>
+                          {item.description ? (
+                            <p className="text-muted-foreground mt-1 text-sm">{item.description}</p>
+                          ) : null}
+                          {item.comboItemNames.length > 0 ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Includes: {item.comboItemNames.join(', ')}
+                            </p>
+                          ) : null}
+                          {item.modifiers.length > 0 ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              {item.modifiers.length} modifier group
+                              {item.modifiers.length === 1 ? '' : 's'} available
+                            </p>
+                          ) : null}
+                          {item.dietaryTags.length > 0 ? (
+                            <p className="text-muted-foreground mt-1 flex flex-wrap gap-1 text-[10px] uppercase">
+                              {item.dietaryTags.map((t) => (
+                                <span
+                                  key={t}
+                                  className="border-border rounded-sm border px-1.5 py-0.5"
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className="text-foreground font-mono text-sm">{item.priceLabel}</span>
@@ -172,6 +211,9 @@ export function MenuBrowser({ menus, categories, items }: Props) {
                         itemId={item.id}
                         name={item.name}
                         priceMinor={item.priceMinor}
+                        currency={currency}
+                        locale={locale}
+                        modifiers={item.modifiers}
                         disabled={item.soldOut}
                       />
                     </div>

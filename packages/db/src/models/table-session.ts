@@ -27,6 +27,7 @@ export interface TableSessionDoc {
   restaurantId: Types.ObjectId;
   tableId: Types.ObjectId;
   status: TableSessionStatus;
+  paymentModeRequested?: 'online' | 'counter';
 
   customer: {
     name: string;
@@ -64,6 +65,7 @@ const tableSessionSchema = new Schema<TableSessionDoc>(
       required: true,
       default: 'active',
     },
+    paymentModeRequested: { type: String, enum: ['online', 'counter'] },
     customer: {
       name: { type: String, required: true, maxlength: 200 },
       email: { type: String, required: true, maxlength: 320 },

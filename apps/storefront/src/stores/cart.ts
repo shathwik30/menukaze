@@ -29,6 +29,7 @@ interface CartState {
   incrementLine: (key: string) => void;
   decrementLine: (key: string) => void;
   removeLine: (key: string) => void;
+  setNotes: (key: string, notes: string) => void;
   clear: () => void;
 }
 
@@ -96,6 +97,13 @@ export const useCart = create<CartState>()(
       },
       removeLine: (key) => {
         set({ lines: get().lines.filter((l) => cartLineKey(l) !== key) });
+      },
+      setNotes: (key, notes) => {
+        set({
+          lines: get().lines.map((line) =>
+            cartLineKey(line) === key ? { ...line, notes: notes || undefined } : line,
+          ),
+        });
       },
       clear: () => set({ lines: [] }),
     }),

@@ -63,6 +63,7 @@ export function CheckoutForm({
   const increment = useCart((s) => s.incrementLine);
   const decrement = useCart((s) => s.decrementLine);
   const remove = useCart((s) => s.removeLine);
+  const setNotes = useCart((s) => s.setNotes);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -183,6 +184,9 @@ export function CheckoutForm({
                       {line.modifiers.map((m) => m.optionName).join(', ')}
                     </p>
                   ) : null}
+                  {line.notes ? (
+                    <p className="text-muted-foreground text-xs italic">{line.notes}</p>
+                  ) : null}
                   <div className="mt-2 flex items-center gap-2">
                     <button
                       type="button"
@@ -209,6 +213,14 @@ export function CheckoutForm({
                       Remove
                     </button>
                   </div>
+                  <input
+                    type="text"
+                    value={line.notes ?? ''}
+                    onChange={(event) => setNotes(key, event.target.value)}
+                    placeholder="Special instructions (optional)"
+                    maxLength={200}
+                    className="border-input bg-background mt-2 h-8 w-full rounded-md border px-2 text-xs"
+                  />
                 </div>
                 <span className="text-foreground shrink-0 font-mono text-sm">
                   {formatMoney(unitMinor * line.quantity)}

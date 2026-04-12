@@ -39,6 +39,9 @@ export default async function SettingsPage() {
             minimumOrderMinor: restaurant.minimumOrderMinor ?? 0,
             deliveryFeeMinor: restaurant.deliveryFeeMinor ?? 0,
           },
+          qrDineIn: {
+            dineInSessionTimeoutMinutes: restaurant.dineInSessionTimeoutMinutes ?? 180,
+          },
           addressStructured: {
             line1: restaurant.addressStructured.line1,
             line2: restaurant.addressStructured.line2 ?? '',

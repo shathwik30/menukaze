@@ -8,26 +8,45 @@ import { create } from 'zustand';
  * the current in-progress round until the user taps "Place round".
  */
 
+export interface CartModifier {
+  groupName: string;
+  optionName: string;
+  priceMinor: number;
+}
+
 export interface CartLine {
   itemId: string;
   name: string;
   priceMinor: number;
   quantity: number;
+  modifiers: CartModifier[];
   notes?: string;
 }
 
 interface CartState {
   lines: CartLine[];
   add: (line: Omit<CartLine, 'quantity'> & { quantity?: number }) => void;
-  inc: (itemId: string) => void;
-  dec: (itemId: string) => void;
-  remove: (itemId: string) => void;
-  setNotes: (itemId: string, notes: string) => void;
+  inc: (key: string) => void;
+  dec: (key: string) => void;
+  remove: (key: string) => void;
+  setNotes: (key: string, notes: string) => void;
   clear: () => void;
 }
 
+export function cartLineKey(line: Pick<CartLine, 'itemId' | 'modifiers'>): string {
+  const mods = line.modifiers
+    .map((modifier) => `${modifier.groupName}:${modifier.optionName}`)
+    .sort()
+    .join('|');
+  return `${line.itemId}#${mods}`;
+}
+
+export function lineUnitMinor(line: Pick<CartLine, 'priceMinor' | 'modifiers'>): number {
+  return line.priceMinor + line.modifiers.reduce((sum, modifier) => sum + modifier.priceMinor, 0);
+}
+
 export function subtotalMinor(lines: CartLine[]): number {
-  return lines.reduce((sum, l) => sum + l.priceMinor * l.quantity, 0);
+  return lines.reduce((sum, line) => sum + lineUnitMinor(line) * line.quantity, 0);
 }
 
 export function itemCount(lines: CartLine[]): number {
@@ -38,32 +57,37 @@ export const useRoundCart = create<CartState>((set, get) => ({
   lines: [],
   add: (input) => {
     const lines = get().lines;
-    const existing = lines.find((l) => l.itemId === input.itemId);
+    const key = cartLineKey(input);
+    const existing = lines.find((line) => cartLineKey(line) === key);
     if (existing) {
       set({
         lines: lines.map((l) =>
-          l.itemId === input.itemId ? { ...l, quantity: l.quantity + (input.quantity ?? 1) } : l,
+          cartLineKey(l) === key ? { ...l, quantity: l.quantity + (input.quantity ?? 1) } : l,
         ),
       });
       return;
     }
     set({ lines: [...lines, { ...input, quantity: input.quantity ?? 1 }] });
   },
-  inc: (itemId) =>
+  inc: (key) =>
     set({
-      lines: get().lines.map((l) => (l.itemId === itemId ? { ...l, quantity: l.quantity + 1 } : l)),
+      lines: get().lines.map((line) =>
+        cartLineKey(line) === key ? { ...line, quantity: line.quantity + 1 } : line,
+      ),
     }),
-  dec: (itemId) => {
+  dec: (key) => {
     const next = get()
-      .lines.map((l) => (l.itemId === itemId ? { ...l, quantity: l.quantity - 1 } : l))
-      .filter((l) => l.quantity > 0);
+      .lines.map((line) =>
+        cartLineKey(line) === key ? { ...line, quantity: line.quantity - 1 } : line,
+      )
+      .filter((line) => line.quantity > 0);
     set({ lines: next });
   },
-  remove: (itemId) => set({ lines: get().lines.filter((l) => l.itemId !== itemId) }),
-  setNotes: (itemId, notes) =>
+  remove: (key) => set({ lines: get().lines.filter((line) => cartLineKey(line) !== key) }),
+  setNotes: (key, notes) =>
     set({
-      lines: get().lines.map((l) =>
-        l.itemId === itemId ? { ...l, notes: notes || undefined } : l,
+      lines: get().lines.map((line) =>
+        cartLineKey(line) === key ? { ...line, notes: notes || undefined } : line,
       ),
     }),
   clear: () => set({ lines: [] }),

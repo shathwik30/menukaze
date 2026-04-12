@@ -12,12 +12,13 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * collection so the dashboard can show history.
  */
 
-export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier';
+export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
 
 export interface StaffInviteDoc {
   restaurantId: Types.ObjectId;
   email: string;
   role: StaffRole;
+  customPermissions?: string[];
   token: string;
   invitedByUserId: Types.ObjectId;
   expiresAt: Date;
@@ -33,9 +34,10 @@ const staffInviteSchema = new Schema<StaffInviteDoc>(
     email: { type: String, required: true, maxlength: 320 },
     role: {
       type: String,
-      enum: ['owner', 'manager', 'waiter', 'kitchen', 'cashier'],
+      enum: ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'],
       required: true,
     },
+    customPermissions: { type: [String], default: undefined },
     token: { type: String, required: true, unique: true },
     invitedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     expiresAt: { type: Date, required: true },

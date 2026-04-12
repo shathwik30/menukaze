@@ -169,6 +169,7 @@ export const restaurantSchema = z.object({
   subscriptionStatus: z
     .enum(['trial', 'active', 'past_due', 'suspended', 'cancelled'])
     .default('trial'),
+  dineInSessionTimeoutMinutes: z.number().int().min(30).max(720).default(180),
   geofenceRadiusM: z.number().int().positive().default(100),
   hardening: restaurantHardeningSchema.prefault({}),
   taxRules: z.array(taxRuleSchema).default([]),

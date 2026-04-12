@@ -25,16 +25,13 @@ export default async function StaffPage() {
 
   const members: StaffMember[] = memberships.map((m) => {
     const user = usersById.get(String(m.userId));
-    // Normalize the 'custom' role into a predefined slot for display — the
-    // dashboard UI only supports predefined roles in Step 18. Custom-role
-    // support ships post-MVP.
-    const role = m.role === 'custom' ? 'waiter' : m.role;
     return {
       membershipId: String(m._id),
       userId: String(m.userId),
       email: user?.email ?? 'unknown',
       name: user?.name ?? '—',
-      role,
+      role: m.role,
+      customPermissions: m.customPermissions ?? [],
       status: m.status,
     };
   });
@@ -52,6 +49,7 @@ export default async function StaffPage() {
     id: String(i._id),
     email: i.email,
     role: i.role,
+    customPermissions: i.customPermissions ?? [],
     expiresAt: i.expiresAt.toISOString(),
   }));
 

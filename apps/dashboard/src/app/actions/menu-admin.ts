@@ -18,15 +18,41 @@ import { PermissionDeniedError, requireFlags } from '@/lib/session';
  *     plugin never needs the escape hatch.
  *  4. Calls revalidatePath('/admin/menu') on success so the UI re-renders.
  *
- * MVP scope: images are plain URLs; UploadThing integration is tracked as a
- * follow-up. Modifiers can be edited as structured JSON via updateItemAction.
+ * MVP scope: images are plain URLs and menus can be scheduled; UploadThing
+ * and combo bundles remain follow-up work. Modifiers can be edited as
+ * structured JSON via updateItemAction.
  */
 
 const menuInput = z.object({
   name: z.string().min(1).max(120),
   order: z.number().int().min(0).max(999).default(0),
+  schedule: z
+    .object({
+      days: z
+        .array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']))
+        .min(1)
+        .max(7),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    })
+    .optional(),
 });
-const menuUpdate = menuInput.partial().extend({ id: z.string().min(1) });
+const menuUpdate = menuInput.partial().extend({
+  id: z.string().min(1),
+  schedule: z
+    .union([
+      z.object({
+        days: z
+          .array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']))
+          .min(1)
+          .max(7),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      }),
+      z.null(),
+    ])
+    .optional(),
+});
 
 const categoryInput = z.object({
   menuId: z.string().min(1),
@@ -46,16 +72,37 @@ const modifierGroup = z.object({
   options: z.array(modifierOption).max(20),
 });
 
+const imageInput = z
+  .union([
+    z.string().url().max(2048),
+    z
+      .string()
+      .startsWith('data:image/', 'Only image uploads are supported.')
+      .max(3_000_000, 'Uploaded image is too large.'),
+  ])
+  .optional();
+
 const itemInput = z.object({
   categoryId: z.string().min(1),
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   priceMinor: z.number().int().min(0),
-  imageUrl: z.string().url().max(2048).optional(),
+  imageUrl: imageInput,
   dietaryTags: z.array(z.string().max(30)).max(15).default([]),
   modifiers: z.array(modifierGroup).max(10).default([]),
+  comboOf: z.array(z.string().min(1)).max(20).default([]),
 });
-const itemUpdate = itemInput.partial().extend({ id: z.string().min(1) });
+const itemUpdate = z.object({
+  id: z.string().min(1),
+  categoryId: z.string().min(1).optional(),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  priceMinor: z.number().int().min(0).optional(),
+  imageUrl: z.union([imageInput, z.null()]).optional(),
+  dietaryTags: z.array(z.string().max(30)).max(15).optional(),
+  modifiers: z.array(modifierGroup).max(10).optional(),
+  comboOf: z.array(z.string().min(1)).max(20).optional(),
+});
 
 export type ActionResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; data: T })
@@ -93,6 +140,41 @@ function errorEnvelope(error: unknown, fallback: string): { ok: false; error: st
   return { ok: false, error: error instanceof Error ? error.message : fallback };
 }
 
+async function resolveComboItemIds(
+  restaurantId: Types.ObjectId,
+  comboOf: string[] | undefined,
+  currentItemId?: Types.ObjectId,
+): Promise<
+  | { ok: true; ids: Types.ObjectId[] }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  if (!comboOf || comboOf.length === 0) return { ok: true, ids: [] };
+
+  const deduped = [...new Set(comboOf)];
+  if (!deduped.every((id) => Types.ObjectId.isValid(id))) {
+    return { ok: false, error: 'Unknown combo item.' };
+  }
+
+  const comboIds = deduped.map((id) => new Types.ObjectId(id));
+  if (currentItemId && comboIds.some((id) => String(id) === String(currentItemId))) {
+    return { ok: false, error: 'An item cannot include itself in a combo.' };
+  }
+
+  const conn = await getMongoConnection('live');
+  const { Item } = getModels(conn);
+  const matches = await Item.find({ restaurantId, _id: { $in: comboIds } }, { _id: 1 })
+    .lean()
+    .exec();
+  if (matches.length !== comboIds.length) {
+    return { ok: false, error: 'One or more combo items no longer exist.' };
+  }
+
+  return { ok: true, ids: comboIds };
+}
+
 // ─────────────────────────────  Menus  ─────────────────────────────
 
 export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
@@ -120,9 +202,22 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const { id, ...patch } = parsed.data;
+      const update =
+        patch.schedule === null
+          ? {
+              ...(Object.keys(patch).some((key) => key !== 'schedule')
+                ? {
+                    $set: Object.fromEntries(
+                      Object.entries(patch).filter(([key]) => key !== 'schedule'),
+                    ),
+                  }
+                : {}),
+              $unset: { schedule: 1 },
+            }
+          : { $set: patch };
       const result = await Menu.updateOne(
         { restaurantId, _id: new Types.ObjectId(id) },
-        { $set: patch },
+        update,
       ).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
       revalidatePath('/admin/menu');
@@ -250,6 +345,8 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
         _id: new Types.ObjectId(parsed.data.categoryId),
       }).exec();
       if (!category) return { ok: false as const, error: 'Category not found.' };
+      const comboIds = await resolveComboItemIds(restaurantId, parsed.data.comboOf);
+      if (!comboIds.ok) return comboIds;
       const item = await Item.create({
         restaurantId,
         categoryId: category._id,
@@ -260,6 +357,7 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
         ...(parsed.data.imageUrl ? { imageUrl: parsed.data.imageUrl } : {}),
         dietaryTags: parsed.data.dietaryTags,
         modifiers: parsed.data.modifiers,
+        ...(comboIds.ids.length > 0 ? { comboOf: comboIds.ids } : {}),
         soldOut: false,
       });
       revalidatePath('/admin/menu');
@@ -280,15 +378,33 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
       const { Item } = getModels(conn);
       const { id, categoryId, ...patch } = parsed.data;
       const set: Record<string, unknown> = { ...patch };
+      const unset: Record<string, 1> = {};
       if (categoryId) {
         if (!Types.ObjectId.isValid(categoryId)) {
           return { ok: false as const, error: 'Unknown category.' };
         }
         set['categoryId'] = new Types.ObjectId(categoryId);
       }
+      if ('comboOf' in patch) {
+        const comboIds = await resolveComboItemIds(
+          restaurantId,
+          patch.comboOf,
+          new Types.ObjectId(id),
+        );
+        if (!comboIds.ok) return comboIds;
+        if (comboIds.ids.length > 0) set['comboOf'] = comboIds.ids;
+        else unset['comboOf'] = 1;
+      }
+      if (patch.imageUrl === null) {
+        delete set['imageUrl'];
+        unset['imageUrl'] = 1;
+      }
+      const update: Record<string, unknown> = {};
+      if (Object.keys(set).length > 0) update['$set'] = set;
+      if (Object.keys(unset).length > 0) update['$unset'] = unset;
       const result = await Item.updateOne(
         { restaurantId, _id: new Types.ObjectId(id) },
-        { $set: set },
+        update,
       ).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
       revalidatePath('/admin/menu');
@@ -305,7 +421,12 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
     return await withRestaurant(['menu.edit'], async (restaurantId) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
-      await Item.deleteOne({ restaurantId, _id: new Types.ObjectId(id) }).exec();
+      const itemId = new Types.ObjectId(id);
+      await Item.deleteOne({ restaurantId, _id: itemId }).exec();
+      await Item.updateMany(
+        { restaurantId, comboOf: itemId },
+        { $pull: { comboOf: itemId } },
+      ).exec();
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });

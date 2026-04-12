@@ -153,6 +153,26 @@ export async function updateDeliverySettingsAction(raw: unknown): Promise<Action
   });
 }
 
+// ────────────────────── QR Dine-In ──────────────────────
+
+const qrDineInInput = z.object({
+  dineInSessionTimeoutMinutes: z.number().int().min(30).max(720),
+});
+export async function updateQrDineInSettingsAction(raw: unknown): Promise<ActionResult> {
+  const parsed = qrDineInInput.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
+  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
+    const conn = await getMongoConnection('live');
+    const { Restaurant } = getModels(conn);
+    await Restaurant.updateOne(
+      { _id: restaurantId },
+      { $set: { dineInSessionTimeoutMinutes: parsed.data.dineInSessionTimeoutMinutes } },
+    ).exec();
+    revalidatePath('/admin/settings');
+    return { ok: true };
+  });
+}
+
 // ────────────────────── Receipt Branding ──────────────────────
 
 const brandingInput = z.object({

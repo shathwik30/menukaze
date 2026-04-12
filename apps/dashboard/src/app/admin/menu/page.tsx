@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
-import { MenuManagerClient, type ManagerMenu } from './menu-manager-client';
+import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +23,22 @@ export default async function MenuManagementPage() {
 
   const currency = (restaurant?.currency ?? 'USD') as CurrencyCode;
   const locale = restaurant?.locale ?? 'en-US';
+  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
+  const categoryNameById = new Map(
+    categories.map((category) => [String(category._id), category.name]),
+  );
 
   const menuTree: ManagerMenu[] = menus.map((menu) => ({
     id: String(menu._id),
     name: menu.name,
     order: menu.order,
+    schedule: menu.schedule
+      ? {
+          days: menu.schedule.days,
+          startTime: menu.schedule.startTime,
+          endTime: menu.schedule.endTime,
+        }
+      : undefined,
     categories: categories
       .filter((c) => String(c.menuId) === String(menu._id))
       .map((category) => ({
@@ -45,8 +56,26 @@ export default async function MenuManagementPage() {
             dietaryTags: item.dietaryTags,
             soldOut: item.soldOut,
             imageUrl: item.imageUrl,
+            modifiers: item.modifiers.map((group) => ({
+              name: group.name,
+              required: group.required,
+              max: group.max,
+              options: group.options.map((option) => ({
+                name: option.name,
+                priceMinor: option.priceMinor,
+              })),
+            })),
+            comboOf: item.comboOf?.map((comboId) => String(comboId)) ?? [],
+            comboItemNames:
+              item.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ??
+              [],
           })),
       })),
+  }));
+  const availableItems: ManagerItemChoice[] = items.map((item) => ({
+    id: String(item._id),
+    name: item.name,
+    categoryName: categoryNameById.get(String(item.categoryId)) ?? 'Menu',
   }));
 
   return (
@@ -55,7 +84,7 @@ export default async function MenuManagementPage() {
         <div>
           <h1 className="text-2xl font-bold">Menu</h1>
           <p className="text-muted-foreground text-sm">
-            Edit categories, items, modifiers, and availability
+            Edit categories, items, schedules, modifiers, and availability
           </p>
         </div>
         <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
@@ -63,7 +92,11 @@ export default async function MenuManagementPage() {
         </Link>
       </header>
 
-      <MenuManagerClient menus={menuTree} currencyLabel={`${currency} (${locale})`} />
+      <MenuManagerClient
+        menus={menuTree}
+        currencyLabel={`${currency} (${locale})`}
+        availableItems={availableItems}
+      />
     </main>
   );
 }

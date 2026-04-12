@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generateInviteToken } from '@menukaze/db';
-import { hasAnyFlag } from '@menukaze/rbac';
+import { assertCustomRoleFlags, hasAnyFlag } from '@menukaze/rbac';
 import { requireOnboarded, requireSession } from '@/lib/session';
 import { sendTransactionalEmail } from '@/lib/email';
 import { StaffInviteEmail } from '@/emails/staff-invite';
@@ -40,9 +40,33 @@ async function requireStaffManager() {
   return { session, membership };
 }
 
+function normalizeRoleInput(
+  role: 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom',
+  customPermissions: string[],
+): { role: typeof role; customPermissions?: string[] } | { error: string } {
+  if (role !== 'custom') return { role };
+
+  const deduped = [...new Set(customPermissions)];
+  if (deduped.length === 0) {
+    return { error: 'Pick at least one permission for a custom role.' };
+  }
+
+  try {
+    assertCustomRoleFlags(deduped);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Custom role contains invalid permission flags.',
+    };
+  }
+
+  return { role, customPermissions: deduped };
+}
+
 const inviteInput = z.object({
   email: z.string().email().max(320),
-  role: z.enum(['owner', 'manager', 'waiter', 'kitchen', 'cashier']),
+  role: z.enum(['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom']),
+  customPermissions: z.array(z.string()).max(128).default([]),
 });
 
 export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
@@ -50,7 +74,19 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
   if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
 
   try {
-    const { session } = await requireStaffManager();
+    const { session, membership } = await requireStaffManager();
+    if (
+      parsed.data.role === 'custom' &&
+      !hasAnyFlag({ role: membership.role, customPermissions: membership.customPermissions }, [
+        'staff.manage_custom_roles',
+      ])
+    ) {
+      return { ok: false, error: 'You do not have permission to manage custom roles.' };
+    }
+
+    const roleInput = normalizeRoleInput(parsed.data.role, parsed.data.customPermissions);
+    if ('error' in roleInput) return { ok: false, error: roleInput.error };
+
     const restaurantId = new Types.ObjectId(session.restaurantId);
     const invitedByUserId = new Types.ObjectId(session.user.id);
 
@@ -65,7 +101,8 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
     const invite = await StaffInvite.create({
       restaurantId,
       email: parsed.data.email.toLowerCase(),
-      role: parsed.data.role,
+      role: roleInput.role,
+      ...(roleInput.customPermissions ? { customPermissions: roleInput.customPermissions } : {}),
       token,
       invitedByUserId,
       expiresAt,
@@ -81,7 +118,7 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
         react: StaffInviteEmail({
           restaurantName: restaurant.name,
           inviterName: session.user.name ?? session.user.email,
-          role: parsed.data.role,
+          role: roleInput.role,
           acceptUrl,
         }),
       });
@@ -116,7 +153,8 @@ export async function revokeInviteAction(id: string): Promise<ActionResult> {
 
 const changeRoleInput = z.object({
   membershipId: z.string().min(1),
-  role: z.enum(['owner', 'manager', 'waiter', 'kitchen', 'cashier']),
+  role: z.enum(['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom']),
+  customPermissions: z.array(z.string()).max(128).default([]),
 });
 
 export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
@@ -126,13 +164,36 @@ export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
     return { ok: false, error: 'Unknown membership.' };
   }
   try {
-    const { session } = await requireStaffManager();
+    const { session, membership } = await requireStaffManager();
+    if (
+      parsed.data.role === 'custom' &&
+      !hasAnyFlag({ role: membership.role, customPermissions: membership.customPermissions }, [
+        'staff.manage_custom_roles',
+      ])
+    ) {
+      return { ok: false, error: 'You do not have permission to manage custom roles.' };
+    }
+
+    const roleInput = normalizeRoleInput(parsed.data.role, parsed.data.customPermissions);
+    if ('error' in roleInput) return { ok: false, error: roleInput.error };
+
     const restaurantId = new Types.ObjectId(session.restaurantId);
     const conn = await getMongoConnection('live');
     const { StaffMembership } = getModels(conn);
+    const update = roleInput.customPermissions
+      ? {
+          $set: {
+            role: roleInput.role,
+            customPermissions: roleInput.customPermissions,
+          },
+        }
+      : {
+          $set: { role: roleInput.role },
+          $unset: { customPermissions: 1 },
+        };
     await StaffMembership.updateOne(
       { restaurantId, _id: new Types.ObjectId(parsed.data.membershipId) },
-      { $set: { role: parsed.data.role } },
+      update,
     ).exec();
     revalidatePath('/admin/staff');
     return { ok: true };
@@ -207,15 +268,30 @@ export async function acceptInviteAction(
 
   const existing = await StaffMembership.findOne({ restaurantId, userId }).exec();
   if (existing) {
-    await StaffMembership.updateOne(
-      { restaurantId, _id: existing._id },
-      { $set: { role: invite.role, status: 'active', invitedBy: invite.invitedByUserId } },
-    ).exec();
+    const update = invite.customPermissions
+      ? {
+          $set: {
+            role: invite.role,
+            status: 'active',
+            invitedBy: invite.invitedByUserId,
+            customPermissions: invite.customPermissions,
+          },
+        }
+      : {
+          $set: {
+            role: invite.role,
+            status: 'active',
+            invitedBy: invite.invitedByUserId,
+          },
+          $unset: { customPermissions: 1 },
+        };
+    await StaffMembership.updateOne({ restaurantId, _id: existing._id }, update).exec();
   } else {
     await StaffMembership.create({
       restaurantId,
       userId,
       role: invite.role,
+      ...(invite.customPermissions ? { customPermissions: invite.customPermissions } : {}),
       status: 'active',
       invitedBy: invite.invitedByUserId,
     });

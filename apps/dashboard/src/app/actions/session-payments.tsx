@@ -1,0 +1,265 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { Types } from 'mongoose';
+import { getMongoConnection, getModels } from '@menukaze/db';
+import { channels } from '@menukaze/realtime';
+import { publishRealtimeEvent } from '@menukaze/realtime/server';
+import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { sendTransactionalEmail } from '@/lib/email';
+import { PermissionDeniedError, requireAnyFlag } from '@/lib/session';
+
+export async function settleSessionAtCounterAction(
+  raw: unknown,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const input = raw as { sessionId?: string; method?: 'cash' | 'terminal' };
+  if (!input?.sessionId || !Types.ObjectId.isValid(input.sessionId)) {
+    return { ok: false, error: 'Unknown session.' };
+  }
+  if (input.method !== 'cash' && input.method !== 'terminal') {
+    return { ok: false, error: 'Choose cash or terminal.' };
+  }
+
+  let sessionUser;
+  try {
+    ({ session: sessionUser } = await requireAnyFlag(['payments.process']));
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return { ok: false, error: 'You do not have permission to process payments.' };
+    }
+    throw error;
+  }
+
+  const restaurantId = new Types.ObjectId(sessionUser.restaurantId);
+  const conn = await getMongoConnection('live');
+  const { Restaurant, TableSession, Table, Order } = getModels(conn);
+
+  const session = await TableSession.findOne({
+    restaurantId,
+    _id: new Types.ObjectId(input.sessionId),
+  }).exec();
+  if (!session) return { ok: false, error: 'Session not found.' };
+  if (session.status === 'closed' || session.status === 'paid') {
+    return { ok: false, error: 'This session has already been settled.' };
+  }
+
+  const [restaurant, rounds] = await Promise.all([
+    Restaurant.findById(restaurantId).exec(),
+    Order.find({ restaurantId, sessionId: session._id }).exec(),
+  ]);
+  if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (rounds.length === 0) return { ok: false, error: 'No rounds found for this session.' };
+
+  const now = new Date();
+  const methodLabel = input.method === 'terminal' ? 'Counter terminal' : 'Cash at counter';
+
+  await Order.updateMany(
+    { restaurantId, sessionId: session._id },
+    {
+      $set: {
+        'payment.gateway': 'cash',
+        'payment.status': 'succeeded',
+        'payment.methodLabel': methodLabel,
+        'payment.paidAt': now,
+        status: 'completed',
+        completedAt: now,
+      },
+      $unset: {
+        'payment.failureReason': 1,
+        'payment.razorpayOrderId': 1,
+        'payment.razorpayPaymentId': 1,
+        'payment.razorpaySignature': 1,
+      },
+      $push: {
+        statusHistory: {
+          status: 'completed',
+          at: now,
+          byUserId: new Types.ObjectId(sessionUser.user.id),
+        },
+      },
+    },
+  ).exec();
+
+  await TableSession.updateOne(
+    { restaurantId, _id: session._id },
+    {
+      $set: {
+        status: 'paid',
+        paidAt: now,
+        lastActivityAt: now,
+        paymentModeRequested: 'counter',
+      },
+    },
+  ).exec();
+  await Table.updateOne(
+    { restaurantId, _id: session.tableId },
+    { $set: { status: 'paid' } },
+  ).exec();
+
+  const restaurantIdStr = String(restaurantId);
+  const tableIdStr = String(session.tableId);
+  const sessionIdStr = String(session._id);
+
+  try {
+    await publishRealtimeEvent(channels.tables(restaurantIdStr), {
+      type: 'table.status_changed',
+      tableId: tableIdStr,
+      status: 'paid',
+      changedAt: now.toISOString(),
+      reason: 'payment_succeeded',
+    });
+    await publishRealtimeEvent(channels.customerSession(restaurantIdStr, sessionIdStr), {
+      type: 'session.updated',
+      sessionId: sessionIdStr,
+      updatedAt: now.toISOString(),
+      reason: 'payment_succeeded',
+    });
+  } catch (error) {
+    console.warn('[dashboard] paid-state publish failed', error);
+  }
+
+  await TableSession.updateOne(
+    { restaurantId, _id: session._id },
+    { $set: { status: 'closed', closedAt: now, lastActivityAt: now } },
+  ).exec();
+  await Table.updateOne(
+    { restaurantId, _id: session.tableId },
+    { $set: { status: 'available', lastReleasedAt: now } },
+  ).exec();
+
+  try {
+    await publishRealtimeEvent(channels.tables(restaurantIdStr), {
+      type: 'table.status_changed',
+      tableId: tableIdStr,
+      status: 'available',
+      changedAt: now.toISOString(),
+      reason: 'table_released',
+    });
+    await publishRealtimeEvent(channels.customerSession(restaurantIdStr, sessionIdStr), {
+      type: 'session.updated',
+      sessionId: sessionIdStr,
+      updatedAt: now.toISOString(),
+      reason: 'closed',
+    });
+  } catch (error) {
+    console.warn('[dashboard] close-state publish failed', error);
+  }
+
+  try {
+    const currency = restaurant.currency as CurrencyCode;
+    const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
+    const items = rounds.flatMap((round) =>
+      round.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        lineTotalLabel: formatMoney(item.lineTotalMinor, currency, restaurant.locale),
+      })),
+    );
+    await sendTransactionalEmail({
+      to: session.customer.email,
+      subject: `Receipt · ${restaurant.name}`,
+      react: CounterSessionReceiptEmailInline({
+        restaurantName: restaurant.name,
+        customerName: session.customer.name,
+        paymentMethodLabel: methodLabel,
+        items,
+        totalLabel: formatMoney(totalMinor, currency, restaurant.locale),
+        paidAt: now.toLocaleString(restaurant.locale, { dateStyle: 'medium', timeStyle: 'short' }),
+      }),
+    });
+  } catch (error) {
+    console.warn('[dashboard] counter receipt email failed', error);
+  }
+
+  revalidatePath('/admin/tables');
+  revalidatePath('/admin/orders');
+  return { ok: true };
+}
+
+function CounterSessionReceiptEmailInline({
+  restaurantName,
+  customerName,
+  paymentMethodLabel,
+  items,
+  totalLabel,
+  paidAt,
+}: {
+  restaurantName: string;
+  customerName: string;
+  paymentMethodLabel: string;
+  items: Array<{ name: string; quantity: number; lineTotalLabel: string }>;
+  totalLabel: string;
+  paidAt: string;
+}) {
+  return (
+    <html lang="en">
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          backgroundColor: '#f4f4f5',
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+          color: '#18181b',
+        }}
+      >
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px' }}>
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e4e4e7',
+              borderRadius: 8,
+              padding: 24,
+            }}
+          >
+            <h1 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 700 }}>
+              Thanks, {customerName.split(' ')[0]}!
+            </h1>
+            <p style={{ margin: '4px 0 16px 0', fontSize: 14, color: '#71717a' }}>
+              Dine-in at {restaurantName} · paid {paidAt}
+            </p>
+            <p style={{ margin: '0 0 16px 0', fontSize: 14 }}>
+              Payment method: <strong>{paymentMethodLabel}</strong>
+            </p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={index}>
+                    <td
+                      style={{ padding: '8px 0', borderBottom: '1px solid #f4f4f5', fontSize: 14 }}
+                    >
+                      {item.quantity}× {item.name}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px 0',
+                        borderBottom: '1px solid #f4f4f5',
+                        fontSize: 14,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {item.lineTotalLabel}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ padding: '8px 0', fontWeight: 700, fontSize: 15 }}>Total</td>
+                  <td
+                    style={{
+                      padding: '8px 0',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: 15,
+                    }}
+                  >
+                    {totalLabel}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </body>
+    </html>
+  );
+}

@@ -9,9 +9,8 @@ export const dynamic = 'force-dynamic';
 /**
  * Bulk-print page for every table QR sticker in the restaurant.
  *
- * We intentionally rely on the browser's print dialog so staff can either
- * send directly to paper or "Save as PDF" without bringing a PDF library
- * into the app bundle.
+ * Staff can either print directly from the browser or download the generated
+ * multi-table PDF from the companion route.
  */
 export default async function PrintAllTablesPage() {
   const session = await requireOnboarded();
@@ -35,9 +34,15 @@ export default async function PrintAllTablesPage() {
           ← Back to tables
         </Link>
         <h1 className="mt-3 text-3xl font-bold">{restaurant.name} QR pack</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Print directly or choose “Save as PDF” in your browser print dialog.
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-zinc-600">
+          <p>Print directly or download the generated PDF pack.</p>
+          <Link
+            href="/admin/tables/print/download"
+            className="font-medium underline underline-offset-4"
+          >
+            Download PDF
+          </Link>
+        </div>
       </header>
 
       {tables.length === 0 ? (

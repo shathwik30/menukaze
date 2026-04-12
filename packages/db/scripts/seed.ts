@@ -61,6 +61,7 @@ async function ensureRestaurant(Restaurant: ReturnType<typeof getModels>['Restau
         estimatedPrepMinutes: 20,
         minimumOrderMinor: 0,
         deliveryFeeMinor: 4000,
+        dineInSessionTimeoutMinutes: 180,
         addressStructured: {
           line1: '1 Example Street',
           city: 'Bengaluru',
@@ -159,6 +160,9 @@ async function ensureMenu(
     {
       $set: {
         order: 0,
+      },
+      $unset: {
+        schedule: 1,
       },
       $setOnInsert: {
         restaurantId,

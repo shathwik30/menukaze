@@ -3,10 +3,22 @@
 import { createHmac } from 'node:crypto';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { getMongoConnection, getModels, generatePublicOrderId } from '@menukaze/db';
+import {
+  getMongoConnection,
+  getModels,
+  generatePublicOrderId,
+  getRestaurantSupportRecipients,
+  restaurantHasReachedOrderCapacity,
+} from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import {
+  formatMoney,
+  isSessionExpired,
+  normalizeDineInSessionTimeoutMinutes,
+  validateModifierSelection,
+  type CurrencyCode,
+} from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 import { sendTransactionalEmail } from '@/lib/email';
 
@@ -46,6 +58,130 @@ const customerSchema = z.object({
     .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .'),
 });
 
+const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
+
+async function publishTableStatus(
+  restaurantId: string,
+  tableId: string,
+  status: 'available' | 'occupied' | 'bill_requested' | 'paid' | 'needs_review',
+  reason?:
+    | 'session_started'
+    | 'bill_requested'
+    | 'payment_succeeded'
+    | 'table_released'
+    | 'timeout_unpaid',
+  changedAt: Date = new Date(),
+): Promise<void> {
+  try {
+    await publishRealtimeEvent(channels.tables(restaurantId), {
+      type: 'table.status_changed',
+      tableId,
+      status,
+      changedAt: changedAt.toISOString(),
+      ...(reason ? { reason } : {}),
+    });
+  } catch (error) {
+    console.warn('[session] tables publish failed', error);
+  }
+}
+
+async function publishSessionUpdate(
+  restaurantId: string,
+  sessionId: string,
+  reason:
+    | 'participant_joined'
+    | 'round_added'
+    | 'bill_requested'
+    | 'payment_succeeded'
+    | 'closed'
+    | 'needs_review',
+  updatedAt: Date = new Date(),
+): Promise<void> {
+  try {
+    await publishRealtimeEvent(channels.customerSession(restaurantId, sessionId), {
+      type: 'session.updated',
+      sessionId,
+      reason,
+      updatedAt: updatedAt.toISOString(),
+    });
+  } catch (error) {
+    console.warn('[session] session publish failed', error);
+  }
+}
+
+async function moveSessionToNeedsReview(
+  models: ReturnType<typeof getModels>,
+  session: {
+    _id: Types.ObjectId;
+    restaurantId: Types.ObjectId;
+    tableId: Types.ObjectId;
+    status: string;
+    customer: { name: string; email: string; phone?: string };
+  },
+  at: Date,
+): Promise<void> {
+  if (session.status === 'needs_review' || session.status === 'closed') return;
+
+  await models.Order.updateMany(
+    {
+      restaurantId: session.restaurantId,
+      sessionId: session._id,
+      'payment.status': { $in: ['pending', 'processing'] },
+    },
+    {
+      $set: {
+        'payment.status': 'failed',
+        'payment.failureReason': TIMED_OUT_PAYMENT_FAILURE_REASON,
+      },
+    },
+  ).exec();
+
+  await models.TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    { $set: { status: 'needs_review', closedAt: at } },
+  ).exec();
+  await models.Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'needs_review' } },
+  ).exec();
+
+  const restaurantId = String(session.restaurantId);
+  await publishTableStatus(
+    restaurantId,
+    String(session.tableId),
+    'needs_review',
+    'timeout_unpaid',
+    at,
+  );
+  await publishSessionUpdate(restaurantId, String(session._id), 'needs_review', at);
+  await notifyNeedsReviewByEmail(session, at);
+}
+
+async function expireSessionIfTimedOut(
+  models: ReturnType<typeof getModels>,
+  session: {
+    _id: Types.ObjectId;
+    restaurantId: Types.ObjectId;
+    tableId: Types.ObjectId;
+    status: string;
+    lastActivityAt: Date;
+    customer: { name: string; email: string; phone?: string };
+  },
+  restaurant: { dineInSessionTimeoutMinutes?: number | null },
+): Promise<boolean> {
+  if (session.status !== 'active' && session.status !== 'bill_requested') return false;
+  if (
+    !isSessionExpired(
+      session.lastActivityAt,
+      normalizeDineInSessionTimeoutMinutes(restaurant.dineInSessionTimeoutMinutes),
+    )
+  ) {
+    return false;
+  }
+  await moveSessionToNeedsReview(models, session, new Date());
+  return true;
+}
+
 export type StartOrJoinResult =
   | { ok: true; sessionId: string; joined: boolean }
   | { ok: false; error: string };
@@ -65,7 +201,7 @@ export async function startOrJoinSessionAction(
   if (!qrToken || qrToken.length < 10) return { ok: false, error: 'Invalid QR token.' };
 
   const conn = await getMongoConnection('live');
-  const { Table, TableSession, Restaurant } = getModels(conn);
+  const { Table, TableSession, Restaurant, Order } = getModels(conn);
 
   const table = await Table.findOne({ qrToken }, null, { skipTenantGuard: true }).exec();
   if (!table) return { ok: false, error: 'Table not found. Please rescan.' };
@@ -82,25 +218,52 @@ export async function startOrJoinSessionAction(
 
   // Concurrent-scan edge case: if there's already an active session on
   // this table, we just join it instead of creating a new one.
+  const now = new Date();
   const existing = await TableSession.findOne({
     restaurantId,
     tableId: table._id,
     status: { $in: ['active', 'bill_requested'] },
   }).exec();
   if (existing) {
+    if (
+      await expireSessionIfTimedOut(
+        { Table, TableSession, Restaurant, Order } as ReturnType<typeof getModels>,
+        existing,
+        restaurant,
+      )
+    ) {
+      return {
+        ok: false,
+        error:
+          'This table session timed out and now needs staff assistance before a new session can start.',
+      };
+    }
+    const normalizedLabel = parsed.data.name.trim().toLowerCase();
+    const participantExists = existing.participants.some(
+      (participant) => participant.label.trim().toLowerCase() === normalizedLabel,
+    );
     await TableSession.updateOne(
       { restaurantId, _id: existing._id },
       {
-        $set: { lastActivityAt: new Date() },
-        $push: {
-          participants: { label: parsed.data.name, joinedAt: new Date() },
-        },
+        $set: { lastActivityAt: now },
+        ...(participantExists
+          ? {}
+          : {
+              $push: {
+                participants: { label: parsed.data.name.trim(), joinedAt: now },
+              },
+            }),
       },
     ).exec();
+    await publishSessionUpdate(
+      String(restaurantId),
+      String(existing._id),
+      'participant_joined',
+      now,
+    );
     return { ok: true, sessionId: String(existing._id), joined: true };
   }
 
-  const now = new Date();
   const session = await TableSession.create({
     restaurantId,
     tableId: table._id,
@@ -113,17 +276,13 @@ export async function startOrJoinSessionAction(
 
   // Flip the table to occupied and publish a tables-channel update.
   await Table.updateOne({ restaurantId, _id: table._id }, { $set: { status: 'occupied' } }).exec();
-
-  try {
-    await publishRealtimeEvent(channels.tables(String(restaurantId)), {
-      type: 'table.status_changed',
-      tableId: String(table._id),
-      status: 'occupied',
-      changedAt: now.toISOString(),
-    });
-  } catch (error) {
-    console.warn('[session] tables publish failed', error);
-  }
+  await publishTableStatus(
+    String(restaurantId),
+    String(table._id),
+    'occupied',
+    'session_started',
+    now,
+  );
 
   return { ok: true, sessionId: String(session._id), joined: false };
 }
@@ -157,7 +316,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const conn = await getMongoConnection('live');
-  const { TableSession, Item, Order, Restaurant } = getModels(conn);
+  const { TableSession, Item, Order, Restaurant, Table } = getModels(conn);
 
   const session = await TableSession.findOne(
     { _id: new Types.ObjectId(parsed.data.sessionId) },
@@ -172,6 +331,32 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const restaurantId = session.restaurantId;
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (
+    await expireSessionIfTimedOut(
+      { TableSession, Item, Order, Restaurant, Table } as ReturnType<typeof getModels>,
+      session,
+      restaurant,
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        'This session timed out and now needs staff assistance before more items can be added.',
+    };
+  }
+  if (restaurant.throttling?.enabled) {
+    const atCapacity = await restaurantHasReachedOrderCapacity(
+      conn,
+      restaurantId,
+      restaurant.throttling.maxConcurrentOrders,
+    );
+    if (atCapacity) {
+      return {
+        ok: false,
+        error: 'The kitchen is running at capacity right now. Please try again in a few minutes.',
+      };
+    }
+  }
 
   for (const line of parsed.data.lines) {
     if (!Types.ObjectId.isValid(line.itemId)) {
@@ -201,17 +386,11 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     if (!item) return { ok: false, error: 'Item unavailable.' };
     if (item.soldOut) return { ok: false, error: `${item.name} is sold out.` };
 
-    const resolvedMods: { groupName: string; optionName: string; priceMinor: number }[] = [];
-    for (const mod of line.modifiers) {
-      const group = item.modifiers.find((g) => g.name === mod.groupName);
-      const option = group?.options.find((o) => o.name === mod.optionName);
-      if (!group || !option) return { ok: false, error: `Invalid modifier for ${item.name}.` };
-      resolvedMods.push({
-        groupName: group.name,
-        optionName: option.name,
-        priceMinor: option.priceMinor,
-      });
+    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
+    if (!modifierResult.ok) {
+      return { ok: false, error: modifierResult.error };
     }
+    const resolvedMods = modifierResult.modifiers;
     const unit = item.priceMinor + resolvedMods.reduce((s, m) => s + m.priceMinor, 0);
     const lineTotal = unit * line.quantity;
     subtotalMinor += lineTotal;
@@ -274,32 +453,107 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   } catch (error) {
     console.warn('[session] order publish failed', error);
   }
+  await publishSessionUpdate(restaurantIdStr, String(session._id), 'round_added', now);
 
   return { ok: true, orderId: orderIdStr, publicOrderId };
 }
 
 export async function callWaiterAction(
   sessionId: string,
+  reason: 'call_waiter' | 'payment_help' = 'call_waiter',
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
   const conn = await getMongoConnection('live');
-  const { TableSession } = getModels(conn);
+  const { TableSession, Table, Order, Restaurant } = getModels(conn);
   const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
     skipTenantGuard: true,
   }).exec();
   if (!session) return { ok: false, error: 'Session not found.' };
+  if (session.status === 'closed' || session.status === 'paid') {
+    return { ok: false, error: 'This session is already closed.' };
+  }
+
+  const restaurant = await Restaurant.findById(session.restaurantId).exec();
+  if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+
+  const expired = await expireSessionIfTimedOut(
+    { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
+    session,
+    restaurant,
+  );
+
+  const now = new Date();
+  if (!expired && session.status !== 'needs_review') {
+    await TableSession.updateOne(
+      { restaurantId: session.restaurantId, _id: session._id },
+      { $set: { lastActivityAt: now } },
+    ).exec();
+  }
 
   try {
     await publishRealtimeEvent(channels.tables(String(session.restaurantId)), {
       type: 'waiter.called',
       tableId: String(session.tableId),
       sessionId: String(session._id),
-      calledAt: new Date().toISOString(),
+      calledAt: now.toISOString(),
+      reason,
     });
   } catch (error) {
     console.warn('[session] waiter call publish failed', error);
   }
   return { ok: true };
+}
+
+async function notifyNeedsReviewByEmail(
+  session: {
+    _id: Types.ObjectId;
+    restaurantId: Types.ObjectId;
+    tableId: Types.ObjectId;
+    customer: { name: string; email: string };
+  },
+  at: Date,
+): Promise<void> {
+  try {
+    const conn = await getMongoConnection('live');
+    const { Restaurant, Table, Order } = getModels(conn);
+    const recipients = await getRestaurantSupportRecipients(conn, session.restaurantId);
+    if (!recipients || recipients.recipients.length === 0) return;
+
+    const [restaurant, table, rounds] = await Promise.all([
+      Restaurant.findById(session.restaurantId).exec(),
+      Table.findOne({ restaurantId: session.restaurantId, _id: session.tableId }).exec(),
+      Order.find({ restaurantId: session.restaurantId, sessionId: session._id }).exec(),
+    ]);
+    if (!restaurant || !table) return;
+
+    const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
+    const totalLabel = formatMoney(
+      totalMinor,
+      restaurant.currency as CurrencyCode,
+      restaurant.locale,
+    );
+
+    await Promise.all(
+      recipients.recipients.map((to) =>
+        sendTransactionalEmail({
+          to,
+          subject: `Payment review needed · ${restaurant.name} · ${table.name}`,
+          react: SessionNeedsReviewEmailInline({
+            restaurantName: restaurant.name,
+            tableName: table.name,
+            customerName: session.customer.name,
+            totalLabel,
+            happenedAt: at.toLocaleString(restaurant.locale, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            }),
+          }),
+        }),
+      ),
+    );
+  } catch (error) {
+    console.warn('[session] needs-review email failed', error);
+  }
 }
 
 export type RequestBillResult =
@@ -318,7 +572,7 @@ export type RequestBillResult =
 export async function requestBillAction(sessionId: string): Promise<RequestBillResult> {
   if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
   const conn = await getMongoConnection('live');
-  const { TableSession, Order, Restaurant } = getModels(conn);
+  const { TableSession, Order, Restaurant, Table } = getModels(conn);
 
   const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
     skipTenantGuard: true,
@@ -327,10 +581,28 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
   if (session.status === 'closed' || session.status === 'paid') {
     return { ok: false, error: 'This session is already closed.' };
   }
+  if (session.status === 'needs_review') {
+    return {
+      ok: false,
+      error: 'This session needs staff assistance before payment can continue.',
+    };
+  }
 
   const restaurantId = session.restaurantId;
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (
+    await expireSessionIfTimedOut(
+      { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
+      session,
+      restaurant,
+    )
+  ) {
+    return {
+      ok: false,
+      error: 'This session timed out and now needs staff assistance before payment can continue.',
+    };
+  }
 
   const rounds = await Order.find({
     restaurantId,
@@ -356,7 +628,18 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
 
   await TableSession.updateOne(
     { restaurantId, _id: session._id },
-    { $set: { status: 'bill_requested', billRequestedAt: now, lastActivityAt: now } },
+    {
+      $set: {
+        status: 'bill_requested',
+        billRequestedAt: now,
+        lastActivityAt: now,
+        paymentModeRequested: 'online',
+      },
+    },
+  ).exec();
+  await Table.updateOne(
+    { restaurantId, _id: session.tableId },
+    { $set: { status: 'bill_requested' } },
   ).exec();
 
   // Stamp the Razorpay handshake on the rounds so verify can look them up.
@@ -364,6 +647,14 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
     { restaurantId, sessionId: session._id, 'payment.status': 'pending' },
     { $set: { 'payment.razorpayOrderId': razorpayOrderId } },
   ).exec();
+  await publishTableStatus(
+    String(restaurantId),
+    String(session.tableId),
+    'bill_requested',
+    'bill_requested',
+    now,
+  );
+  await publishSessionUpdate(String(restaurantId), String(session._id), 'bill_requested', now);
 
   return {
     ok: true,
@@ -375,6 +666,96 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
     customer: session.customer,
     restaurantName: restaurant.name,
   };
+}
+
+export async function requestCounterPaymentAction(
+  sessionId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
+  const conn = await getMongoConnection('live');
+  const { TableSession, Order, Restaurant, Table } = getModels(conn);
+
+  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
+    skipTenantGuard: true,
+  }).exec();
+  if (!session) return { ok: false, error: 'Session not found.' };
+  if (session.status === 'closed' || session.status === 'paid') {
+    return { ok: false, error: 'This session is already closed.' };
+  }
+  if (session.status === 'needs_review') {
+    return {
+      ok: false,
+      error: 'This session already needs staff assistance. A waiter can finish the bill.',
+    };
+  }
+
+  const restaurant = await Restaurant.findById(session.restaurantId).exec();
+  if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (
+    await expireSessionIfTimedOut(
+      { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
+      session,
+      restaurant,
+    )
+  ) {
+    return {
+      ok: false,
+      error: 'This session timed out and now needs staff assistance before payment can continue.',
+    };
+  }
+
+  const rounds = await Order.find({
+    restaurantId: session.restaurantId,
+    sessionId: session._id,
+  }).exec();
+  if (rounds.length === 0) {
+    return { ok: false, error: 'No rounds in this session yet.' };
+  }
+
+  const now = new Date();
+  await TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    {
+      $set: {
+        status: 'bill_requested',
+        billRequestedAt: now,
+        lastActivityAt: now,
+        paymentModeRequested: 'counter',
+      },
+    },
+  ).exec();
+  await Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'bill_requested' } },
+  ).exec();
+
+  await publishTableStatus(
+    String(session.restaurantId),
+    String(session.tableId),
+    'bill_requested',
+    'bill_requested',
+    now,
+  );
+  await publishSessionUpdate(
+    String(session.restaurantId),
+    String(session._id),
+    'bill_requested',
+    now,
+  );
+
+  try {
+    await publishRealtimeEvent(channels.tables(String(session.restaurantId)), {
+      type: 'waiter.called',
+      tableId: String(session.tableId),
+      sessionId: String(session._id),
+      calledAt: now.toISOString(),
+      reason: 'payment_help',
+    });
+  } catch (error) {
+    console.warn('[session] payment-help publish failed', error);
+  }
+
+  return { ok: true };
 }
 
 const verifyInput = z.object({
@@ -404,6 +785,12 @@ export async function verifySessionPaymentAction(
     { skipTenantGuard: true },
   ).exec();
   if (!session) return { ok: false, error: 'Session not found.' };
+  if (session.status === 'needs_review') {
+    return {
+      ok: false,
+      error: 'This session timed out and now needs staff assistance to finish payment.',
+    };
+  }
 
   const restaurant = await Restaurant.findById(session.restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
@@ -436,27 +823,43 @@ export async function verifySessionPaymentAction(
     },
   ).exec();
 
-  // Close session, release table.
+  // Transition through paid so the dashboard can reflect the table lifecycle.
   await TableSession.updateOne(
     { restaurantId: session.restaurantId, _id: session._id },
-    { $set: { status: 'closed', paidAt: now, closedAt: now, lastActivityAt: now } },
+    { $set: { status: 'paid', paidAt: now, lastActivityAt: now, paymentModeRequested: 'online' } },
+  ).exec();
+  await Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'paid' } },
+  ).exec();
+
+  const restaurantIdStr = String(session.restaurantId);
+  await publishTableStatus(
+    restaurantIdStr,
+    String(session.tableId),
+    'paid',
+    'payment_succeeded',
+    now,
+  );
+  await publishSessionUpdate(restaurantIdStr, String(session._id), 'payment_succeeded', now);
+
+  // Then close session and release the table.
+  await TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    { $set: { status: 'closed', closedAt: now, lastActivityAt: now } },
   ).exec();
   await Table.updateOne(
     { restaurantId: session.restaurantId, _id: session.tableId },
     { $set: { status: 'available', lastReleasedAt: now } },
   ).exec();
-
-  const restaurantIdStr = String(session.restaurantId);
-  try {
-    await publishRealtimeEvent(channels.tables(restaurantIdStr), {
-      type: 'table.status_changed',
-      tableId: String(session.tableId),
-      status: 'available',
-      changedAt: now.toISOString(),
-    });
-  } catch (error) {
-    console.warn('[session] table release publish failed', error);
-  }
+  await publishTableStatus(
+    restaurantIdStr,
+    String(session.tableId),
+    'available',
+    'table_released',
+    now,
+  );
+  await publishSessionUpdate(restaurantIdStr, String(session._id), 'closed', now);
 
   // Fetch the rounds for the receipt. Best-effort email send.
   try {
@@ -574,6 +977,62 @@ function SessionReceiptEmailInline({
           <p style={{ textAlign: 'center', color: '#a1a1aa', fontSize: 12, marginTop: 24 }}>
             {restaurantName} · Powered by Menukaze
           </p>
+        </div>
+      </body>
+    </html>
+  );
+}
+
+function SessionNeedsReviewEmailInline({
+  restaurantName,
+  tableName,
+  customerName,
+  totalLabel,
+  happenedAt,
+}: {
+  restaurantName: string;
+  tableName: string;
+  customerName: string;
+  totalLabel: string;
+  happenedAt: string;
+}) {
+  return (
+    <html lang="en">
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          backgroundColor: '#f4f4f5',
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+          color: '#18181b',
+        }}
+      >
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px' }}>
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e4e4e7',
+              borderRadius: 8,
+              padding: 24,
+            }}
+          >
+            <h1 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 700 }}>
+              Payment review needed
+            </h1>
+            <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#71717a' }}>
+              {restaurantName} · {tableName} · {happenedAt}
+            </p>
+            <p style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+              {customerName}&apos;s dine-in session timed out before payment completed.
+            </p>
+            <p style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+              Outstanding total: <strong>{totalLabel}</strong>
+            </p>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              Open the dashboard and settle the table manually before releasing it.
+            </p>
+          </div>
         </div>
       </body>
     </html>

@@ -11,14 +11,34 @@ export default async function TablesPage() {
   const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Table } = getModels(conn);
-  const [restaurant, tables] = await Promise.all([
+  const { Restaurant, Table, TableSession } = getModels(conn);
+  const [restaurant, tables, tableSessions] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Table.find({ restaurantId }).sort({ number: 1 }).lean().exec(),
+    TableSession.find({
+      restaurantId,
+      status: { $in: ['active', 'bill_requested', 'needs_review'] },
+    })
+      .sort({ startedAt: -1 })
+      .lean()
+      .exec(),
   ]);
 
   const slug = restaurant?.slug ?? 'demo';
+  const sessionByTableId = new Map<string, (typeof tableSessions)[number]>();
+  for (const tableSession of tableSessions) {
+    const key = String(tableSession.tableId);
+    if (!sessionByTableId.has(key)) {
+      sessionByTableId.set(key, tableSession);
+    }
+  }
   const rows: ManagerTable[] = tables.map((t) => ({
+    ...(sessionByTableId.get(String(t._id))
+      ? {
+          activeSessionId: String(sessionByTableId.get(String(t._id))?._id),
+          activeSessionCustomer: sessionByTableId.get(String(t._id))?.customer.name ?? undefined,
+        }
+      : {}),
     id: String(t._id),
     number: t.number,
     name: t.name,
@@ -40,13 +60,21 @@ export default async function TablesPage() {
         </div>
         <div className="flex items-center gap-4">
           {rows.length > 0 ? (
-            <Link
-              href="/admin/tables/print"
-              target="_blank"
-              className="text-foreground text-sm underline underline-offset-4"
-            >
-              Print all QRs
-            </Link>
+            <>
+              <Link
+                href="/admin/tables/print"
+                target="_blank"
+                className="text-foreground text-sm underline underline-offset-4"
+              >
+                Print all QRs
+              </Link>
+              <Link
+                href="/admin/tables/print/download"
+                className="text-foreground text-sm underline underline-offset-4"
+              >
+                Download PDF
+              </Link>
+            </>
           ) : null}
           <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
             ← Back
@@ -54,7 +82,7 @@ export default async function TablesPage() {
         </div>
       </header>
 
-      <TablesManager tables={rows} />
+      <TablesManager restaurantId={session.restaurantId} tables={rows} />
     </main>
   );
 }

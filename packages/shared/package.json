@@ -10,8 +10,10 @@
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
     "./currency": "./src/currency.ts",
+    "./modifiers": "./src/modifiers.ts",
     "./payments": "./src/payments.ts",
-    "./schemas": "./src/schemas.ts"
+    "./schemas": "./src/schemas.ts",
+    "./session-timeout": "./src/session-timeout.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { filterActiveMenus, formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { computeOpenStatus, formatTodayHours } from '@/lib/hours';
 import { StorefrontHeader } from './_components/storefront-header';
@@ -54,6 +54,14 @@ export default async function StorefrontHomePage() {
     Category.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
     Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
   ]);
+  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
+  const activeMenuIds = new Set(activeMenus.map((menu) => String(menu._id)));
+  const activeCategories = categories.filter((category) =>
+    activeMenuIds.has(String(category.menuId)),
+  );
+  const activeCategoryIds = new Set(activeCategories.map((category) => String(category._id)));
+  const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
+  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
 
   const currency = restaurant.currency as CurrencyCode;
   const locale = restaurant.locale;
@@ -81,7 +89,7 @@ export default async function StorefrontHomePage() {
       postalCode: restaurant.addressStructured.postalCode,
       addressCountry: restaurant.addressStructured.country,
     },
-    servesCuisine: items.map((i) => i.name).slice(0, 5),
+    servesCuisine: activeItems.map((i) => i.name).slice(0, 5),
     menu: `https://${restaurant.slug}.menukaze.com/`,
   };
 
@@ -107,19 +115,19 @@ export default async function StorefrontHomePage() {
       />
 
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-8 sm:px-6">
-        {items.length === 0 ? (
+        {activeItems.length === 0 ? (
           <p className="text-muted-foreground py-12 text-center text-sm">
-            Menu coming soon — the restaurant hasn&apos;t published any items yet.
+            No menu is active right now. Check back during service hours.
           </p>
         ) : (
           <MenuBrowser
-            menus={menus.map((m) => ({ id: String(m._id), name: m.name }))}
-            categories={categories.map((c) => ({
+            menus={activeMenus.map((m) => ({ id: String(m._id), name: m.name }))}
+            categories={activeCategories.map((c) => ({
               id: String(c._id),
               name: c.name,
               menuId: String(c.menuId),
             }))}
-            items={items.map((i) => ({
+            items={activeItems.map((i) => ({
               id: String(i._id),
               categoryId: String(i.categoryId),
               name: i.name,
@@ -128,7 +136,23 @@ export default async function StorefrontHomePage() {
               priceMinor: i.priceMinor,
               dietaryTags: i.dietaryTags,
               soldOut: i.soldOut,
+              imageUrl: i.imageUrl,
+              comboItemNames:
+                i.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ??
+                [],
+              modifiers: i.modifiers.map((group) => ({
+                name: group.name,
+                required: group.required,
+                max: group.max,
+                options: group.options.map((option) => ({
+                  name: option.name,
+                  priceMinor: option.priceMinor,
+                  priceLabel: formatMoney(option.priceMinor, currency, locale),
+                })),
+              })),
             }))}
+            currency={currency}
+            locale={locale}
           />
         )}
       </main>

@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import * as Ably from 'ably';
+import { channels } from '@menukaze/realtime';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   createTableAction,
@@ -9,6 +11,7 @@ import {
   deleteTableAction,
   regenerateQrTokenAction,
 } from '@/app/actions/tables-admin';
+import { settleSessionAtCounterAction } from '@/app/actions/session-payments';
 
 export interface ManagerTable {
   id: string;
@@ -19,9 +22,12 @@ export interface ManagerTable {
   qrToken: string;
   status: 'available' | 'occupied' | 'bill_requested' | 'paid' | 'needs_review';
   qrUrl: string;
+  activeSessionId?: string;
+  activeSessionCustomer?: string;
 }
 
 interface Props {
+  restaurantId: string;
   tables: ManagerTable[];
 }
 
@@ -40,10 +46,99 @@ const STATUS_STYLE: Record<ManagerTable['status'], string> = {
   needs_review: 'bg-red-100 text-red-800',
 };
 
-export function TablesManager({ tables }: Props) {
+interface TableAlert {
+  id: string;
+  tableId: string;
+  message: string;
+  createdAt: string;
+}
+
+export function TablesManager({ restaurantId, tables }: Props) {
   const router = useRouter();
   const [isPending, start] = useTransition();
+  const [rows, setRows] = useState(tables);
+  const [connected, setConnected] = useState(false);
+  const [alerts, setAlerts] = useState<TableAlert[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const rowsRef = useRef(rows);
+
+  useEffect(() => {
+    setRows(tables);
+  }, [tables]);
+
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+
+  useEffect(() => {
+    const client = new Ably.Realtime({ authUrl: '/api/ably/token' });
+    client.connection.on('connected', () => setConnected(true));
+    client.connection.on('failed', () => setConnected(false));
+    const channel = client.channels.get(channels.tables(restaurantId));
+
+    const upsertAlert = (tableId: string, createdAt: string, message: string) => {
+      setAlerts((prev) => {
+        const next = [
+          { id: `${tableId}:${createdAt}:${message}`, tableId, createdAt, message },
+          ...prev,
+        ];
+        return next.slice(0, 6);
+      });
+    };
+
+    const handler = (message: Ably.Message) => {
+      const payload = message.data as
+        | {
+            type: 'table.status_changed';
+            tableId: string;
+            status: ManagerTable['status'];
+            changedAt: string;
+            reason?: string;
+          }
+        | {
+            type: 'waiter.called';
+            tableId: string;
+            sessionId: string;
+            calledAt: string;
+            reason?: 'call_waiter' | 'payment_help';
+          };
+
+      if (payload.type === 'table.status_changed') {
+        setRows((prev) =>
+          prev.map((table) =>
+            table.id === payload.tableId ? { ...table, status: payload.status } : table,
+          ),
+        );
+        if (payload.status === 'needs_review') {
+          const tableName =
+            rowsRef.current.find((table) => table.id === payload.tableId)?.name ?? 'Table';
+          upsertAlert(
+            payload.tableId,
+            payload.changedAt,
+            `${tableName} needs review. Payment is still outstanding.`,
+          );
+        }
+      }
+
+      if (payload.type === 'waiter.called') {
+        const tableName =
+          rowsRef.current.find((table) => table.id === payload.tableId)?.name ?? 'Table';
+        upsertAlert(
+          payload.tableId,
+          payload.calledAt,
+          payload.reason === 'payment_help'
+            ? `${tableName} requested payment assistance.`
+            : `${tableName} called for a waiter.`,
+        );
+      }
+    };
+
+    void channel.subscribe(handler);
+    return () => {
+      channel.unsubscribe(handler);
+      client.close();
+    };
+  }, [restaurantId]);
 
   function run(
     fn: () => Promise<{ ok: true } | { ok: true; data: unknown } | { ok: false; error: string }>,
@@ -59,20 +154,61 @@ export function TablesManager({ tables }: Props) {
   return (
     <>
       <CreateTableForm
-        nextNumber={(tables.at(-1)?.number ?? 0) + 1}
+        nextNumber={(rows.at(-1)?.number ?? 0) + 1}
         onSubmit={(input) => run(() => createTableAction(input))}
         pending={isPending}
       />
+
+      <section className="border-border rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-muted-foreground text-xs">
+            {connected ? 'Live table sync is active' : 'Connecting live table sync…'}
+          </p>
+          {alerts.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setAlerts([])}
+              className="text-muted-foreground text-xs underline"
+            >
+              Clear alerts
+            </button>
+          ) : null}
+        </div>
+        {alerts.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {alerts.map((alert) => (
+              <li
+                key={alert.id}
+                className="flex items-start justify-between gap-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950"
+              >
+                <div>
+                  <p>{alert.message}</p>
+                  <p className="mt-1 text-[11px] opacity-75">
+                    {new Date(alert.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAlerts((prev) => prev.filter((item) => item.id !== alert.id))}
+                  className="text-xs underline"
+                >
+                  Dismiss
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
       {error ? (
         <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
       ) : null}
 
-      {tables.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">No tables yet.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tables.map((table) => (
+          {rows.map((table) => (
             <TableCard
               key={table.id}
               table={table}
@@ -95,6 +231,14 @@ export function TablesManager({ tables }: Props) {
                   run(() => regenerateQrTokenAction(table.id));
                 }
               }}
+              onSettleAtCounter={(method) =>
+                run(() =>
+                  settleSessionAtCounterAction({
+                    sessionId: table.activeSessionId,
+                    method,
+                  }),
+                )
+              }
               pending={isPending}
             />
           ))}
@@ -193,12 +337,14 @@ function TableCard({
   onUpdate,
   onDelete,
   onRegenerate,
+  onSettleAtCounter,
   pending,
 }: {
   table: ManagerTable;
   onUpdate: (patch: { name?: string; capacity?: number; zone?: string }) => void;
   onDelete: () => void;
   onRegenerate: () => void;
+  onSettleAtCounter: (method: 'cash' | 'terminal') => void;
   pending: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -216,6 +362,11 @@ function TableCard({
             Seats {table.capacity}
             {table.zone ? ` · ${table.zone}` : ''}
           </p>
+          {table.activeSessionCustomer ? (
+            <p className="text-muted-foreground text-[11px]">
+              Current session: {table.activeSessionCustomer}
+            </p>
+          ) : null}
         </div>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${STATUS_STYLE[table.status]}`}
@@ -312,6 +463,27 @@ function TableCard({
           >
             Delete
           </button>
+          {table.activeSessionId &&
+          (table.status === 'bill_requested' || table.status === 'needs_review') ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onSettleAtCounter('cash')}
+                className="rounded-md bg-emerald-600 px-2 py-1 text-white disabled:opacity-50"
+              >
+                Settle cash
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onSettleAtCounter('terminal')}
+                className="rounded-md bg-blue-600 px-2 py-1 text-white disabled:opacity-50"
+              >
+                Settle terminal
+              </button>
+            </>
+          ) : null}
         </div>
       )}
     </article>

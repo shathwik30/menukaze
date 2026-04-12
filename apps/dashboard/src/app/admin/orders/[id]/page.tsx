@@ -50,11 +50,17 @@ export default async function DashboardOrderDetailPage({
         <h2 className="text-sm font-semibold uppercase tracking-wide">Status</h2>
         <p className="text-muted-foreground mt-1 text-xs">
           {order.channel} · {order.type} · {order.payment.status}
+          {order.payment.methodLabel ? ` · ${order.payment.methodLabel}` : ''}
         </p>
         <OrderStatusControl orderId={String(order._id)} currentStatus={order.status} />
         {order.cancelReason ? (
           <p className="bg-destructive/5 text-destructive mt-3 rounded-md px-3 py-2 text-xs">
             Cancelled: {order.cancelReason}
+          </p>
+        ) : null}
+        {order.payment.failureReason ? (
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            Payment attention: {order.payment.failureReason}
           </p>
         ) : null}
         <ul className="text-muted-foreground mt-3 space-y-1 text-xs">

@@ -8,6 +8,7 @@ import {
   updateHolidayModeAction,
   updateThrottlingAction,
   updateDeliverySettingsAction,
+  updateQrDineInSettingsAction,
   updateReceiptBrandingAction,
   updateNotificationPrefsAction,
 } from '@/app/actions/settings';
@@ -30,6 +31,9 @@ interface InitialSettings {
     estimatedPrepMinutes: number;
     minimumOrderMinor: number;
     deliveryFeeMinor: number;
+  };
+  qrDineIn: {
+    dineInSessionTimeoutMinutes: number;
   };
   addressStructured: {
     line1: string;
@@ -94,6 +98,11 @@ export function SettingsClient({ initial }: { initial: InitialSettings }) {
         initial={initial.delivery}
         pending={isPending}
         onSubmit={(payload) => run('delivery', () => updateDeliverySettingsAction(payload))}
+      />
+      <QrDineInSection
+        initial={initial.qrDineIn}
+        pending={isPending}
+        onSubmit={(payload) => run('QR dine-in', () => updateQrDineInSettingsAction(payload))}
       />
       <HoursSection
         initial={initial.hours}
@@ -399,6 +408,50 @@ function HoursSection({
             />
           </div>
         ))}
+        <SaveButton pending={pending} />
+      </form>
+    </Section>
+  );
+}
+
+function QrDineInSection({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: InitialSettings['qrDineIn'];
+  pending: boolean;
+  onSubmit: (payload: InitialSettings['qrDineIn']) => void;
+}) {
+  const [timeoutMinutes, setTimeoutMinutes] = useState(String(initial.dineInSessionTimeoutMinutes));
+
+  return (
+    <Section title="QR dine-in">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit({
+            dineInSessionTimeoutMinutes: Number.parseInt(timeoutMinutes, 10) || 180,
+          });
+        }}
+        className="flex flex-col gap-3"
+      >
+        <label className="flex items-center gap-3 text-sm">
+          <span className="w-52">Session timeout (minutes)</span>
+          <input
+            type="number"
+            min="30"
+            max="720"
+            step="15"
+            value={timeoutMinutes}
+            onChange={(e) => setTimeoutMinutes(e.target.value)}
+            className="border-input bg-background h-9 w-24 rounded-md border px-2 text-sm"
+          />
+        </label>
+        <p className="text-muted-foreground text-xs">
+          Guests are warned 15 minutes before expiry. Unpaid timed-out sessions move the table to
+          Needs Review instead of releasing it automatically.
+        </p>
         <SaveButton pending={pending} />
       </form>
     </Section>

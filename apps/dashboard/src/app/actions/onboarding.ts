@@ -82,6 +82,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
             wifiPublicIps: [],
             hours: [],
             subscriptionStatus: 'trial',
+            dineInSessionTimeoutMinutes: 180,
             geofenceRadiusM: 100,
             hardening: {
               strictMode: false,

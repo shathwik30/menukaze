@@ -136,6 +136,7 @@ describe('restaurantSchema defaults', () => {
       updatedAt: new Date(),
     };
     const parsed = restaurantSchema.parse(minimal);
+    expect(parsed.dineInSessionTimeoutMinutes).toBe(180);
     expect(parsed.geofenceRadiusM).toBe(100);
     expect(parsed.hardening.maxSessionsPerTable).toBe(1);
     expect(parsed.subscriptionStatus).toBe('trial');

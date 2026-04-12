@@ -77,6 +77,8 @@ export interface OrderPayment {
   status: PaymentStatus;
   amountMinor: number;
   currency: string;
+  /** Human-readable payment path shown to staff and receipts. */
+  methodLabel?: string;
   /** Razorpay order id from `orders.create` (server-side, stable id). */
   razorpayOrderId?: string;
   /** Razorpay payment id returned in the checkout success handler. */
@@ -189,6 +191,7 @@ const paymentSchema = new Schema<OrderPayment>(
     },
     amountMinor: { type: Number, required: true, min: 0 },
     currency: { type: String, required: true, minlength: 3, maxlength: 3 },
+    methodLabel: String,
     razorpayOrderId: { type: String, index: true, sparse: true },
     razorpayPaymentId: String,
     razorpaySignature: String,

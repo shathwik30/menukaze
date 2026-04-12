@@ -3,10 +3,15 @@
 import { createHmac } from 'node:crypto';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { getMongoConnection, getModels, generatePublicOrderId } from '@menukaze/db';
+import {
+  getMongoConnection,
+  getModels,
+  generatePublicOrderId,
+  restaurantHasReachedOrderCapacity,
+} from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { formatMoney, type CurrencyCode, validateModifierSelection } from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 import { sendTransactionalEmail } from '@/lib/email';
 import { OrderConfirmationEmail } from '@/emails/order-confirmation';
@@ -90,6 +95,19 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   if (!restaurant.liveAt) {
     return { ok: false, error: 'This restaurant is not accepting orders yet.' };
   }
+  if (restaurant.throttling?.enabled) {
+    const atCapacity = await restaurantHasReachedOrderCapacity(
+      conn,
+      restaurantId,
+      restaurant.throttling.maxConcurrentOrders,
+    );
+    if (atCapacity) {
+      return {
+        ok: false,
+        error: 'The kitchen is running at capacity right now. Please try again in a few minutes.',
+      };
+    }
+  }
 
   const razorpay = getRazorpayClient(restaurant);
   if (!razorpay) {
@@ -129,19 +147,11 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
 
     // Re-resolve every modifier option against the canonical item doc so
     // the client can't inject a zero-priced "Double Patty".
-    const resolvedMods: { groupName: string; optionName: string; priceMinor: number }[] = [];
-    for (const mod of line.modifiers) {
-      const group = item.modifiers.find((g) => g.name === mod.groupName);
-      const option = group?.options.find((o) => o.name === mod.optionName);
-      if (!group || !option) {
-        return { ok: false, error: `Invalid modifier for ${item.name}.` };
-      }
-      resolvedMods.push({
-        groupName: group.name,
-        optionName: option.name,
-        priceMinor: option.priceMinor,
-      });
+    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
+    if (!modifierResult.ok) {
+      return { ok: false, error: modifierResult.error };
     }
+    const resolvedMods = modifierResult.modifiers;
 
     const unitMinor = item.priceMinor + resolvedMods.reduce((sum, m) => sum + m.priceMinor, 0);
     const lineTotalMinor = unitMinor * line.quantity;
