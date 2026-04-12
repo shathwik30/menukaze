@@ -54,6 +54,9 @@ fly.toml.local
 .claude/
 .code-review-graph/
 
+# local notes / testing checklists (never commit)
+*.local.md
+
 # scratch + credentials (never commit)
 *.pem
 *.key
