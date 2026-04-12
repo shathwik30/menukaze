@@ -156,8 +156,14 @@ export function RoundItemAddButton({
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/40 p-3 sm:items-center sm:justify-center">
-          <div className="bg-background w-full max-w-md rounded-2xl border p-4 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/40 p-3 sm:items-center sm:justify-center"
+          onClick={resetConfigurator}
+        >
+          <div
+            className="bg-background w-full max-w-md rounded-2xl border p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold">{name}</h3>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ChangeEvent } from 'react';
+import { useEffect, useState, useTransition, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import {
@@ -278,6 +278,16 @@ function MenuSettingsForm({
   );
   const [startTime, setStartTime] = useState(menu.schedule?.startTime ?? '09:00');
   const [endTime, setEndTime] = useState(menu.schedule?.endTime ?? '22:00');
+
+  // Re-sync when the RSC passes fresh props after a save + router.refresh().
+  useEffect(() => {
+    setName(menu.name);
+    setOrder(String(menu.order));
+    setScheduled(Boolean(menu.schedule));
+    setDays(menu.schedule?.days ?? []);
+    setStartTime(menu.schedule?.startTime ?? '09:00');
+    setEndTime(menu.schedule?.endTime ?? '22:00');
+  }, [menu]);
 
   function toggleDay(day: (typeof DAY_LABELS)[number][0]) {
     setDays((prev) =>

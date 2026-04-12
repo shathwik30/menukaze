@@ -338,6 +338,13 @@ function TableCard({
   const [capacity, setCapacity] = useState(String(table.capacity));
   const [zone, setZone] = useState(table.zone ?? '');
 
+  // Re-sync edit fields when RSC passes fresh table props after a save.
+  useEffect(() => {
+    setName(table.name);
+    setCapacity(String(table.capacity));
+    setZone(table.zone ?? '');
+  }, [table.name, table.capacity, table.zone]);
+
   return (
     <article className="border-border rounded-lg border p-4">
       <div className="flex items-start justify-between gap-2">

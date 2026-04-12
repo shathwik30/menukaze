@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { FLAGS, OWNER_ONLY_FLAGS } from '@menukaze/rbac';
 import {
@@ -199,6 +199,12 @@ function MemberRow({
 }) {
   const [role, setRole] = useState<StaffRole>(member.role);
   const [customPermissions, setCustomPermissions] = useState<string[]>(member.customPermissions);
+
+  // Re-sync when RSC passes fresh member props after a save + router.refresh().
+  useEffect(() => {
+    setRole(member.role);
+    setCustomPermissions(member.customPermissions);
+  }, [member.role, member.customPermissions]);
 
   function toggleFlag(flag: string) {
     setCustomPermissions((current) =>
