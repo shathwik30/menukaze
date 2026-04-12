@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -7,9 +8,11 @@ export const metadata: Metadata = {
   description: 'Restaurant operator dashboard',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') ?? '';
   return (
     <html lang="en">
+      <head nonce={nonce} />
       <body className="bg-background text-foreground min-h-screen antialiased">{children}</body>
     </html>
   );

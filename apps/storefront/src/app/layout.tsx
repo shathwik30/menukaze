@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -7,9 +8,13 @@ export const metadata: Metadata = {
   description: 'Restaurant storefront',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Nonce is injected by middleware (x-nonce header) for CSP enforcement.
+  const nonce = (await headers()).get('x-nonce') ?? '';
   return (
     <html lang="en">
+      {/* Passing nonce on <head> makes Next.js apply it to its own inline scripts. */}
+      <head nonce={nonce} />
       <body className="bg-background text-foreground min-h-screen antialiased">{children}</body>
     </html>
   );

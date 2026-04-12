@@ -33,7 +33,7 @@
     "@menukaze/playwright-config": "workspace:*",
     "@menukaze/prettier-config": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
-    "@playwright/test": "1.51.1",
+    "@playwright/test": "1.55.1",
     "eslint": "9.39.4",
     "turbo": "2.9.6",
     "typescript": "5.9.3",
