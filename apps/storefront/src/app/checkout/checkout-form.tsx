@@ -10,6 +10,7 @@ import {
   verifyPaymentAction,
   type CheckoutInput,
 } from '@/app/actions/checkout';
+import { computeTax, type TaxRule } from '@menukaze/shared';
 
 interface Props {
   restaurantId: string;
@@ -20,6 +21,7 @@ interface Props {
   minimumOrderMinor: number;
   deliveryFeeMinor: number;
   estimatedPrepMinutes: number;
+  taxRules: TaxRule[];
 }
 
 interface RazorpayCheckoutOptions {
@@ -56,6 +58,7 @@ export function CheckoutForm({
   minimumOrderMinor,
   deliveryFeeMinor,
   estimatedPrepMinutes,
+  taxRules,
 }: Props) {
   const router = useRouter();
   const lines = useCart((s) => s.lines);
@@ -74,7 +77,11 @@ export function CheckoutForm({
 
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
   const deliveryFee = orderType === 'delivery' ? deliveryFeeMinor : 0;
-  const total = subtotal + deliveryFee;
+  const { taxMinor, surchargeMinor } = useMemo(
+    () => computeTax(subtotal, taxRules),
+    [subtotal, taxRules],
+  );
+  const total = subtotal + surchargeMinor + deliveryFee;
   const belowMinimum = minimumOrderMinor > 0 && subtotal < minimumOrderMinor;
   const formatMoney = (minor: number) =>
     new Intl.NumberFormat(locale, {
@@ -234,6 +241,12 @@ export function CheckoutForm({
             <span className="text-muted-foreground">Subtotal</span>
             <span className="font-mono">{formatMoney(subtotal)}</span>
           </div>
+          {taxMinor > 0 ? (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Tax</span>
+              <span className="font-mono">{formatMoney(taxMinor)}</span>
+            </div>
+          ) : null}
           {orderType === 'delivery' && deliveryFeeMinor > 0 ? (
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Delivery fee</span>

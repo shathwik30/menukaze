@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
 import {
@@ -57,11 +57,19 @@ const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: str
 /**
  * Play a short beep via the Web Audio API when a new order arrives. No
  * external audio file: keeps the KDS self-contained and avoids licensing.
+ *
+ * Returns a *stable* function reference (via useCallback + enabledRef) so
+ * callers can safely put it in useEffect dependency arrays without triggering
+ * reconnects on every render.
  */
 function useNewOrderChime(enabled: boolean): () => void {
   const ctxRef = useRef<AudioContext | null>(null);
-  return () => {
-    if (!enabled || typeof window === 'undefined') return;
+  // Track enabled via ref so the stable callback always reads the latest value.
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
+  return useCallback(() => {
+    if (!enabledRef.current || typeof window === 'undefined') return;
     const AudioContextCtor: typeof AudioContext | undefined =
       window.AudioContext ?? window.webkitAudioContext;
     if (!AudioContextCtor) return;
@@ -77,7 +85,7 @@ function useNewOrderChime(enabled: boolean): () => void {
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.3);
-  };
+  }, []); // stable — reads enabled from ref
 }
 
 const CHANNEL_FILTERS: Array<{

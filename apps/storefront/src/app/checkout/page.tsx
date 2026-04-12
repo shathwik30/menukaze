@@ -24,6 +24,7 @@ export default async function CheckoutPage() {
         minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
         deliveryFeeMinor={restaurant.deliveryFeeMinor ?? 0}
         estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
+        taxRules={restaurant.taxRules ?? []}
       />
     </main>
   );

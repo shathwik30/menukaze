@@ -426,7 +426,7 @@ export function SessionClient({
         >
           {waiterCalled ? 'Waiter on the way ✓' : 'Call waiter'}
         </button>
-        {rounds.length > 0 ? (
+        {rounds.length > 0 && (status === 'active' || status === 'bill_requested') ? (
           <Link
             href={`/session/${sessionId}/bill`}
             className="bg-primary text-primary-foreground ml-auto inline-flex h-9 items-center rounded-md px-4 text-xs font-semibold"

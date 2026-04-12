@@ -136,16 +136,25 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
       </div>
 
       <div className="flex flex-col gap-8">
-        {visibleCategories.map((category) => {
-          const categoryItems = items.filter((item) => {
-            if (item.categoryId !== category.id) return false;
-            if (activeTag && !item.dietaryTags.includes(activeTag)) return false;
-            if (q && !`${item.name} ${item.description ?? ''}`.toLowerCase().includes(q))
-              return false;
-            return true;
+        {(() => {
+          const sections = visibleCategories.flatMap((category) => {
+            const categoryItems = items.filter((item) => {
+              if (item.categoryId !== category.id) return false;
+              if (activeTag && !item.dietaryTags.includes(activeTag)) return false;
+              if (q && !`${item.name} ${item.description ?? ''}`.toLowerCase().includes(q))
+                return false;
+              return true;
+            });
+            return categoryItems.length === 0 ? [] : [{ category, categoryItems }];
           });
-          if (categoryItems.length === 0) return null;
-          return (
+          if (sections.length === 0) {
+            return (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No items match your search.
+              </p>
+            );
+          }
+          return sections.map(({ category, categoryItems }) => (
             <section key={category.id}>
               <h2 className="text-lg font-semibold">{category.name}</h2>
               <ul className="divide-border mt-3 divide-y">
@@ -221,8 +230,8 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
                 ))}
               </ul>
             </section>
-          );
-        })}
+          ));
+        })()}
       </div>
     </div>
   );

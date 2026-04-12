@@ -103,7 +103,8 @@ export function OrderTracker({
       )}
 
       <p className="text-muted-foreground mt-6 text-xs">
-        Status: {status} · Payment: {initialPaymentStatus}
+        Status: {status} · Payment:{' '}
+        {status === 'completed' || status === 'cancelled' ? 'captured' : initialPaymentStatus}
       </p>
     </section>
   );
