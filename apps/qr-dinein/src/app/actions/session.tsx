@@ -10,7 +10,7 @@ import {
   getRestaurantSupportRecipients,
   restaurantHasReachedOrderCapacity,
 } from '@menukaze/db';
-import { channels } from '@menukaze/realtime';
+import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   formatMoney,
@@ -115,6 +115,28 @@ async function publishSessionUpdate(
     });
   } catch (error) {
     console.warn('[session] session publish failed', error);
+  }
+}
+
+async function publishOrderStatusChanges(
+  restaurantId: string,
+  orderIds: string[],
+  status: OrderStatus,
+  changedAt: Date,
+): Promise<void> {
+  try {
+    await Promise.all(
+      orderIds.map((orderId) =>
+        publishRealtimeEvent(channels.orders(restaurantId), {
+          type: 'order.status_changed',
+          orderId,
+          status,
+          changedAt: changedAt.toISOString(),
+        }),
+      ),
+    );
+  } catch (error) {
+    console.warn('[session] order status publish failed', error);
   }
 }
 
@@ -819,6 +841,18 @@ export async function verifySessionPaymentAction(
   ).exec();
 
   const restaurantIdStr = String(session.restaurantId);
+  const completedRounds = await Order.find(
+    { restaurantId: session.restaurantId, sessionId: session._id },
+    { _id: 1 },
+  )
+    .lean()
+    .exec();
+  await publishOrderStatusChanges(
+    restaurantIdStr,
+    completedRounds.map((round) => String(round._id)),
+    'completed',
+    now,
+  );
   await publishTableStatus(
     restaurantIdStr,
     String(session.tableId),

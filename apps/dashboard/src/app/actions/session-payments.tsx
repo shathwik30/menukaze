@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { channels } from '@menukaze/realtime';
+import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { sendTransactionalEmail } from '@/lib/email';
@@ -14,6 +14,28 @@ const settleSessionInput = z.object({
   sessionId: z.unknown(),
   method: z.unknown(),
 });
+
+async function publishOrderStatusChanges(
+  restaurantId: string,
+  orderIds: string[],
+  status: OrderStatus,
+  changedAt: Date,
+): Promise<void> {
+  try {
+    await Promise.all(
+      orderIds.map((orderId) =>
+        publishRealtimeEvent(channels.orders(restaurantId), {
+          type: 'order.status_changed',
+          orderId,
+          status,
+          changedAt: changedAt.toISOString(),
+        }),
+      ),
+    );
+  } catch (error) {
+    console.warn('[dashboard] order status publish failed', error);
+  }
+}
 
 export async function settleSessionAtCounterAction(
   raw: unknown,
@@ -110,6 +132,8 @@ export async function settleSessionAtCounterAction(
   const restaurantIdStr = String(restaurantId);
   const tableIdStr = String(session.tableId);
   const sessionIdStr = String(session._id);
+  const orderIds = rounds.map((round) => String(round._id));
+  await publishOrderStatusChanges(restaurantIdStr, orderIds, 'completed', now);
 
   try {
     await publishRealtimeEvent(channels.tables(restaurantIdStr), {

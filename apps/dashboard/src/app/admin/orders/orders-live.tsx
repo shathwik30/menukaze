@@ -2,8 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
-import { channels, isOrderStatusChangedEvent, type OrderStatus } from '@menukaze/realtime';
+import {
+  channels,
+  isOrderCreatedEvent,
+  isOrderStatusChangedEvent,
+  type OrderStatus,
+} from '@menukaze/realtime';
 
 export interface OrderRow {
   id: string;
@@ -35,8 +41,13 @@ const STATUS_CLASSES: Record<string, string> = {
 };
 
 export function OrdersLive({ restaurantId, initialRows }: Props) {
+  const router = useRouter();
   const [rows, setRows] = useState<OrderRow[]>(initialRows);
   const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
 
   useEffect(() => {
     const client = new Ably.Realtime({ authUrl: '/api/ably/token' });
@@ -50,16 +61,16 @@ export function OrdersLive({ restaurantId, initialRows }: Props) {
         const status = payload.status;
         setRows((prev) => prev.map((r) => (r.id === payload.orderId ? { ...r, status } : r)));
       }
-      // order.created events could prepend a new row, but we'd need the full
-      // order payload. Cheapest MVP solution: a full server re-fetch on
-      // create. Polling via router.refresh() would work here in Step 14.
+      if (msg.name === 'order.created' && isOrderCreatedEvent(msg.data)) {
+        router.refresh();
+      }
     };
     void channel.subscribe(handler);
     return () => {
       channel.unsubscribe(handler);
       client.close();
     };
-  }, [restaurantId]);
+  }, [restaurantId, router]);
 
   const active = useMemo(
     () => rows.filter((r) => r.status !== 'completed' && r.status !== 'cancelled'),

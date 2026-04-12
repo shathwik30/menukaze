@@ -25,11 +25,12 @@ export default async function StaffPage() {
 
   const members: StaffMember[] = memberships.map((m) => {
     const user = usersById.get(String(m.userId));
+    const isCurrentUser = String(m.userId) === session.user.id;
     return {
       membershipId: String(m._id),
       userId: String(m.userId),
-      email: user?.email ?? 'unknown',
-      name: user?.name ?? '—',
+      email: user?.email ?? (isCurrentUser ? session.user.email : 'unknown'),
+      name: user?.name ?? (isCurrentUser ? session.user.name : '—'),
       role: m.role,
       customPermissions: m.customPermissions ?? [],
       status: m.status,

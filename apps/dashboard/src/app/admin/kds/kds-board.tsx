@@ -105,6 +105,10 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
   cardsRef.current = cards;
 
   useEffect(() => {
+    setCards(initialCards);
+  }, [initialCards]);
+
+  useEffect(() => {
     const client = new Ably.Realtime({ authUrl: '/api/ably/token' });
     const channel = client.channels.get(channels.orders(restaurantId));
 

@@ -10,13 +10,13 @@ import { Schema, type Model, type Connection, type HydratedDocument } from 'mong
  */
 export interface UserDoc {
   email: string;
-  emailLower: string;
+  emailLower?: string;
   emailVerified: boolean;
-  passwordHash?: string;
   name: string;
-  locale: string;
-  /** Discriminator: a `customer` user can never reach a staff surface. */
-  type: 'staff' | 'customer';
+  image?: string | null;
+  locale?: string;
+  /** Optional app-level discriminator for seeded/admin-created users. */
+  type?: 'staff' | 'customer';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,14 +24,14 @@ export interface UserDoc {
 const userSchema = new Schema<UserDoc>(
   {
     email: { type: String, required: true },
-    emailLower: { type: String, required: true, unique: true },
+    emailLower: { type: String, unique: true, sparse: true },
     emailVerified: { type: Boolean, default: false },
-    passwordHash: String,
     name: { type: String, required: true },
+    image: { type: String, default: null },
     locale: { type: String, default: 'en-US' },
     type: { type: String, enum: ['staff', 'customer'], default: 'staff' },
   },
-  { timestamps: true, collection: 'users' },
+  { timestamps: true, collection: 'user' },
 );
 
 userSchema.pre('save', async function () {

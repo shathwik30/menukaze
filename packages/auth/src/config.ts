@@ -57,8 +57,8 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
             });
             if (invite) {
               await db
-                .collection('users')
-                .updateOne({ _id: user._id }, { $set: { emailVerified: true } });
+                .collection('user')
+                .updateOne({ email: user.email }, { $set: { emailVerified: true } });
             }
           },
         },

@@ -118,23 +118,31 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
   ).exec();
 
   // Realtime fan-out: customer tracking page + dashboard orders feed.
+  // QR dine-in customers subscribe to the session channel, not per-order channels,
+  // because one table session can contain multiple rounds/orders.
   const restaurantIdStr = String(restaurantId);
   const orderIdStr = String(orderId);
+  const statusChangedEvent = {
+    type: 'order.status_changed',
+    orderId: orderIdStr,
+    status: parsed.data.nextStatus,
+    changedAt: now.toISOString(),
+  } as const;
+  const realtimePublishes = [
+    publishRealtimeEvent(channels.customerOrder(restaurantIdStr, orderIdStr), statusChangedEvent),
+    publishRealtimeEvent(channels.orders(restaurantIdStr), statusChangedEvent),
+  ];
+  if (order.sessionId) {
+    realtimePublishes.push(
+      publishRealtimeEvent(
+        channels.customerSession(restaurantIdStr, String(order.sessionId)),
+        statusChangedEvent,
+      ),
+    );
+  }
+
   try {
-    await Promise.all([
-      publishRealtimeEvent(channels.customerOrder(restaurantIdStr, orderIdStr), {
-        type: 'order.status_changed',
-        orderId: orderIdStr,
-        status: parsed.data.nextStatus,
-        changedAt: now.toISOString(),
-      }),
-      publishRealtimeEvent(channels.orders(restaurantIdStr), {
-        type: 'order.status_changed',
-        orderId: orderIdStr,
-        status: parsed.data.nextStatus,
-        changedAt: now.toISOString(),
-      }),
-    ]);
+    await Promise.all(realtimePublishes);
   } catch (error) {
     console.warn('[orders] ably publish failed', error);
   }
