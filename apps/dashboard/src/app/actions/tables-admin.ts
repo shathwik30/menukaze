@@ -1,10 +1,18 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generateQrToken } from '@menukaze/db';
-import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import { parseObjectId } from '@menukaze/db/object-id';
+import {
+  actionError,
+  invalidEntityError,
+  validationError,
+  withRestaurantAction,
+  type ActionResult,
+} from '@/lib/action-helpers';
+
+const TABLE_PERMISSION_ERROR = 'You do not have permission to manage tables.';
 
 const createInput = z.object({
   number: z.number().int().min(1).max(9999),
@@ -20,15 +28,6 @@ const updateInput = z.object({
   zone: z.string().max(60).optional(),
 });
 
-export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true } : { ok: true; data: T })
-  | { ok: false; error: string };
-
-function firstZodError(err: z.ZodError): string {
-  const first = err.issues[0];
-  return first ? `${first.path.join('.')}: ${first.message}` : 'Invalid input.';
-}
-
 /**
  * Table CRUD for the dashboard (Phase 4 step 16). Regenerating the QR
  * token is a separate action because it should only happen when a sticker
@@ -36,106 +35,94 @@ function firstZodError(err: z.ZodError): string {
  */
 export async function createTableAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = createInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  let session;
-  try {
-    ({ session } = await requireFlags(['tables.edit']));
-  } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to manage tables.' };
-    }
-    throw error;
-  }
-  const restaurantId = new Types.ObjectId(session.restaurantId);
-  const conn = await getMongoConnection('live');
-  const { Table } = getModels(conn);
-
-  const number = parsed.data.number;
-  const existing = await Table.findOne({ restaurantId, number }).exec();
-  if (existing) return { ok: false, error: `Table ${number} already exists.` };
+  if (!parsed.success) return validationError(parsed.error);
 
   try {
-    const table = await Table.create({
-      restaurantId,
-      number,
-      name: parsed.data.name ?? `Table ${number}`,
-      capacity: parsed.data.capacity,
-      ...(parsed.data.zone ? { zone: parsed.data.zone } : {}),
-      qrToken: generateQrToken(),
-      status: 'available',
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Table } = getModels(conn);
+
+      const number = parsed.data.number;
+      const existing = await Table.findOne({ restaurantId, number }).exec();
+      if (existing) return { ok: false, error: `Table ${number} already exists.` };
+
+      const table = await Table.create({
+        restaurantId,
+        number,
+        name: parsed.data.name ?? `Table ${number}`,
+        capacity: parsed.data.capacity,
+        ...(parsed.data.zone ? { zone: parsed.data.zone } : {}),
+        qrToken: generateQrToken(),
+        status: 'available',
+      });
+      revalidatePath('/admin/tables');
+      return { ok: true, data: { id: String(table._id) } };
     });
-    revalidatePath('/admin/tables');
-    return { ok: true, data: { id: String(table._id) } };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Failed to create table.' };
+    return actionError(error, 'Failed to create table.', TABLE_PERMISSION_ERROR);
   }
 }
 
 export async function updateTableAction(raw: unknown): Promise<ActionResult> {
   const parsed = updateInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown table.' };
-  let session;
-  try {
-    ({ session } = await requireFlags(['tables.edit']));
-  } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to manage tables.' };
-    }
-    throw error;
-  }
-  const restaurantId = new Types.ObjectId(session.restaurantId);
-  const conn = await getMongoConnection('live');
-  const { Table } = getModels(conn);
+  if (!parsed.success) return validationError(parsed.error);
 
-  const { id, ...patch } = parsed.data;
-  const result = await Table.updateOne(
-    { restaurantId, _id: new Types.ObjectId(id) },
-    { $set: patch },
-  ).exec();
-  if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
-  revalidatePath('/admin/tables');
-  return { ok: true };
+  const tableId = parseObjectId(parsed.data.id);
+  if (!tableId) return invalidEntityError('table');
+
+  try {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Table } = getModels(conn);
+      const { id: _ignoredId, ...patch } = parsed.data;
+
+      const result = await Table.updateOne({ restaurantId, _id: tableId }, { $set: patch }).exec();
+      if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
+
+      revalidatePath('/admin/tables');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update table.', TABLE_PERMISSION_ERROR);
+  }
 }
 
 export async function deleteTableAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown table.' };
-  let session;
+  const tableId = parseObjectId(id);
+  if (!tableId) return invalidEntityError('table');
+
   try {
-    ({ session } = await requireFlags(['tables.edit']));
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Table } = getModels(conn);
+
+      await Table.deleteOne({ restaurantId, _id: tableId }).exec();
+      revalidatePath('/admin/tables');
+      return { ok: true };
+    });
   } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to manage tables.' };
-    }
-    throw error;
+    return actionError(error, 'Failed to delete table.', TABLE_PERMISSION_ERROR);
   }
-  const restaurantId = new Types.ObjectId(session.restaurantId);
-  const conn = await getMongoConnection('live');
-  const { Table } = getModels(conn);
-  await Table.deleteOne({ restaurantId, _id: new Types.ObjectId(id) }).exec();
-  revalidatePath('/admin/tables');
-  return { ok: true };
 }
 
 export async function regenerateQrTokenAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown table.' };
-  let session;
+  const tableId = parseObjectId(id);
+  if (!tableId) return invalidEntityError('table');
+
   try {
-    ({ session } = await requireFlags(['tables.edit']));
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Table } = getModels(conn);
+      const result = await Table.updateOne(
+        { restaurantId, _id: tableId },
+        { $set: { qrToken: generateQrToken() } },
+      ).exec();
+      if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
+
+      revalidatePath('/admin/tables');
+      return { ok: true };
+    });
   } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to manage tables.' };
-    }
-    throw error;
+    return actionError(error, 'Failed to regenerate table QR token.', TABLE_PERMISSION_ERROR);
   }
-  const restaurantId = new Types.ObjectId(session.restaurantId);
-  const conn = await getMongoConnection('live');
-  const { Table } = getModels(conn);
-  const result = await Table.updateOne(
-    { restaurantId, _id: new Types.ObjectId(id) },
-    { $set: { qrToken: generateQrToken() } },
-  ).exec();
-  if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
-  revalidatePath('/admin/tables');
-  return { ok: true };
 }

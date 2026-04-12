@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
@@ -8,7 +7,7 @@ import { SettingsClient } from './settings-client';
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const { session, permissions } = await requireAnyPageFlag([
+  const { restaurantId, permissions } = await requireAnyPageFlag([
     'settings.edit_profile',
     'settings.edit_hours',
     'settings.toggle_holiday',
@@ -16,7 +15,6 @@ export default async function SettingsPage() {
     'settings.edit_branding',
     'settings.edit_notifications',
   ]);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);
   const restaurant = await Restaurant.findById(restaurantId).exec();

@@ -1,6 +1,6 @@
-import { Types } from 'mongoose';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
 import { createAblyTokenRequest } from '@menukaze/realtime/server';
 
@@ -8,13 +8,14 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const sessionId = request.nextUrl.searchParams.get('sessionId');
-  if (!sessionId || !Types.ObjectId.isValid(sessionId)) {
+  const sessionObjectId = sessionId ? parseObjectId(sessionId) : null;
+  if (!sessionId || !sessionObjectId) {
     return NextResponse.json({ error: 'Unknown session.' }, { status: 400 });
   }
 
   const conn = await getMongoConnection('live');
   const { TableSession } = getModels(conn);
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
+  const session = await TableSession.findOne({ _id: sessionObjectId }, null, {
     skipTenantGuard: true,
   }).exec();
   if (!session) {

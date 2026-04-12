@@ -1,8 +1,9 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { hasAllFlags, hasAnyFlag, resolveFlags, type Flag, type StaffRole } from '@menukaze/rbac';
 import { getAuth } from './auth';
 
@@ -22,10 +23,22 @@ export interface CurrentSession {
   permissions: Flag[];
 }
 
-export interface AuthorizedSession {
+export interface RestaurantSessionContext {
   session: CurrentSession & { restaurantId: string };
+  restaurantId: Types.ObjectId;
+}
+
+export interface AuthorizedSession extends RestaurantSessionContext {
   role: StaffRole;
   permissions: readonly Flag[];
+}
+
+function requireObjectId(value: string, entity: string): Types.ObjectId {
+  const objectId = parseObjectId(value);
+  if (!objectId) {
+    throw new Error(`Unknown ${entity}.`);
+  }
+  return objectId;
 }
 
 /**
@@ -37,25 +50,26 @@ export async function getSession(): Promise<CurrentSession | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
 
-  // Resolve the user's primary restaurant via staff_memberships. A user can
-  // be a member of multiple restaurants; for Phase 4 we always pick the
-  // first one. Phase 4.x will add a tenant switcher.
+  const userId = requireObjectId(session.user.id, 'user');
   const conn = await getMongoConnection('live');
   const { StaffMembership } = getModels(conn);
-  const userId = new Types.ObjectId(session.user.id);
   const preferredRestaurantId = (await cookies()).get(ACTIVE_RESTAURANT_COOKIE)?.value;
-  const preferredMembership =
-    preferredRestaurantId && Types.ObjectId.isValid(preferredRestaurantId)
-      ? await StaffMembership.findOne(
-          {
-            userId,
-            restaurantId: new Types.ObjectId(preferredRestaurantId),
-            status: 'active',
-          },
-          { restaurantId: 1, role: 1, customPermissions: 1 },
-          { skipTenantGuard: true },
-        ).exec()
-      : null;
+  const preferredRestaurantObjectId = preferredRestaurantId
+    ? parseObjectId(preferredRestaurantId)
+    : null;
+
+  const preferredMembership = preferredRestaurantObjectId
+    ? await StaffMembership.findOne(
+        {
+          userId,
+          restaurantId: preferredRestaurantObjectId,
+          status: 'active',
+        },
+        { restaurantId: 1, role: 1, customPermissions: 1 },
+        { skipTenantGuard: true },
+      ).exec()
+    : null;
+
   const membership =
     preferredMembership ??
     (await StaffMembership.findOne(
@@ -65,6 +79,7 @@ export async function getSession(): Promise<CurrentSession | null> {
     )
       .sort({ updatedAt: -1 })
       .exec());
+
   const permissions = membership
     ? Array.from(
         resolveFlags({
@@ -107,10 +122,17 @@ export async function requireOnboarded(): Promise<CurrentSession & { restaurantI
   return { ...session, restaurantId: session.restaurantId };
 }
 
+export async function requireOnboardedRestaurant(): Promise<RestaurantSessionContext> {
+  const session = await requireOnboarded();
+  return {
+    session,
+    restaurantId: requireObjectId(session.restaurantId, 'restaurant'),
+  };
+}
+
 /**
  * Thrown by `requireFlags` / `requireAnyFlag` when the caller's StaffMembership
- * doesn't have the permission needed for the action. Server actions catch
- * this and surface `{ ok: false, error }` to the client.
+ * does not have the permission needed for the action.
  */
 export class PermissionDeniedError extends Error {
   public constructor(flags: Flag[]) {
@@ -119,17 +141,14 @@ export class PermissionDeniedError extends Error {
   }
 }
 
-/**
- * Load the current user's StaffMembership for the active restaurant. Used
- * by the RBAC helpers below — not typically called by server actions
- * directly.
- */
 async function loadActiveMembership(session: CurrentSession & { restaurantId: string }) {
+  const restaurantId = requireObjectId(session.restaurantId, 'restaurant');
+  const userId = requireObjectId(session.user.id, 'user');
   const conn = await getMongoConnection('live');
   const { StaffMembership } = getModels(conn);
   const membership = await StaffMembership.findOne({
-    restaurantId: new Types.ObjectId(session.restaurantId),
-    userId: new Types.ObjectId(session.user.id),
+    restaurantId,
+    userId,
     status: 'active',
   }).exec();
   if (!membership) throw new PermissionDeniedError([]);
@@ -146,36 +165,39 @@ function permissionsForMembership(membership: Awaited<ReturnType<typeof loadActi
 }
 
 /**
- * Require the caller to hold **every** flag in the list. Throws
- * `PermissionDeniedError` if any is missing. The membership is returned
- * so the caller can also use the staff member's role / user id.
+ * Require the caller to hold every flag in the list.
  */
 export async function requireFlags(flags: Flag[]): Promise<AuthorizedSession> {
-  const session = await requireOnboarded();
-  const membership = await loadActiveMembership(session);
+  const context = await requireOnboardedRestaurant();
+  const membership = await loadActiveMembership(context.session);
   if (
     !hasAllFlags({ role: membership.role, customPermissions: membership.customPermissions }, flags)
   ) {
     throw new PermissionDeniedError(flags);
   }
-  return { session, role: membership.role, permissions: permissionsForMembership(membership) };
+  return {
+    ...context,
+    role: membership.role,
+    permissions: permissionsForMembership(membership),
+  };
 }
 
 /**
- * Require the caller to hold **at least one** of the flags in the list.
- * Useful when an action is legal for several roles that have overlapping
- * but non-identical permissions (e.g., waiters can update status for
- * assigned orders; kitchen can update status for KDS).
+ * Require the caller to hold at least one flag in the list.
  */
 export async function requireAnyFlag(flags: Flag[]): Promise<AuthorizedSession> {
-  const session = await requireOnboarded();
-  const membership = await loadActiveMembership(session);
+  const context = await requireOnboardedRestaurant();
+  const membership = await loadActiveMembership(context.session);
   if (
     !hasAnyFlag({ role: membership.role, customPermissions: membership.customPermissions }, flags)
   ) {
     throw new PermissionDeniedError(flags);
   }
-  return { session, role: membership.role, permissions: permissionsForMembership(membership) };
+  return {
+    ...context,
+    role: membership.role,
+    permissions: permissionsForMembership(membership),
+  };
 }
 
 export async function requireAnyPageFlag(flags: Flag[]): Promise<AuthorizedSession> {

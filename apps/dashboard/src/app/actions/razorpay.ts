@@ -1,10 +1,10 @@
 'use server';
 
-import { Types } from 'mongoose';
 import { z } from 'zod';
 import { envelopeEncrypt, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import { validationError } from '@/lib/action-helpers';
 import { verifyRazorpayKeys } from '@/lib/razorpay';
 
 const inputSchema = z.object({
@@ -36,9 +36,9 @@ export type ConnectRazorpayResult = { ok: true } | { ok: false; error: string };
  * envelope-encoded strings land in MongoDB.
  */
 export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorpayResult> {
-  let session;
+  let restaurantId;
   try {
-    ({ session } = await requireFlags(['payments.configure']));
+    ({ restaurantId } = await requireFlags(['payments.configure']));
   } catch (error) {
     if (error instanceof PermissionDeniedError) {
       return { ok: false, error: 'You do not have permission to configure payments.' };
@@ -47,13 +47,7 @@ export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorp
   }
 
   const parsed = inputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      error: first ? `${first.path.join('.')}: ${first.message}` : 'Invalid form data.',
-    };
-  }
+  if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const { keyId, keySecret } = parsed.data;
 
   const verify = await verifyRazorpayKeys(keyId, keySecret);
@@ -63,7 +57,6 @@ export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorp
 
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };

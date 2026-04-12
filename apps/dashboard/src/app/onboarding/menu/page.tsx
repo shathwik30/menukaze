@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
@@ -14,8 +13,7 @@ export const dynamic = 'force-dynamic';
  *   - Must be on the 'menu' step → redirect away otherwise.
  */
 export default async function OnboardingMenuPage() {
-  const { session } = await requirePageFlag(['menu.edit']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { restaurantId } = await requirePageFlag(['menu.edit']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);

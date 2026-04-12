@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
@@ -7,8 +6,7 @@ import { TablesManager, type ManagerTable } from './tables-manager';
 export const dynamic = 'force-dynamic';
 
 export default async function TablesPage() {
-  const { session, permissions } = await requirePageFlag(['tables.view']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { session, restaurantId, permissions } = await requirePageFlag(['tables.view']);
   const canEditTables = permissions.includes('tables.edit');
   const canPrintQr = permissions.includes('tables.qr_print');
   const canProcessPayments = permissions.includes('payments.process');

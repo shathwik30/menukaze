@@ -10,7 +10,13 @@ import {
   isSessionExpired,
   isSessionInWarningWindow,
 } from '@menukaze/shared';
-import { cartLineKey, useRoundCart, subtotalMinor, itemCount, type CartLine } from '@/stores/cart';
+import {
+  cartItemCount,
+  cartLineKey,
+  cartSubtotalMinor,
+  useRoundCart,
+  type CartLine,
+} from '@/stores/cart';
 import { placeRoundAction, callWaiterAction } from '@/app/actions/session';
 import { RoundItemAddButton } from './round-item-add-button';
 
@@ -86,8 +92,8 @@ export function SessionClient({
 }: Props) {
   const router = useRouter();
   const cartLines = useRoundCart((s) => s.lines);
-  const inc = useRoundCart((s) => s.inc);
-  const dec = useRoundCart((s) => s.dec);
+  const incrementLine = useRoundCart((s) => s.incrementLine);
+  const decrementLine = useRoundCart((s) => s.decrementLine);
   const setNotes = useRoundCart((s) => s.setNotes);
   const clear = useRoundCart((s) => s.clear);
 
@@ -132,7 +138,7 @@ export function SessionClient({
       style: 'currency',
       currency,
       maximumFractionDigits: 2,
-    }).format(subtotalMinor(cartLines) / 100);
+    }).format(cartSubtotalMinor(cartLines) / 100);
   }, [cartLines, currency, locale]);
 
   const sessionExpired =
@@ -375,7 +381,7 @@ export function SessionClient({
                     <span className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => dec(key)}
+                        onClick={() => decrementLine(key)}
                         className="border-input h-6 w-6 rounded-md border text-xs"
                       >
                         −
@@ -383,7 +389,7 @@ export function SessionClient({
                       <span className="w-5 text-center text-xs">{line.quantity}</span>
                       <button
                         type="button"
-                        onClick={() => inc(key)}
+                        onClick={() => incrementLine(key)}
                         className="border-input h-6 w-6 rounded-md border text-xs"
                       >
                         +
@@ -403,7 +409,7 @@ export function SessionClient({
             })}
           </ul>
           <div className="border-border mt-3 flex items-center justify-between border-t pt-3 text-sm">
-            <span className="font-semibold">{itemCount(cartLines)} items</span>
+            <span className="font-semibold">{cartItemCount(cartLines)} items</span>
             <span className="font-mono font-semibold">{subtotalLabel}</span>
           </div>
           <button

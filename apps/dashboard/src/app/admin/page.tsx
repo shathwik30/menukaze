@@ -1,9 +1,8 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
-import { requireOnboarded } from '@/lib/session';
+import { requireOnboardedRestaurant } from '@/lib/session';
 import { computeChecklist } from '@/lib/onboarding-checklist';
 import { signOutAction } from '@/app/actions/auth';
 import { OnboardingChecklistCard } from './onboarding-checklist-card';
@@ -11,8 +10,7 @@ import { OnboardingChecklistCard } from './onboarding-checklist-card';
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardAdminPage() {
-  const session = await requireOnboarded();
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { session, restaurantId } = await requireOnboardedRestaurant();
 
   // Load the restaurant for the header. Bypasses the tenant guard because we
   // pass an explicit _id filter — there's nothing tenant-scoped about

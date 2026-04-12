@@ -14,6 +14,20 @@ import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { getMongoConnection, type DbName } from '@menukaze/db';
 import { Resend } from 'resend';
 
+interface StaffInviteLookupDoc {
+  email: string;
+  usedAt?: Date;
+  revokedAt?: Date;
+  expiresAt: Date;
+}
+
+interface AuthUserWriteDoc {
+  id: string;
+  emailLower?: string;
+  emailVerified?: boolean;
+  type?: 'staff' | 'customer';
+}
+
 interface CreateAuthOptions {
   dbName?: DbName;
   baseURL?: string;
@@ -45,11 +59,13 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
           after: async (user) => {
             const emailLower = user.email.toLowerCase();
             const escapedEmail = user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const staffInvites = db.collection<StaffInviteLookupDoc>('staff_invites');
+            const users = db.collection<AuthUserWriteDoc>('user');
             // Auto-verify email for users who have a pending staff invite.
             // The invite email itself proves ownership — no need for a
             // separate verification step. This is standard SaaS practice
             // (Slack, Linear, Notion all do this).
-            const invite = await db.collection('staff_invites').findOne({
+            const invite = await staffInvites.findOne({
               $or: [
                 { email: emailLower },
                 { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } },
@@ -58,12 +74,16 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
               revokedAt: { $exists: false },
               expiresAt: { $gt: new Date() },
             });
-            await db
-              .collection('user')
-              .updateOne(
-                { email: user.email },
-                { $set: { emailLower, type: 'staff', ...(invite ? { emailVerified: true } : {}) } },
-              );
+            await users.updateOne(
+              { id: user.id },
+              {
+                $set: {
+                  emailLower,
+                  type: 'staff',
+                  ...(invite ? { emailVerified: true } : {}),
+                },
+              },
+            );
           },
         },
       },

@@ -1,8 +1,8 @@
-import { Types } from 'mongoose';
 import { notFound } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
+import { parseObjectId } from '@menukaze/db/object-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,15 +14,15 @@ export const dynamic = 'force-dynamic';
  */
 export default async function PrintableQrPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!Types.ObjectId.isValid(id)) notFound();
-  const { session } = await requirePageFlag(['tables.qr_print']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const tableId = parseObjectId(id);
+  if (!tableId) notFound();
+  const { restaurantId } = await requirePageFlag(['tables.qr_print']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table } = getModels(conn);
   const [restaurant, table] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
-    Table.findOne({ restaurantId, _id: new Types.ObjectId(id) }).exec(),
+    Table.findOne({ restaurantId, _id: tableId }).exec(),
   ]);
   if (!table || !restaurant) notFound();
 

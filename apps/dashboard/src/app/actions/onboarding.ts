@@ -1,9 +1,10 @@
 'use server';
 
-import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { APIError, slugSchema } from '@menukaze/shared';
+import { validationError } from '@/lib/action-helpers';
 import { requireSession } from '@/lib/session';
 
 const inputSchema = z.object({
@@ -46,14 +47,10 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
   }
 
   const parsed = inputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      error: first ? `${first.path.join('.')}: ${first.message}` : 'Invalid form data.',
-    };
-  }
+  if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
+  const userId = parseObjectId(session.user.id);
+  if (!userId) return { ok: false, error: 'Unknown user.' };
 
   const conn = await getMongoConnection('live');
   const { Restaurant, StaffMembership } = getModels(conn);
@@ -66,7 +63,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
 
   const dbSession = await conn.startSession();
   try {
-    let restaurantId: Types.ObjectId | null = null;
+    let restaurantId: string | null = null;
     await dbSession.withTransaction(async () => {
       const [restaurant] = await Restaurant.create(
         [
@@ -99,13 +96,13 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
         { session: dbSession },
       );
       if (!restaurant) throw new APIError('internal_error');
-      restaurantId = restaurant._id;
+      restaurantId = String(restaurant._id);
 
       await StaffMembership.create(
         [
           {
-            restaurantId,
-            userId: new Types.ObjectId(session.user.id),
+            restaurantId: restaurant._id,
+            userId,
             role: 'owner',
             status: 'active',
           },
@@ -117,7 +114,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
     if (!restaurantId) {
       return { ok: false, error: 'Could not create the restaurant. Please try again.' };
     }
-    return { ok: true, restaurantId: String(restaurantId) };
+    return { ok: true, restaurantId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error.';
     if (/duplicate key/i.test(message) && /slug/i.test(message)) {

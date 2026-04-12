@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
@@ -8,8 +7,7 @@ import { OrdersLive } from './orders-live';
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardOrdersPage() {
-  const { session } = await requirePageFlag(['orders.view_all']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { session, restaurantId } = await requirePageFlag(['orders.view_all']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Order } = getModels(conn);

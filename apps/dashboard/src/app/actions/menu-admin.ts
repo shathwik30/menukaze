@@ -1,18 +1,24 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { APIError } from '@menukaze/shared';
-import type { Flag } from '@menukaze/rbac';
-import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import {
+  actionError,
+  invalidEntityError,
+  validationError,
+  withRestaurantAction,
+  type ActionResult,
+} from '@/lib/action-helpers';
 
 /**
  * CRUD server actions for the Menu Management Dashboard (Phase 4 step 15).
  *
  * Every action here:
- *  1. Calls requireOnboarded() to resolve the acting restaurant.
+ *  1. Resolves the acting restaurant through the shared action helper.
  *  2. Validates input with Zod.
  *  3. Queries with an explicit `{ restaurantId }` filter so the tenant-scoped
  *     plugin never needs the escape hatch.
@@ -104,42 +110,6 @@ const itemUpdate = z.object({
   comboOf: z.array(z.string().min(1)).max(20).optional(),
 });
 
-export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true } : { ok: true; data: T })
-  | { ok: false; error: string };
-
-function firstZodError(err: z.ZodError): string {
-  const first = err.issues[0];
-  return first ? `${first.path.join('.')}: ${first.message}` : 'Invalid input.';
-}
-
-/**
- * Resolve the active restaurant AFTER checking the caller holds every flag in
- * `flags`. Throws `PermissionDeniedError` when the caller lacks permission —
- * the action-level try/catch converts that to a `{ ok: false, error }` envelope
- * so the dashboard can render a friendly message.
- */
-async function withRestaurant<T>(
-  flags: Flag[],
-  handler: (restaurantId: Types.ObjectId) => Promise<T>,
-): Promise<T> {
-  const { session } = await requireFlags(flags);
-  return handler(new Types.ObjectId(session.restaurantId));
-}
-
-/**
- * Convert a thrown PermissionDeniedError (or any other Error) into the
- * standard `{ ok: false, error }` envelope. Used by every action's top-level
- * catch so the server action can surface the rejection without crashing the
- * request.
- */
-function errorEnvelope(error: unknown, fallback: string): { ok: false; error: string } {
-  if (error instanceof PermissionDeniedError) {
-    return { ok: false, error: 'You do not have permission to do that.' };
-  }
-  return { ok: false, error: error instanceof Error ? error.message : fallback };
-}
-
 async function resolveComboItemIds(
   restaurantId: Types.ObjectId,
   comboOf: string[] | undefined,
@@ -154,11 +124,10 @@ async function resolveComboItemIds(
   if (!comboOf || comboOf.length === 0) return { ok: true, ids: [] };
 
   const deduped = [...new Set(comboOf)];
-  if (!deduped.every((id) => Types.ObjectId.isValid(id))) {
+  const comboIds = parseObjectIds(deduped);
+  if (!comboIds) {
     return { ok: false, error: 'Unknown combo item.' };
   }
-
-  const comboIds = deduped.map((id) => new Types.ObjectId(id));
   if (currentItemId && comboIds.some((id) => String(id) === String(currentItemId))) {
     return { ok: false, error: 'An item cannot include itself in a combo.' };
   }
@@ -179,9 +148,9 @@ async function resolveComboItemIds(
 
 export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = menuInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
+  if (!parsed.success) return validationError(parsed.error);
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const menu = await Menu.create({ restaurantId, ...parsed.data });
@@ -189,19 +158,22 @@ export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id:
       return { ok: true as const, data: { id: String(menu._id) } };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to create menu.');
+    return actionError(error, 'Failed to create menu.');
   }
 }
 
 export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
   const parsed = menuUpdate.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown menu.' };
+  if (!parsed.success) return validationError(parsed.error);
+
+  const menuId = parseObjectId(parsed.data.id);
+  if (!menuId) return invalidEntityError('menu');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
-      const { id, ...patch } = parsed.data;
+      const { id: _ignoredMenuId, ...patch } = parsed.data;
       const update =
         patch.schedule === null
           ? {
@@ -215,26 +187,24 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
               $unset: { schedule: 1 },
             }
           : { $set: patch };
-      const result = await Menu.updateOne(
-        { restaurantId, _id: new Types.ObjectId(id) },
-        update,
-      ).exec();
+      const result = await Menu.updateOne({ restaurantId, _id: menuId }, update).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to update menu.');
+    return actionError(error, 'Failed to update menu.');
   }
 }
 
 export async function deleteMenuAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown menu.' };
+  const menuId = parseObjectId(id);
+  if (!menuId) return invalidEntityError('menu');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Menu, Category, Item } = getModels(conn);
-      const menuId = new Types.ObjectId(id);
       // Cascade delete — categories under this menu, and their items.
       const categories = await Category.find({ restaurantId, menuId }).exec();
       const categoryIds = categories.map((c) => c._id);
@@ -247,7 +217,7 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to delete menu.');
+    return actionError(error, 'Failed to delete menu.');
   }
 }
 
@@ -255,15 +225,15 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
 
 export async function createCategoryAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = categoryInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.menuId)) {
-    return { ok: false, error: 'Unknown menu.' };
-  }
+  if (!parsed.success) return validationError(parsed.error);
+
+  const menuId = parseObjectId(parsed.data.menuId);
+  if (!menuId) return invalidEntityError('menu');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Category, Menu } = getModels(conn);
-      const menuId = new Types.ObjectId(parsed.data.menuId);
       const menu = await Menu.findOne({ restaurantId, _id: menuId }).exec();
       if (!menu) return { ok: false as const, error: 'Menu not found.' };
       const category = await Category.create({
@@ -276,28 +246,30 @@ export async function createCategoryAction(raw: unknown): Promise<ActionResult<{
       return { ok: true as const, data: { id: String(category._id) } };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to create category.');
+    return actionError(error, 'Failed to create category.');
   }
 }
 
 export async function updateCategoryAction(raw: unknown): Promise<ActionResult> {
   const parsed = categoryUpdate.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown category.' };
+  if (!parsed.success) return validationError(parsed.error);
+
+  const categoryId = parseObjectId(parsed.data.id);
+  if (!categoryId) return invalidEntityError('category');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Category } = getModels(conn);
-      const { id, menuId, ...patch } = parsed.data;
+      const { id: _ignoredCategoryId, menuId, ...patch } = parsed.data;
       const set: Record<string, unknown> = { ...patch };
       if (menuId) {
-        if (!Types.ObjectId.isValid(menuId)) {
-          return { ok: false as const, error: 'Unknown menu.' };
-        }
-        set['menuId'] = new Types.ObjectId(menuId);
+        const nextMenuId = parseObjectId(menuId);
+        if (!nextMenuId) return invalidEntityError('menu');
+        set['menuId'] = nextMenuId;
       }
       const result = await Category.updateOne(
-        { restaurantId, _id: new Types.ObjectId(id) },
+        { restaurantId, _id: categoryId },
         { $set: set },
       ).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
@@ -305,24 +277,25 @@ export async function updateCategoryAction(raw: unknown): Promise<ActionResult> 
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to update category.');
+    return actionError(error, 'Failed to update category.');
   }
 }
 
 export async function deleteCategoryAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown category.' };
+  const categoryId = parseObjectId(id);
+  if (!categoryId) return invalidEntityError('category');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Category, Item } = getModels(conn);
-      const categoryId = new Types.ObjectId(id);
       await Item.deleteMany({ restaurantId, categoryId }).exec();
       await Category.deleteOne({ restaurantId, _id: categoryId }).exec();
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to delete category.');
+    return actionError(error, 'Failed to delete category.');
   }
 }
 
@@ -330,20 +303,18 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
 
 export async function createItemAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = itemInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.categoryId)) {
-    return { ok: false, error: 'Unknown category.' };
-  }
+  if (!parsed.success) return validationError(parsed.error);
+
+  const categoryId = parseObjectId(parsed.data.categoryId);
+  if (!categoryId) return invalidEntityError('category');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Category, Item } = getModels(conn);
       const restaurant = await Restaurant.findById(restaurantId).exec();
       if (!restaurant) return { ok: false as const, error: 'Restaurant not found.' };
-      const category = await Category.findOne({
-        restaurantId,
-        _id: new Types.ObjectId(parsed.data.categoryId),
-      }).exec();
+      const category = await Category.findOne({ restaurantId, _id: categoryId }).exec();
       if (!category) return { ok: false as const, error: 'Category not found.' };
       const comboIds = await resolveComboItemIds(restaurantId, parsed.data.comboOf);
       if (!comboIds.ok) return comboIds;
@@ -364,33 +335,31 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
       return { ok: true as const, data: { id: String(item._id) } };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to create item.');
+    return actionError(error, 'Failed to create item.');
   }
 }
 
 export async function updateItemAction(raw: unknown): Promise<ActionResult> {
   const parsed = itemUpdate.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown item.' };
+  if (!parsed.success) return validationError(parsed.error);
+
+  const itemId = parseObjectId(parsed.data.id);
+  if (!itemId) return invalidEntityError('item');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
-      const { id, categoryId, ...patch } = parsed.data;
+      const { id: _ignoredItemId, categoryId, ...patch } = parsed.data;
       const set: Record<string, unknown> = { ...patch };
       const unset: Record<string, 1> = {};
       if (categoryId) {
-        if (!Types.ObjectId.isValid(categoryId)) {
-          return { ok: false as const, error: 'Unknown category.' };
-        }
-        set['categoryId'] = new Types.ObjectId(categoryId);
+        const nextCategoryId = parseObjectId(categoryId);
+        if (!nextCategoryId) return invalidEntityError('category');
+        set['categoryId'] = nextCategoryId;
       }
       if ('comboOf' in patch) {
-        const comboIds = await resolveComboItemIds(
-          restaurantId,
-          patch.comboOf,
-          new Types.ObjectId(id),
-        );
+        const comboIds = await resolveComboItemIds(restaurantId, patch.comboOf, itemId);
         if (!comboIds.ok) return comboIds;
         if (comboIds.ids.length > 0) set['comboOf'] = comboIds.ids;
         else unset['comboOf'] = 1;
@@ -402,26 +371,24 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
       const update: Record<string, unknown> = {};
       if (Object.keys(set).length > 0) update['$set'] = set;
       if (Object.keys(unset).length > 0) update['$unset'] = unset;
-      const result = await Item.updateOne(
-        { restaurantId, _id: new Types.ObjectId(id) },
-        update,
-      ).exec();
+      const result = await Item.updateOne({ restaurantId, _id: itemId }, update).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to update item.');
+    return actionError(error, 'Failed to update item.');
   }
 }
 
 export async function deleteItemAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown item.' };
+  const itemId = parseObjectId(id);
+  if (!itemId) return invalidEntityError('item');
+
   try {
-    return await withRestaurant(['menu.edit'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
-      const itemId = new Types.ObjectId(id);
       await Item.deleteOne({ restaurantId, _id: itemId }).exec();
       await Item.updateMany(
         { restaurantId, comboOf: itemId },
@@ -431,7 +398,7 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to delete item.');
+    return actionError(error, 'Failed to delete item.');
   }
 }
 
@@ -441,23 +408,26 @@ const soldOutInput = z.object({
 });
 export async function toggleItemSoldOutAction(raw: unknown): Promise<ActionResult> {
   const parsed = soldOutInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.id)) return { ok: false, error: 'Unknown item.' };
+  if (!parsed.success) return validationError(parsed.error);
+
+  const itemId = parseObjectId(parsed.data.id);
+  if (!itemId) return invalidEntityError('item');
+
   try {
     // Sold-out toggle is the one action kitchen staff can perform via the
     // flag matrix. We allow either full menu.edit OR the narrower
     // menu.toggle_availability flag.
-    return await withRestaurant(['menu.toggle_availability'], async (restaurantId) => {
+    return await withRestaurantAction(['menu.toggle_availability'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
       await Item.updateOne(
-        { restaurantId, _id: new Types.ObjectId(parsed.data.id) },
+        { restaurantId, _id: itemId },
         { $set: { soldOut: parsed.data.soldOut } },
       ).exec();
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
   } catch (error) {
-    return errorEnvelope(error, 'Failed to toggle.');
+    return actionError(error, 'Failed to toggle item availability.');
   }
 }

@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
@@ -14,8 +13,7 @@ export const dynamic = 'force-dynamic';
  *   - Must be on the 'razorpay' step → otherwise bounce to /admin.
  */
 export default async function OnboardingRazorpayPage() {
-  const { session } = await requirePageFlag(['payments.configure']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { restaurantId } = await requirePageFlag(['payments.configure']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);

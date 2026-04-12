@@ -1,10 +1,11 @@
 'use server';
 
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import { validationError } from '@/lib/action-helpers';
 import { parseMenuCsvImport } from '@/lib/menu-import';
 
 const itemInputSchema = z.object({
@@ -52,9 +53,9 @@ function majorToMinor(major: number, currency: string): number {
  * restaurant already has any items (re-onboarding guard).
  */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
-  let session;
+  let restaurantId;
   try {
-    ({ session } = await requireFlags(['menu.edit']));
+    ({ restaurantId } = await requireFlags(['menu.edit']));
   } catch (error) {
     if (error instanceof PermissionDeniedError) {
       return { ok: false, error: 'You do not have permission to set up the menu.' };
@@ -63,18 +64,11 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
   }
 
   const parsed = inputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      error: first ? `${first.path.join('.')}: ${first.message}` : 'Invalid form data.',
-    };
-  }
+  if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Menu, Category, Item } = getModels(conn);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
 
   // Pull the restaurant once to know which currency to stamp on items.
   const restaurant = await Restaurant.findById(restaurantId).exec();

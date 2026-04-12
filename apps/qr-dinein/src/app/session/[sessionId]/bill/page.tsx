@@ -1,7 +1,7 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { BillClient, type BillLine } from './bill-client';
 
@@ -9,12 +9,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function BillPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
-  if (!Types.ObjectId.isValid(sessionId)) notFound();
+  const sessionObjectId = parseObjectId(sessionId);
+  if (!sessionObjectId) notFound();
 
   const conn = await getMongoConnection('live');
   const { TableSession, Order, Restaurant } = getModels(conn);
 
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
+  const session = await TableSession.findOne({ _id: sessionObjectId }, null, {
     skipTenantGuard: true,
   }).exec();
   if (!session) notFound();

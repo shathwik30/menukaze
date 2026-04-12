@@ -1,10 +1,10 @@
 'use server';
 
-import { Types } from 'mongoose';
 import { z } from 'zod';
 import { generateQrToken, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import { validationError } from '@/lib/action-helpers';
 
 const inputSchema = z
   .object({
@@ -35,9 +35,9 @@ export type CreateTablesStarterResult =
  * tables step (onboardingStep is past 'tables'), the action no-ops.
  */
 export async function createTablesStarterAction(raw: unknown): Promise<CreateTablesStarterResult> {
-  let session;
+  let restaurantId;
   try {
-    ({ session } = await requireFlags(['tables.edit']));
+    ({ restaurantId } = await requireFlags(['tables.edit']));
   } catch (error) {
     if (error instanceof PermissionDeniedError) {
       return { ok: false, error: 'You do not have permission to set up tables.' };
@@ -46,18 +46,11 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
   }
 
   const parsed = inputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      error: first ? `${first.path.join('.')}: ${first.message}` : 'Invalid form data.',
-    };
-  }
+  if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table } = getModels(conn);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };

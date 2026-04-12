@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
@@ -8,13 +7,12 @@ import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './m
 export const dynamic = 'force-dynamic';
 
 export default async function MenuManagementPage() {
-  const { session, permissions } = await requireAnyPageFlag([
+  const { restaurantId, permissions } = await requireAnyPageFlag([
     'menu.view',
     'menu.edit',
     'menu.toggle_availability',
     'menu.schedule',
   ]);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
   const canEditMenu = permissions.includes('menu.edit');
   const canToggleAvailability = permissions.includes('menu.toggle_availability');
 

@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./models": "./src/models/index.ts",
+    "./object-id": "./src/object-id.ts",
     "./plugins": "./src/plugins/tenant-scoped.ts",
     "./repos": "./src/repos/create-tenant-repo.ts"
   },

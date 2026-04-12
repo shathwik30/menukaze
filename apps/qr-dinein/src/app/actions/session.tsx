@@ -1,15 +1,17 @@
 'use server';
 
 import { createHmac } from 'node:crypto';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
   getRestaurantSupportRecipients,
   restaurantHasReachedOrderCapacity,
 } from '@menukaze/db';
+import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
@@ -20,35 +22,14 @@ import {
   parseCurrencyCode,
   validateModifierSelection,
 } from '@menukaze/shared';
-import { getRazorpayClient } from '@/lib/razorpay-server';
-import { sendTransactionalEmail } from '@/lib/email';
+import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
+import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
+import { getZodErrorMessage } from '@menukaze/shared/validation';
 
-/**
- * QR dine-in server actions (Phase 4 Steps 20 – 23).
- *
- * Flow:
- *   1. startOrJoinSessionAction(qrToken, customer)  → { sessionId }
- *      Looks up the table by its QR token. If there's an active session
- *      for that table, returns it (Step 23 concurrent-scan edge case);
- *      otherwise creates a new session and marks the table occupied.
- *   2. placeRoundAction(sessionId, lines)            → { orderId }
- *      Snapshots line items, creates an Order with sessionId set and
- *      payment still pending, publishes to the KDS + dashboard channels.
- *   3. callWaiterAction(sessionId)                   → {}
- *      Publishes a waiter.called event; the dashboard subscribes.
- *   4. requestBillAction(sessionId)                  → { razorpay payload }
- *      Sums every round Order for the session, creates a Razorpay order
- *      against the session total, and returns the handshake data for
- *      Razorpay Checkout.js.
- *   5. verifySessionPaymentAction                    → { ok }
- *      Verifies the HMAC, marks every round Order paid/completed, stamps
- *      the session paid+closed, releases the table, sends the receipt.
- */
+/** Server actions for QR dine-in session lifecycle, billing, and payment. */
 
-// Spec §7 line 520 — phone is required on session start and is captured for
-// future use only (SMS channels light up at Step 51). We accept any string
-// that looks roughly phone-shaped and defer full libphonenumber validation
-// to Step 51 when SMS delivery actually ships.
+// Keep phone validation lightweight for now. We only need a reasonable
+// user-entered contact string until SMS delivery is added.
 const customerSchema = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
@@ -214,6 +195,277 @@ async function expireSessionIfTimedOut(
   return true;
 }
 
+type SessionModels = Pick<
+  ReturnType<typeof getModels>,
+  'Item' | 'Order' | 'Restaurant' | 'Table' | 'TableSession'
+>;
+
+interface SessionRecord {
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
+  tableId: Types.ObjectId;
+  status: string;
+  customer: { name: string; email: string; phone?: string };
+  participants: Array<{ label: string; joinedAt: Date }>;
+  lastActivityAt: Date;
+}
+
+interface SessionRestaurantRecord {
+  name: string;
+  slug: string;
+  currency: string;
+  locale: string;
+  razorpayKeyIdEnc?: string | null;
+  razorpayKeySecretEnc?: string | null;
+  holidayMode?: { enabled?: boolean; message?: string } | null;
+  throttling?: { enabled?: boolean; maxConcurrentOrders: number } | null;
+  dineInSessionTimeoutMinutes?: number | null;
+  taxRules?: Array<{
+    name: string;
+    percent: number;
+    inclusive: boolean;
+    scope: 'order' | 'item';
+    label?: string;
+  }> | null;
+}
+
+interface SessionRoundLineSnapshot {
+  itemId: Types.ObjectId;
+  name: string;
+  priceMinor: number;
+  quantity: number;
+  modifiers: { groupName: string; optionName: string; priceMinor: number }[];
+  notes?: string;
+  lineTotalMinor: number;
+}
+
+async function loadSessionById(
+  tableSessionModel: ReturnType<typeof getModels>['TableSession'],
+  sessionId: Types.ObjectId,
+): Promise<SessionRecord | null> {
+  return tableSessionModel.findOne({ _id: sessionId }, null, { skipTenantGuard: true }).exec();
+}
+
+async function loadSessionRestaurant(
+  restaurantModel: ReturnType<typeof getModels>['Restaurant'],
+  restaurantId: Types.ObjectId,
+): Promise<SessionRestaurantRecord | null> {
+  return restaurantModel.findById(restaurantId).exec();
+}
+
+async function buildRoundSnapshot(
+  itemModel: ReturnType<typeof getModels>['Item'],
+  restaurantId: Types.ObjectId,
+  lines: z.infer<typeof lineInput>[],
+  participantLabel?: string,
+): Promise<
+  { snapshotLines: SessionRoundLineSnapshot[]; subtotalMinor: number } | { error: string }
+> {
+  const itemIds = parseObjectIds(lines.map((line) => line.itemId));
+  if (!itemIds) {
+    return { error: 'Unknown item.' };
+  }
+
+  const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
+  const itemsById = new Map(items.map((item) => [String(item._id), item]));
+
+  const snapshotLines: SessionRoundLineSnapshot[] = [];
+  let subtotalMinor = 0;
+
+  for (const line of lines) {
+    const item = itemsById.get(line.itemId);
+    if (!item) return { error: 'Item unavailable.' };
+    if (item.soldOut) return { error: `${item.name} is sold out.` };
+
+    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
+    if (!modifierResult.ok) {
+      return { error: modifierResult.error };
+    }
+
+    const resolvedModifiers = modifierResult.modifiers;
+    const unitMinor =
+      item.priceMinor + resolvedModifiers.reduce((sum, modifier) => sum + modifier.priceMinor, 0);
+    const lineTotalMinor = unitMinor * line.quantity;
+    subtotalMinor += lineTotalMinor;
+
+    snapshotLines.push({
+      itemId: item._id,
+      name: participantLabel ? `${item.name} (for ${participantLabel})` : item.name,
+      priceMinor: item.priceMinor,
+      quantity: line.quantity,
+      modifiers: resolvedModifiers,
+      ...(line.notes ? { notes: line.notes } : {}),
+      lineTotalMinor,
+    });
+  }
+
+  return { snapshotLines, subtotalMinor };
+}
+
+async function touchSession(
+  tableSessionModel: ReturnType<typeof getModels>['TableSession'],
+  session: Pick<SessionRecord, '_id' | 'restaurantId'>,
+  lastActivityAt: Date,
+): Promise<void> {
+  await tableSessionModel
+    .updateOne(
+      { restaurantId: session.restaurantId, _id: session._id },
+      { $set: { lastActivityAt } },
+    )
+    .exec();
+}
+
+async function publishWaiterCall(
+  session: Pick<SessionRecord, '_id' | 'restaurantId' | 'tableId'>,
+  reason: 'call_waiter' | 'payment_help',
+  calledAt: Date,
+): Promise<void> {
+  try {
+    await publishRealtimeEvent(channels.tables(String(session.restaurantId)), {
+      type: 'waiter.called',
+      tableId: String(session.tableId),
+      sessionId: String(session._id),
+      calledAt: calledAt.toISOString(),
+      reason,
+    });
+  } catch (error) {
+    console.warn('[session] waiter call publish failed', error);
+  }
+}
+
+async function markSessionBillRequested(
+  models: Pick<SessionModels, 'Order' | 'Table' | 'TableSession'>,
+  session: Pick<SessionRecord, '_id' | 'restaurantId' | 'tableId'>,
+  requestedAt: Date,
+  paymentModeRequested: 'online' | 'counter',
+  razorpayOrderId?: string,
+): Promise<void> {
+  await models.TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    {
+      $set: {
+        status: 'bill_requested',
+        billRequestedAt: requestedAt,
+        lastActivityAt: requestedAt,
+        paymentModeRequested,
+      },
+    },
+  ).exec();
+  await models.Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'bill_requested' } },
+  ).exec();
+
+  if (razorpayOrderId) {
+    await models.Order.updateMany(
+      {
+        restaurantId: session.restaurantId,
+        sessionId: session._id,
+        'payment.status': 'pending',
+      },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } },
+    ).exec();
+  }
+
+  await publishTableStatus(
+    String(session.restaurantId),
+    String(session.tableId),
+    'bill_requested',
+    'bill_requested',
+    requestedAt,
+  );
+  await publishSessionUpdate(
+    String(session.restaurantId),
+    String(session._id),
+    'bill_requested',
+    requestedAt,
+  );
+}
+
+async function releasePaidSession(
+  models: Pick<SessionModels, 'Table' | 'TableSession'>,
+  session: Pick<SessionRecord, '_id' | 'restaurantId' | 'tableId'>,
+  paidAt: Date,
+): Promise<void> {
+  await models.TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    { $set: { status: 'paid', paidAt, lastActivityAt: paidAt, paymentModeRequested: 'online' } },
+  ).exec();
+  await models.Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'paid' } },
+  ).exec();
+
+  const restaurantId = String(session.restaurantId);
+  await publishTableStatus(
+    restaurantId,
+    String(session.tableId),
+    'paid',
+    'payment_succeeded',
+    paidAt,
+  );
+  await publishSessionUpdate(restaurantId, String(session._id), 'payment_succeeded', paidAt);
+
+  await models.TableSession.updateOne(
+    { restaurantId: session.restaurantId, _id: session._id },
+    { $set: { status: 'closed', closedAt: paidAt, lastActivityAt: paidAt } },
+  ).exec();
+  await models.Table.updateOne(
+    { restaurantId: session.restaurantId, _id: session.tableId },
+    { $set: { status: 'available', lastReleasedAt: paidAt } },
+  ).exec();
+  await publishTableStatus(
+    restaurantId,
+    String(session.tableId),
+    'available',
+    'table_released',
+    paidAt,
+  );
+  await publishSessionUpdate(restaurantId, String(session._id), 'closed', paidAt);
+}
+
+async function sendSessionReceiptEmail(
+  session: Pick<SessionRecord, '_id' | 'restaurantId' | 'customer'>,
+  restaurant: SessionRestaurantRecord,
+  paidAt: Date,
+  orderModel: ReturnType<typeof getModels>['Order'],
+): Promise<void> {
+  try {
+    const rounds = await orderModel
+      .find({
+        restaurantId: session.restaurantId,
+        sessionId: session._id,
+      })
+      .exec();
+    const currency = parseCurrencyCode(restaurant.currency);
+    const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
+    const items = rounds.flatMap((round) =>
+      round.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        lineTotalLabel: formatMoney(item.lineTotalMinor, currency, restaurant.locale),
+      })),
+    );
+
+    await sendTransactionalEmail({
+      to: session.customer.email,
+      subject: `Receipt · ${restaurant.name}`,
+      react: SessionReceiptEmailInline({
+        restaurantName: restaurant.name,
+        customerName: session.customer.name,
+        items,
+        totalLabel: formatMoney(totalMinor, currency, restaurant.locale),
+        paidAt: paidAt.toLocaleString(restaurant.locale, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      }),
+    });
+  } catch (error) {
+    console.warn('[session] receipt email failed', error);
+  }
+}
+
 export type StartOrJoinResult =
   | { ok: true; sessionId: string; joined: boolean }
   | { ok: false; error: string };
@@ -224,11 +476,7 @@ export async function startOrJoinSessionAction(
 ): Promise<StartOrJoinResult> {
   const parsed = customerSchema.safeParse(customerRaw);
   if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      error: first ? `${first.path.join('.')}: ${first.message}` : 'Please fill in every field.',
-    };
+    return { ok: false, error: getZodErrorMessage(parsed.error, 'Please fill in every field.') };
   }
   if (!qrToken || qrToken.length < 10) return { ok: false, error: 'Invalid QR token.' };
 
@@ -248,8 +496,6 @@ export async function startOrJoinSessionAction(
     };
   }
 
-  // Concurrent-scan edge case: if there's already an active session on
-  // this table, we just join it instead of creating a new one.
   const now = new Date();
   const existing = await TableSession.findOne({
     restaurantId,
@@ -300,7 +546,6 @@ export async function startOrJoinSessionAction(
     lastActivityAt: now,
   });
 
-  // Flip the table to occupied and publish a tables-channel update.
   await Table.updateOne({ restaurantId, _id: table._id }, { $set: { status: 'occupied' } }).exec();
   await publishTableStatus(
     String(restaurantId),
@@ -336,26 +581,26 @@ export type PlaceRoundResult =
 
 export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> {
   const parsed = roundInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: 'Invalid round data.' };
-  if (!Types.ObjectId.isValid(parsed.data.sessionId)) {
+  if (!parsed.success) {
+    return { ok: false, error: getZodErrorMessage(parsed.error, 'Invalid round data.') };
+  }
+
+  const sessionId = parseObjectId(parsed.data.sessionId);
+  if (!sessionId) {
     return { ok: false, error: 'Unknown session.' };
   }
 
   const conn = await getMongoConnection('live');
   const { TableSession, Item, Order, Restaurant, Table } = getModels(conn);
 
-  const session = await TableSession.findOne(
-    { _id: new Types.ObjectId(parsed.data.sessionId) },
-    null,
-    { skipTenantGuard: true },
-  ).exec();
+  const session = await loadSessionById(TableSession, sessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
   if (session.status !== 'active') {
     return { ok: false, error: 'This session is no longer accepting orders.' };
   }
 
   const restaurantId = session.restaurantId;
-  const restaurant = await Restaurant.findById(restaurantId).exec();
+  const restaurant = await loadSessionRestaurant(Restaurant, restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
   if (await expireSessionIfTimedOut({ TableSession, Order, Table }, session, restaurant)) {
     return {
@@ -378,60 +623,24 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     }
   }
 
-  for (const line of parsed.data.lines) {
-    if (!Types.ObjectId.isValid(line.itemId)) {
-      return { ok: false, error: 'Unknown item.' };
-    }
-  }
-
-  const items = await Item.find({
+  const roundSnapshot = await buildRoundSnapshot(
+    Item,
     restaurantId,
-    _id: { $in: parsed.data.lines.map((l) => new Types.ObjectId(l.itemId)) },
-  }).exec();
-  const itemsById = new Map(items.map((i) => [String(i._id), i]));
-
-  const snapshotLines: Array<{
-    itemId: Types.ObjectId;
-    name: string;
-    priceMinor: number;
-    quantity: number;
-    modifiers: { groupName: string; optionName: string; priceMinor: number }[];
-    notes?: string;
-    lineTotalMinor: number;
-  }> = [];
-  let subtotalMinor = 0;
-
-  for (const line of parsed.data.lines) {
-    const item = itemsById.get(line.itemId);
-    if (!item) return { ok: false, error: 'Item unavailable.' };
-    if (item.soldOut) return { ok: false, error: `${item.name} is sold out.` };
-
-    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
-    if (!modifierResult.ok) {
-      return { ok: false, error: modifierResult.error };
-    }
-    const resolvedMods = modifierResult.modifiers;
-    const unit = item.priceMinor + resolvedMods.reduce((s, m) => s + m.priceMinor, 0);
-    const lineTotal = unit * line.quantity;
-    subtotalMinor += lineTotal;
-    snapshotLines.push({
-      itemId: item._id,
-      name: parsed.data.participantLabel
-        ? `${item.name} (for ${parsed.data.participantLabel})`
-        : item.name,
-      priceMinor: item.priceMinor,
-      quantity: line.quantity,
-      modifiers: resolvedMods,
-      ...(line.notes ? { notes: line.notes } : {}),
-      lineTotalMinor: lineTotal,
-    });
+    parsed.data.lines,
+    parsed.data.participantLabel,
+  );
+  if ('error' in roundSnapshot) {
+    return { ok: false, error: roundSnapshot.error };
   }
 
   const publicOrderId = generatePublicOrderId();
   const now = new Date();
 
-  const { taxMinor, surchargeMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
-  const totalMinor = subtotalMinor + surchargeMinor;
+  const { taxMinor, surchargeMinor } = computeTax(
+    roundSnapshot.subtotalMinor,
+    restaurant.taxRules ?? [],
+  );
+  const totalMinor = roundSnapshot.subtotalMinor + surchargeMinor;
 
   const order = await Order.create({
     restaurantId,
@@ -439,8 +648,8 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     channel: 'qr_dinein',
     type: 'dine_in',
     customer: session.customer,
-    items: snapshotLines,
-    subtotalMinor,
+    items: roundSnapshot.snapshotLines,
+    subtotalMinor: roundSnapshot.subtotalMinor,
     taxMinor,
     tipMinor: 0,
     totalMinor,
@@ -457,10 +666,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     sessionId: session._id,
   });
 
-  await TableSession.updateOne(
-    { restaurantId, _id: session._id },
-    { $set: { lastActivityAt: now } },
-  ).exec();
+  await touchSession(TableSession, session, now);
 
   const restaurantIdStr = String(restaurantId);
   const orderIdStr = String(order._id);
@@ -485,18 +691,17 @@ export async function callWaiterAction(
   sessionId: string,
   reason: 'call_waiter' | 'payment_help' = 'call_waiter',
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
+  const tableSessionId = parseObjectId(sessionId);
+  if (!tableSessionId) return { ok: false, error: 'Unknown session.' };
   const conn = await getMongoConnection('live');
   const { TableSession, Table, Order, Restaurant } = getModels(conn);
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
-    skipTenantGuard: true,
-  }).exec();
+  const session = await loadSessionById(TableSession, tableSessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
   if (session.status === 'closed' || session.status === 'paid') {
     return { ok: false, error: 'This session is already closed.' };
   }
 
-  const restaurant = await Restaurant.findById(session.restaurantId).exec();
+  const restaurant = await loadSessionRestaurant(Restaurant, session.restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
   const expired = await expireSessionIfTimedOut(
@@ -507,23 +712,10 @@ export async function callWaiterAction(
 
   const now = new Date();
   if (!expired && session.status !== 'needs_review') {
-    await TableSession.updateOne(
-      { restaurantId: session.restaurantId, _id: session._id },
-      { $set: { lastActivityAt: now } },
-    ).exec();
+    await touchSession(TableSession, session, now);
   }
 
-  try {
-    await publishRealtimeEvent(channels.tables(String(session.restaurantId)), {
-      type: 'waiter.called',
-      tableId: String(session.tableId),
-      sessionId: String(session._id),
-      calledAt: now.toISOString(),
-      reason,
-    });
-  } catch (error) {
-    console.warn('[session] waiter call publish failed', error);
-  }
+  await publishWaiterCall(session, reason, now);
   return { ok: true };
 }
 
@@ -593,13 +785,12 @@ export type RequestBillResult =
   | { ok: false; error: string };
 
 export async function requestBillAction(sessionId: string): Promise<RequestBillResult> {
-  if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
+  const tableSessionId = parseObjectId(sessionId);
+  if (!tableSessionId) return { ok: false, error: 'Unknown session.' };
   const conn = await getMongoConnection('live');
   const { TableSession, Order, Restaurant, Table } = getModels(conn);
 
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
-    skipTenantGuard: true,
-  }).exec();
+  const session = await loadSessionById(TableSession, tableSessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
   if (session.status === 'closed' || session.status === 'paid') {
     return { ok: false, error: 'This session is already closed.' };
@@ -612,7 +803,7 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
   }
 
   const restaurantId = session.restaurantId;
-  const restaurant = await Restaurant.findById(restaurantId).exec();
+  const restaurant = await loadSessionRestaurant(Restaurant, restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
   if (await expireSessionIfTimedOut({ TableSession, Table, Order }, session, restaurant)) {
     return {
@@ -631,7 +822,7 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
 
   const totalMinor = rounds.reduce((s, o) => s + o.totalMinor, 0);
 
-  const razorpay = getRazorpayClient(restaurant);
+  const razorpay = getRazorpayClientFromEncryptedKeys(restaurant, envelopeDecrypt);
   if (!razorpay) return { ok: false, error: 'Payments are not set up for this restaurant.' };
 
   const now = new Date();
@@ -643,35 +834,13 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
   });
   const razorpayOrderId = readRazorpayOrderId(rzpOrder);
 
-  await TableSession.updateOne(
-    { restaurantId, _id: session._id },
-    {
-      $set: {
-        status: 'bill_requested',
-        billRequestedAt: now,
-        lastActivityAt: now,
-        paymentModeRequested: 'online',
-      },
-    },
-  ).exec();
-  await Table.updateOne(
-    { restaurantId, _id: session.tableId },
-    { $set: { status: 'bill_requested' } },
-  ).exec();
-
-  // Stamp the Razorpay handshake on the rounds so verify can look them up.
-  await Order.updateMany(
-    { restaurantId, sessionId: session._id, 'payment.status': 'pending' },
-    { $set: { 'payment.razorpayOrderId': razorpayOrderId } },
-  ).exec();
-  await publishTableStatus(
-    String(restaurantId),
-    String(session.tableId),
-    'bill_requested',
-    'bill_requested',
+  await markSessionBillRequested(
+    { Order, Table, TableSession },
+    session,
     now,
+    'online',
+    razorpayOrderId,
   );
-  await publishSessionUpdate(String(restaurantId), String(session._id), 'bill_requested', now);
 
   return {
     ok: true,
@@ -688,13 +857,12 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
 export async function requestCounterPaymentAction(
   sessionId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!Types.ObjectId.isValid(sessionId)) return { ok: false, error: 'Unknown session.' };
+  const tableSessionId = parseObjectId(sessionId);
+  if (!tableSessionId) return { ok: false, error: 'Unknown session.' };
   const conn = await getMongoConnection('live');
   const { TableSession, Order, Restaurant, Table } = getModels(conn);
 
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
-    skipTenantGuard: true,
-  }).exec();
+  const session = await loadSessionById(TableSession, tableSessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
   if (session.status === 'closed' || session.status === 'paid') {
     return { ok: false, error: 'This session is already closed.' };
@@ -706,7 +874,7 @@ export async function requestCounterPaymentAction(
     };
   }
 
-  const restaurant = await Restaurant.findById(session.restaurantId).exec();
+  const restaurant = await loadSessionRestaurant(Restaurant, session.restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
   if (await expireSessionIfTimedOut({ TableSession, Table, Order }, session, restaurant)) {
     return {
@@ -724,47 +892,8 @@ export async function requestCounterPaymentAction(
   }
 
   const now = new Date();
-  await TableSession.updateOne(
-    { restaurantId: session.restaurantId, _id: session._id },
-    {
-      $set: {
-        status: 'bill_requested',
-        billRequestedAt: now,
-        lastActivityAt: now,
-        paymentModeRequested: 'counter',
-      },
-    },
-  ).exec();
-  await Table.updateOne(
-    { restaurantId: session.restaurantId, _id: session.tableId },
-    { $set: { status: 'bill_requested' } },
-  ).exec();
-
-  await publishTableStatus(
-    String(session.restaurantId),
-    String(session.tableId),
-    'bill_requested',
-    'bill_requested',
-    now,
-  );
-  await publishSessionUpdate(
-    String(session.restaurantId),
-    String(session._id),
-    'bill_requested',
-    now,
-  );
-
-  try {
-    await publishRealtimeEvent(channels.tables(String(session.restaurantId)), {
-      type: 'waiter.called',
-      tableId: String(session.tableId),
-      sessionId: String(session._id),
-      calledAt: now.toISOString(),
-      reason: 'payment_help',
-    });
-  } catch (error) {
-    console.warn('[session] payment-help publish failed', error);
-  }
+  await markSessionBillRequested({ Order, Table, TableSession }, session, now, 'counter');
+  await publishWaiterCall(session, 'payment_help', now);
 
   return { ok: true };
 }
@@ -782,19 +911,19 @@ export async function verifySessionPaymentAction(
   raw: unknown,
 ): Promise<VerifySessionPaymentResult> {
   const parsed = verifyInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: 'Invalid verification payload.' };
-  if (!Types.ObjectId.isValid(parsed.data.sessionId)) {
+  if (!parsed.success) {
+    return { ok: false, error: getZodErrorMessage(parsed.error, 'Invalid verification payload.') };
+  }
+
+  const sessionId = parseObjectId(parsed.data.sessionId);
+  if (!sessionId) {
     return { ok: false, error: 'Unknown session.' };
   }
 
   const conn = await getMongoConnection('live');
   const { TableSession, Order, Table, Restaurant } = getModels(conn);
 
-  const session = await TableSession.findOne(
-    { _id: new Types.ObjectId(parsed.data.sessionId) },
-    null,
-    { skipTenantGuard: true },
-  ).exec();
+  const session = await loadSessionById(TableSession, sessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
   if (session.status === 'needs_review') {
     return {
@@ -803,10 +932,10 @@ export async function verifySessionPaymentAction(
     };
   }
 
-  const restaurant = await Restaurant.findById(session.restaurantId).exec();
+  const restaurant = await loadSessionRestaurant(Restaurant, session.restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
-  const razorpay = getRazorpayClient(restaurant);
+  const razorpay = getRazorpayClientFromEncryptedKeys(restaurant, envelopeDecrypt);
   if (!razorpay) return { ok: false, error: 'Payments unavailable.' };
 
   const expected = createHmac('sha256', razorpay.keySecret)
@@ -818,7 +947,6 @@ export async function verifySessionPaymentAction(
 
   const now = new Date();
 
-  // Mark every round as paid + completed.
   await Order.updateMany(
     { restaurantId: session.restaurantId, sessionId: session._id },
     {
@@ -834,17 +962,6 @@ export async function verifySessionPaymentAction(
     },
   ).exec();
 
-  // Transition through paid so the dashboard can reflect the table lifecycle.
-  await TableSession.updateOne(
-    { restaurantId: session.restaurantId, _id: session._id },
-    { $set: { status: 'paid', paidAt: now, lastActivityAt: now, paymentModeRequested: 'online' } },
-  ).exec();
-  await Table.updateOne(
-    { restaurantId: session.restaurantId, _id: session.tableId },
-    { $set: { status: 'paid' } },
-  ).exec();
-
-  const restaurantIdStr = String(session.restaurantId);
   const completedRounds = await Order.find(
     { restaurantId: session.restaurantId, sessionId: session._id },
     { _id: 1 },
@@ -852,74 +969,19 @@ export async function verifySessionPaymentAction(
     .lean()
     .exec();
   await publishOrderStatusChanges(
-    restaurantIdStr,
+    String(session.restaurantId),
     completedRounds.map((round) => String(round._id)),
     'completed',
     now,
   );
-  await publishTableStatus(
-    restaurantIdStr,
-    String(session.tableId),
-    'paid',
-    'payment_succeeded',
-    now,
-  );
-  await publishSessionUpdate(restaurantIdStr, String(session._id), 'payment_succeeded', now);
-
-  // Then close session and release the table.
-  await TableSession.updateOne(
-    { restaurantId: session.restaurantId, _id: session._id },
-    { $set: { status: 'closed', closedAt: now, lastActivityAt: now } },
-  ).exec();
-  await Table.updateOne(
-    { restaurantId: session.restaurantId, _id: session.tableId },
-    { $set: { status: 'available', lastReleasedAt: now } },
-  ).exec();
-  await publishTableStatus(
-    restaurantIdStr,
-    String(session.tableId),
-    'available',
-    'table_released',
-    now,
-  );
-  await publishSessionUpdate(restaurantIdStr, String(session._id), 'closed', now);
-
-  // Fetch the rounds for the receipt. Best-effort email send.
-  try {
-    const rounds = await Order.find({
-      restaurantId: session.restaurantId,
-      sessionId: session._id,
-    }).exec();
-    const currency = parseCurrencyCode(restaurant.currency);
-    const locale = restaurant.locale;
-    const totalMinor = rounds.reduce((s, o) => s + o.totalMinor, 0);
-    const items = rounds.flatMap((o) =>
-      o.items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        lineTotalLabel: formatMoney(item.lineTotalMinor, currency, locale),
-      })),
-    );
-    await sendTransactionalEmail({
-      to: session.customer.email,
-      subject: `Receipt · ${restaurant.name}`,
-      react: SessionReceiptEmailInline({
-        restaurantName: restaurant.name,
-        customerName: session.customer.name,
-        items,
-        totalLabel: formatMoney(totalMinor, currency, locale),
-        paidAt: now.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
-      }),
-    });
-  } catch (error) {
-    console.warn('[session] receipt email failed', error);
-  }
+  await releasePaidSession({ Table, TableSession }, session, now);
+  await sendSessionReceiptEmail(session, restaurant, now, Order);
 
   return { ok: true };
 }
 
-// Inline receipt template — kept local because it references a shape
-// unique to the session flow (combined rounds) rather than a single order.
+// Keep the session receipt template local because it needs the combined
+// round view instead of a single-order snapshot.
 function SessionReceiptEmailInline({
   restaurantName,
   customerName,

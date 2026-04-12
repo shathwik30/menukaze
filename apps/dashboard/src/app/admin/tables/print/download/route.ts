@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { buildTablesPdf } from '@/lib/qr-pdf';
 import { requirePageFlag } from '@/lib/session';
@@ -6,8 +5,7 @@ import { requirePageFlag } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { session } = await requirePageFlag(['tables.qr_print']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { restaurantId } = await requirePageFlag(['tables.qr_print']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table } = getModels(conn);

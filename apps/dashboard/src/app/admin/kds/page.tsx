@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
@@ -12,8 +11,7 @@ export const dynamic = 'force-dynamic';
  * component for real-time updates + tap-through status transitions.
  */
 export default async function KdsPage() {
-  const { session } = await requirePageFlag(['kds.view']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { session, restaurantId } = await requirePageFlag(['kds.view']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Order, Table } = getModels(conn);

@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
@@ -14,8 +13,7 @@ export const dynamic = 'force-dynamic';
  * "Go Live" action button. Activation advances onboardingStep → 'complete'.
  */
 export default async function OnboardingGoLivePage() {
-  const { session } = await requirePageFlag(['settings.edit_profile']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { restaurantId } = await requirePageFlag(['settings.edit_profile']);
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Item, Table } = getModels(conn);

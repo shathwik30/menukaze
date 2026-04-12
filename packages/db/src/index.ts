@@ -67,5 +67,6 @@ export {
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
 export { envelopeEncrypt, envelopeDecrypt } from './crypto';
+export { isObjectIdString, parseObjectId, parseObjectIds } from './object-id';
 export { CAPACITY_ORDER_STATUSES, restaurantHasReachedOrderCapacity } from './order-capacity';
 export { getRestaurantSupportRecipients, type SupportRecipientsResult } from './support-recipients';

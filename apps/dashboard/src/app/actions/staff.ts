@@ -1,22 +1,20 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generateInviteToken } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { assertCustomRoleFlags, resolveFlags, type Flag, type StaffRole } from '@menukaze/rbac';
+import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
+import {
+  actionError,
+  invalidEntityError,
+  validationError,
+  type ActionResult,
+} from '@/lib/action-helpers';
 import { PermissionDeniedError, requireFlags, requireSession } from '@/lib/session';
-import { sendTransactionalEmail } from '@/lib/email';
 import { StaffInviteEmail } from '@/emails/staff-invite';
-
-export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true } : { ok: true; data: T })
-  | { ok: false; error: string };
-
-function zodError(err: z.ZodError): string {
-  const first = err.issues[0];
-  return first ? `${first.path.join('.')}: ${first.message}` : 'Invalid input.';
-}
 
 interface NormalizedRoleInput {
   role: StaffRole;
@@ -88,10 +86,12 @@ function assertCanAssignRole(
 }
 
 async function countActiveOwners(
-  StaffMembership: ReturnType<typeof getModels>['StaffMembership'],
+  staffMembershipModel: ReturnType<typeof getModels>['StaffMembership'],
   restaurantId: Types.ObjectId,
 ): Promise<number> {
-  return StaffMembership.countDocuments({ restaurantId, role: 'owner', status: 'active' }).exec();
+  return staffMembershipModel
+    .countDocuments({ restaurantId, role: 'owner', status: 'active' })
+    .exec();
 }
 
 const inviteInput = z.object({
@@ -102,10 +102,15 @@ const inviteInput = z.object({
 
 export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = inviteInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
+  if (!parsed.success) return validationError(parsed.error);
 
   try {
-    const { session, role: actorRole, permissions } = await requireStaffFlag('staff.invite');
+    const {
+      session,
+      restaurantId,
+      role: actorRole,
+      permissions,
+    } = await requireStaffFlag('staff.invite');
     if (parsed.data.role === 'custom' && !permissions.includes('staff.manage_custom_roles')) {
       return { ok: false, error: 'You do not have permission to manage custom roles.' };
     }
@@ -115,8 +120,10 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
     const roleCheck = assertCanAssignRole(actorRole, permissions, roleInput);
     if (!roleCheck.ok) return roleCheck;
 
-    const restaurantId = new Types.ObjectId(session.restaurantId);
-    const invitedByUserId = new Types.ObjectId(session.user.id);
+    const invitedByUserId = parseObjectId(session.user.id);
+    if (!invitedByUserId) {
+      return { ok: false, error: 'Unknown session.' };
+    }
     const inviteEmail = parsed.data.email.toLowerCase();
 
     const conn = await getMongoConnection('live');
@@ -195,25 +202,26 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
     revalidatePath('/admin/staff');
     return { ok: true, data: { id: String(invite._id) } };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Failed to invite.' };
+    return actionError(error, 'Failed to invite.', 'You do not have permission to manage staff.');
   }
 }
 
 export async function revokeInviteAction(id: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(id)) return { ok: false, error: 'Unknown invite.' };
+  const inviteId = parseObjectId(id);
+  if (!inviteId) return invalidEntityError('invite');
+
   try {
-    const { session } = await requireStaffFlag('staff.invite');
-    const restaurantId = new Types.ObjectId(session.restaurantId);
+    const { restaurantId } = await requireStaffFlag('staff.invite');
     const conn = await getMongoConnection('live');
     const { StaffInvite } = getModels(conn);
     await StaffInvite.updateOne(
-      { restaurantId, _id: new Types.ObjectId(id), usedAt: { $exists: false } },
+      { restaurantId, _id: inviteId, usedAt: { $exists: false } },
       { $set: { revokedAt: new Date() } },
     ).exec();
     revalidatePath('/admin/staff');
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Failed to revoke.' };
+    return actionError(error, 'Failed to revoke.', 'You do not have permission to manage staff.');
   }
 }
 
@@ -225,12 +233,18 @@ const changeRoleInput = z.object({
 
 export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
   const parsed = changeRoleInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  if (!Types.ObjectId.isValid(parsed.data.membershipId)) {
-    return { ok: false, error: 'Unknown membership.' };
-  }
+  if (!parsed.success) return validationError(parsed.error);
+
+  const membershipId = parseObjectId(parsed.data.membershipId);
+  if (!membershipId) return invalidEntityError('membership');
+
   try {
-    const { session, role: actorRole, permissions } = await requireStaffFlag('staff.edit');
+    const {
+      session,
+      restaurantId,
+      role: actorRole,
+      permissions,
+    } = await requireStaffFlag('staff.edit');
     if (parsed.data.role === 'custom' && !permissions.includes('staff.manage_custom_roles')) {
       return { ok: false, error: 'You do not have permission to manage custom roles.' };
     }
@@ -240,12 +254,11 @@ export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
     const roleCheck = assertCanAssignRole(actorRole, permissions, roleInput);
     if (!roleCheck.ok) return roleCheck;
 
-    const restaurantId = new Types.ObjectId(session.restaurantId);
     const conn = await getMongoConnection('live');
     const { StaffMembership } = getModels(conn);
     const target = await StaffMembership.findOne({
       restaurantId,
-      _id: new Types.ObjectId(parsed.data.membershipId),
+      _id: membershipId,
     }).exec();
     if (!target) return { ok: false, error: 'Membership not found.' };
     if (target.role === 'custom' && !permissions.includes('staff.manage_custom_roles')) {
@@ -279,25 +292,29 @@ export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
     revalidatePath('/admin/staff');
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Failed to change role.' };
+    return actionError(
+      error,
+      'Failed to change role.',
+      'You do not have permission to manage staff.',
+    );
   }
 }
 
 export async function removeStaffAction(membershipId: string): Promise<ActionResult> {
-  if (!Types.ObjectId.isValid(membershipId)) return { ok: false, error: 'Unknown membership.' };
+  const membershipObjectId = parseObjectId(membershipId);
+  if (!membershipObjectId) return invalidEntityError('membership');
+
   try {
-    const { session, role: actorRole } = await requireStaffFlag('staff.remove');
-    const restaurantId = new Types.ObjectId(session.restaurantId);
+    const { session, restaurantId, role: actorRole } = await requireStaffFlag('staff.remove');
     const conn = await getMongoConnection('live');
     const { StaffMembership } = getModels(conn);
 
-    // Don't let someone delete their own membership — they'd lock themselves out.
     const target = await StaffMembership.findOne({
       restaurantId,
-      _id: new Types.ObjectId(membershipId),
+      _id: membershipObjectId,
     }).exec();
     if (!target) return { ok: false, error: 'Membership not found.' };
-    if (String(target.userId) === String(session.user.id)) {
+    if (String(target.userId) === session.user.id) {
       return { ok: false, error: 'You cannot remove your own membership.' };
     }
     if (target.role === 'owner' && actorRole !== 'owner') {
@@ -317,28 +334,29 @@ export async function removeStaffAction(membershipId: string): Promise<ActionRes
     revalidatePath('/admin/staff');
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Failed to remove.' };
+    return actionError(
+      error,
+      'Failed to remove staff member.',
+      'You do not have permission to manage staff.',
+    );
   }
 }
 
 /**
  * Signed-in user accepts an invite token. Creates an active StaffMembership
- * bound to their user id with the role the invite specified. Called from
- * /invite/[token] via a client form.
+ * bound to their user id with the role the invite specified.
  */
 export async function acceptInviteAction(
   token: string,
 ): Promise<ActionResult<{ restaurantId: string }>> {
-  // The invitee may not yet have their own restaurant, so we use
-  // requireSession (not requireOnboarded) — joining another tenant's
-  // staff does not require finishing your own onboarding wizard.
   const current = await requireSession();
   if (!token || token.length < 16) return { ok: false, error: 'Invalid invite token.' };
 
+  const userId = parseObjectId(current.user.id);
+  if (!userId) return { ok: false, error: 'Unknown user.' };
+
   const conn = await getMongoConnection('live');
   const { StaffInvite, StaffMembership, User } = getModels(conn);
-
-  // Cross-tenant lookup — StaffInvite is tenant-scoped, so we use the escape hatch.
   const invite = await StaffInvite.findOne({ token }, null, { skipTenantGuard: true }).exec();
   if (!invite) return { ok: false, error: 'Invite not found.' };
   if (invite.usedAt) return { ok: false, error: 'This invite has already been accepted.' };
@@ -354,7 +372,6 @@ export async function acceptInviteAction(
   }
 
   const restaurantId = invite.restaurantId;
-  const userId = new Types.ObjectId(current.user.id);
   const now = new Date();
   const dbSession = await conn.startSession();
   try {
@@ -396,8 +413,6 @@ export async function acceptInviteAction(
       ).exec();
       if (consume.modifiedCount !== 1) throw new Error('This invite is no longer valid.');
 
-      // Auto-verify the invited user's email — the invite email itself proves
-      // ownership, so requiring a separate verification step is redundant.
       await User.updateOne(
         { _id: userId, emailVerified: false },
         { $set: { emailVerified: true } },

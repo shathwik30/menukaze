@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { resolveFlags, type StaffRole } from '@menukaze/rbac';
@@ -10,8 +9,7 @@ export const dynamic = 'force-dynamic';
 const ROLE_OPTIONS: StaffRole[] = ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'];
 
 export default async function StaffPage() {
-  const { session, role, permissions } = await requirePageFlag(['staff.view']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { session, restaurantId, role, permissions } = await requirePageFlag(['staff.view']);
   const canInvite = permissions.includes('staff.invite');
   const canEdit = permissions.includes('staff.edit');
   const canRemove = permissions.includes('staff.remove');

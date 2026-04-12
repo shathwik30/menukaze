@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
-import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { channels } from '@menukaze/realtime';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
@@ -19,7 +19,8 @@ export default async function OrderConfirmationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  if (!Types.ObjectId.isValid(id)) notFound();
+  const orderId = parseObjectId(id);
+  if (!orderId) notFound();
 
   const restaurant = await resolveTenantOrNotFound();
   const conn = await getMongoConnection('live');
@@ -27,7 +28,7 @@ export default async function OrderConfirmationPage({
 
   const order = await Order.findOne({
     restaurantId: restaurant._id,
-    _id: new Types.ObjectId(id),
+    _id: orderId,
   }).exec();
   if (!order) notFound();
 

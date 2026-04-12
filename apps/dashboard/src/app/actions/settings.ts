@@ -1,34 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError, taxRuleSchema } from '@menukaze/shared';
-import type { Flag } from '@menukaze/rbac';
-import { PermissionDeniedError, requireFlags } from '@/lib/session';
+import {
+  actionError,
+  validationError,
+  withRestaurantAction,
+  type ActionResult,
+} from '@/lib/action-helpers';
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-function zodError(err: z.ZodError): string {
-  const first = err.issues[0];
-  return first ? `${first.path.join('.')}: ${first.message}` : 'Invalid input.';
-}
-
-async function withRestaurantId<T>(
-  flags: Flag[],
-  handler: (restaurantId: Types.ObjectId) => Promise<T | { ok: false; error: string }>,
-): Promise<T | { ok: false; error: string }> {
-  try {
-    const { session } = await requireFlags(flags);
-    return await handler(new Types.ObjectId(session.restaurantId));
-  } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to change this setting.' };
-    }
-    throw error;
-  }
-}
+const SETTINGS_PERMISSION_ERROR = 'You do not have permission to change this setting.';
 
 // ────────────────────── Profile ──────────────────────
 
@@ -50,15 +33,23 @@ const profileInput = z.object({
 
 export async function updateProfileAction(raw: unknown): Promise<ActionResult> {
   const parsed = profileInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    const result = await Restaurant.updateOne({ _id: restaurantId }, { $set: parsed.data }).exec();
-    if (result.matchedCount !== 1) throw new APIError('not_found');
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const result = await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: parsed.data },
+      ).exec();
+      if (result.matchedCount !== 1) throw new APIError('not_found');
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update profile.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── Hours ──────────────────────
@@ -79,15 +70,23 @@ const hoursInput = z.object({
 
 export async function updateHoursAction(raw: unknown): Promise<ActionResult> {
   const parsed = hoursInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_hours'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    const hoursWithBreaks = parsed.data.hours.map((h) => ({ ...h, breaks: [] }));
-    await Restaurant.updateOne({ _id: restaurantId }, { $set: { hours: hoursWithBreaks } }).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_hours'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const hoursWithBreaks = parsed.data.hours.map((hour) => ({ ...hour, breaks: [] }));
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { hours: hoursWithBreaks } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update hours.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── Holiday / Throttling ──────────────────────
@@ -98,24 +97,29 @@ const holidayInput = z.object({
 });
 export async function updateHolidayModeAction(raw: unknown): Promise<ActionResult> {
   const parsed = holidayInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.toggle_holiday'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne(
-      { _id: restaurantId },
-      {
-        $set: {
-          'holidayMode.enabled': parsed.data.enabled,
-          ...(parsed.data.message !== undefined
-            ? { 'holidayMode.message': parsed.data.message }
-            : {}),
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.toggle_holiday'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        {
+          $set: {
+            'holidayMode.enabled': parsed.data.enabled,
+            ...(parsed.data.message !== undefined
+              ? { 'holidayMode.message': parsed.data.message }
+              : {}),
+          },
         },
-      },
-    ).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update holiday mode.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 const throttlingInput = z.object({
@@ -124,14 +128,22 @@ const throttlingInput = z.object({
 });
 export async function updateThrottlingAction(raw: unknown): Promise<ActionResult> {
   const parsed = throttlingInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne({ _id: restaurantId }, { $set: { throttling: parsed.data } }).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { throttling: parsed.data } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update throttling.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── Delivery / Prep Time / Min Order ──────────────────────
@@ -143,14 +155,19 @@ const deliveryInput = z.object({
 });
 export async function updateDeliverySettingsAction(raw: unknown): Promise<ActionResult> {
   const parsed = deliveryInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_delivery'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne({ _id: restaurantId }, { $set: parsed.data }).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_delivery'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne({ _id: restaurantId }, { $set: parsed.data }).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update delivery settings.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── QR Dine-In ──────────────────────
@@ -160,17 +177,22 @@ const qrDineInInput = z.object({
 });
 export async function updateQrDineInSettingsAction(raw: unknown): Promise<ActionResult> {
   const parsed = qrDineInInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne(
-      { _id: restaurantId },
-      { $set: { dineInSessionTimeoutMinutes: parsed.data.dineInSessionTimeoutMinutes } },
-    ).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { dineInSessionTimeoutMinutes: parsed.data.dineInSessionTimeoutMinutes } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update QR dine-in settings.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── Receipt Branding ──────────────────────
@@ -185,17 +207,22 @@ const brandingInput = z.object({
 });
 export async function updateReceiptBrandingAction(raw: unknown): Promise<ActionResult> {
   const parsed = brandingInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_branding'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne(
-      { _id: restaurantId },
-      { $set: { receiptBranding: parsed.data } },
-    ).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_branding'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { receiptBranding: parsed.data } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update receipt branding.', SETTINGS_PERMISSION_ERROR);
+  }
 }
 
 // ────────────────────── Notifications ──────────────────────
@@ -207,17 +234,26 @@ const notifInput = z.object({
 });
 export async function updateNotificationPrefsAction(raw: unknown): Promise<ActionResult> {
   const parsed = notifInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_notifications'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne(
-      { _id: restaurantId },
-      { $set: { notificationPrefs: parsed.data } },
-    ).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_notifications'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { notificationPrefs: parsed.data } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(
+      error,
+      'Failed to update notification preferences.',
+      SETTINGS_PERMISSION_ERROR,
+    );
+  }
 }
 
 // ────────────────────── Tax Rules ──────────────────────
@@ -227,15 +263,20 @@ const taxRulesInput = z.object({
 });
 export async function updateTaxRulesAction(raw: unknown): Promise<ActionResult> {
   const parsed = taxRulesInput.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
-  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
-    const conn = await getMongoConnection('live');
-    const { Restaurant } = getModels(conn);
-    await Restaurant.updateOne(
-      { _id: restaurantId },
-      { $set: { taxRules: parsed.data.taxRules } },
-    ).exec();
-    revalidatePath('/admin/settings');
-    return { ok: true };
-  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  try {
+    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { taxRules: parsed.data.taxRules } },
+      ).exec();
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to update tax rules.', SETTINGS_PERMISSION_ERROR);
+  }
 }

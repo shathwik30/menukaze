@@ -36,7 +36,7 @@ export function RoundItemAddButton({
   modifiers,
   disabled,
 }: Props) {
-  const add = useRoundCart((state) => state.add);
+  const addLine = useRoundCart((state) => state.addLine);
   const [open, setOpen] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export function RoundItemAddButton({
       return;
     }
 
-    add({
+    addLine({
       itemId,
       name,
       priceMinor,
@@ -132,7 +132,7 @@ export function RoundItemAddButton({
       <button
         type="button"
         onClick={() => {
-          add({ itemId, name, priceMinor, modifiers: [] });
+          addLine({ itemId, name, priceMinor, modifiers: [] });
           flashAdded();
         }}
         className="border-input rounded-md border px-2 py-1 text-xs"

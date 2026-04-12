@@ -1,6 +1,6 @@
-import { Types } from 'mongoose';
 import { notFound, redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import {
   filterActiveMenus,
   formatMoney,
@@ -13,12 +13,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function SessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
-  if (!Types.ObjectId.isValid(sessionId)) notFound();
+  const sessionObjectId = parseObjectId(sessionId);
+  if (!sessionObjectId) notFound();
 
   const conn = await getMongoConnection('live');
   const { TableSession, Restaurant, Menu, Category, Item, Order, Table } = getModels(conn);
 
-  const session = await TableSession.findOne({ _id: new Types.ObjectId(sessionId) }, null, {
+  const session = await TableSession.findOne({ _id: sessionObjectId }, null, {
     skipTenantGuard: true,
   }).exec();
   if (!session) notFound();

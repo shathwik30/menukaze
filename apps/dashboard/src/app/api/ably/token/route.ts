@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { channelPatterns } from '@menukaze/realtime';
 import { createAblyTokenRequest } from '@menukaze/realtime/server';
-import { requireOnboarded } from '@/lib/session';
+import { requireOnboardedRestaurant } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * staff hit this route (requireOnboarded redirects anonymous users).
  */
 export async function GET(): Promise<NextResponse> {
-  const session = await requireOnboarded();
+  const { session } = await requireOnboardedRestaurant();
   const pattern = channelPatterns.allRestaurant(session.restaurantId);
   const tokenRequest = await createAblyTokenRequest(
     { [pattern]: ['subscribe', 'presence', 'history'] },

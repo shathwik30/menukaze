@@ -1,7 +1,7 @@
-import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requirePageFlag } from '@/lib/session';
 import { OrderStatusControl } from './order-status-control';
@@ -14,18 +14,16 @@ export default async function DashboardOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  if (!Types.ObjectId.isValid(id)) notFound();
+  const orderId = parseObjectId(id);
+  if (!orderId) notFound();
 
-  const { session } = await requirePageFlag(['orders.view_all']);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
+  const { restaurantId } = await requirePageFlag(['orders.view_all']);
   const conn = await getMongoConnection('live');
   const { Restaurant, Order } = getModels(conn);
 
   const [restaurant, order] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
-    Order.findOne({ restaurantId, _id: new Types.ObjectId(id) })
-      .lean()
-      .exec(),
+    Order.findOne({ restaurantId, _id: orderId }).lean().exec(),
   ]);
   if (!order) notFound();
 

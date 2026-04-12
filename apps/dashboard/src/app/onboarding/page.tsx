@@ -1,6 +1,6 @@
-import { Types } from 'mongoose';
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { requireSession } from '@/lib/session';
 import { RestaurantProfileForm } from './restaurant-profile-form';
 
@@ -21,9 +21,13 @@ export default async function OnboardingPage() {
   const session = await requireSession();
 
   if (session.restaurantId) {
+    const restaurantId = parseObjectId(session.restaurantId);
+    if (!restaurantId) {
+      redirect('/admin');
+    }
     const conn = await getMongoConnection('live');
     const { Restaurant } = getModels(conn);
-    const restaurant = await Restaurant.findById(new Types.ObjectId(session.restaurantId)).exec();
+    const restaurant = await Restaurant.findById(restaurantId).exec();
     const step = restaurant?.onboardingStep ?? 'menu';
     switch (step) {
       case 'menu':

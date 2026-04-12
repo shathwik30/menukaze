@@ -1,6 +1,5 @@
 'use server';
 
-import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { PermissionDeniedError, requireFlags } from '@/lib/session';
@@ -19,9 +18,9 @@ export type GoLiveResult = { ok: true; liveAt: string } | { ok: false; error: st
  * the user can preview their storefront without payment first.
  */
 export async function goLiveAction(): Promise<GoLiveResult> {
-  let session;
+  let restaurantId;
   try {
-    ({ session } = await requireFlags(['settings.edit_profile']));
+    ({ restaurantId } = await requireFlags(['settings.edit_profile']));
   } catch (error) {
     if (error instanceof PermissionDeniedError) {
       return { ok: false, error: 'You do not have permission to activate this restaurant.' };
@@ -30,7 +29,6 @@ export async function goLiveAction(): Promise<GoLiveResult> {
   }
   const conn = await getMongoConnection('live');
   const { Restaurant, Item } = getModels(conn);
-  const restaurantId = new Types.ObjectId(session.restaurantId);
 
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
@@ -59,11 +57,8 @@ export async function goLiveAction(): Promise<GoLiveResult> {
  * Used as a `<form action>` — returns void so Next.js accepts the signature.
  */
 export async function dismissChecklistAction(): Promise<void> {
-  const { session } = await requireFlags(['settings.edit_profile']);
+  const { restaurantId } = await requireFlags(['settings.edit_profile']);
   const conn = await getMongoConnection('live');
   const { Restaurant } = getModels(conn);
-  await Restaurant.updateOne(
-    { _id: new Types.ObjectId(session.restaurantId) },
-    { $set: { checklistDismissed: true } },
-  ).exec();
+  await Restaurant.updateOne({ _id: restaurantId }, { $set: { checklistDismissed: true } }).exec();
 }
