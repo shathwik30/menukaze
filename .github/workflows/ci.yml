@@ -37,7 +37,6 @@ jobs:
               - 'apps/**'
               - 'packages/**'
               - 'tooling/playwright-config/**'
-              - 'docker-compose.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
@@ -186,7 +185,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm services:up
       - run: pnpm db:seed
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e

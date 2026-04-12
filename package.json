@@ -20,12 +20,7 @@
     "format:check": "prettier --check .",
     "verify": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
-    "services:up": "bash -lc 'if command -v docker-compose >/dev/null 2>&1; then exec docker-compose up -d --wait mongo redis; else exec docker compose up -d --wait mongo redis; fi'",
-    "services:down": "bash -lc 'if command -v docker-compose >/dev/null 2>&1; then exec docker-compose down; else exec docker compose down; fi'",
-    "services:reset": "bash -lc 'if command -v docker-compose >/dev/null 2>&1; then docker-compose down -v && exec docker-compose up -d --wait mongo redis; else docker compose down -v && exec docker compose up -d --wait mongo redis; fi'",
-    "services:logs": "bash -lc 'if command -v docker-compose >/dev/null 2>&1; then exec docker-compose logs -f; else exec docker compose logs -f; fi'",
     "db:seed": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/seed.ts'",
-    "db:migrate": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/migrate.ts up'",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -603,7 +603,6 @@ menukaze/
 ├── .github/workflows/
 │   ├── ci.yml
 │   └── release.yml
-├── docker-compose.yml      # mongo replset + redis + mailhog
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── package.json
@@ -1500,13 +1499,10 @@ Build in this order (dependencies flow strictly downward):
    - `src/middleware.ts` — `requirePermission(...flags)` for tRPC + Hono.
    - Test: Waiter role resolves to the right flag set; Custom role merges.
 
-8. **`docker-compose.yml`** at the repo root (Mongo replset + Redis). Add `pnpm services:up` script.
-
-9. **Seed script** at `scripts/seed.ts` — boots mongo via `docker compose`, runs `packages/db` seed.
+8. **Seed script** at `scripts/seed.ts` — runs `packages/db` seed against the configured `MONGODB_URI`.
 
 **Verification checklist**:
 ```
-docker compose up -d mongo redis
 pnpm db:seed
 pnpm test --filter=./packages/*
 ```

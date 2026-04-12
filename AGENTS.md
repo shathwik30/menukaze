@@ -7,7 +7,6 @@
 Use Node `22.x` and pnpm `10.x`.
 
 - `nvm use 22` switches to the supported runtime.
-- `pnpm services:up` starts local MongoDB and Redis.
 - `pnpm db:seed` loads the demo tenant (`demo`) and baseline data.
 - `pnpm dev` runs all apps in parallel through Turborepo.
 - `pnpm build` runs the full production build across workspaces.
