@@ -13,6 +13,7 @@ import {
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
+  computeTax,
   formatMoney,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
@@ -429,6 +430,9 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const publicOrderId = generatePublicOrderId();
   const now = new Date();
 
+  const { taxMinor, surchargeMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
+  const totalMinor = subtotalMinor + surchargeMinor;
+
   const order = await Order.create({
     restaurantId,
     publicOrderId,
@@ -437,16 +441,16 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     customer: session.customer,
     items: snapshotLines,
     subtotalMinor,
-    taxMinor: 0,
+    taxMinor,
     tipMinor: 0,
-    totalMinor: subtotalMinor,
+    totalMinor,
     currency: restaurant.currency,
     status: 'confirmed',
     statusHistory: [{ status: 'confirmed', at: now }],
     payment: {
       gateway: 'razorpay',
       status: 'pending',
-      amountMinor: subtotalMinor,
+      amountMinor: totalMinor,
       currency: restaurant.currency,
     },
     tableId: session.tableId,
@@ -465,7 +469,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
       type: 'order.created',
       orderId: orderIdStr,
       channelId: 'qr_dinein',
-      totalMinor: subtotalMinor,
+      totalMinor,
       currency: restaurant.currency,
       createdAt: now.toISOString(),
     });

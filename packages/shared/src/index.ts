@@ -13,3 +13,4 @@ export * from './payments';
 export * from './menu-schedule';
 export * from './schemas';
 export * from './session-timeout';
+export * from './tax';

@@ -11,7 +11,12 @@ import {
 } from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import { formatMoney, parseCurrencyCode, validateModifierSelection } from '@menukaze/shared';
+import {
+  computeTax,
+  formatMoney,
+  parseCurrencyCode,
+  validateModifierSelection,
+} from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 import { sendTransactionalEmail } from '@/lib/email';
 import { OrderConfirmationEmail } from '@/emails/order-confirmation';
@@ -201,7 +206,8 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   }
 
   const deliveryFeeMinor = input.type === 'delivery' ? (restaurant.deliveryFeeMinor ?? 0) : 0;
-  const totalMinor = subtotalMinor + deliveryFeeMinor;
+  const { taxMinor, surchargeMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
+  const totalMinor = subtotalMinor + surchargeMinor + deliveryFeeMinor;
 
   const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
@@ -229,7 +235,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     customer: input.customer,
     items: snapshotLines,
     subtotalMinor,
-    taxMinor: 0,
+    taxMinor,
     tipMinor: 0,
     totalMinor,
     currency: restaurant.currency,

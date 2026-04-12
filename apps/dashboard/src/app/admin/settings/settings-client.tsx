@@ -11,6 +11,7 @@ import {
   updateQrDineInSettingsAction,
   updateReceiptBrandingAction,
   updateNotificationPrefsAction,
+  updateTaxRulesAction,
 } from '@/app/actions/settings';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -58,6 +59,7 @@ interface InitialSettings {
   throttling: { enabled: boolean; maxConcurrentOrders: number };
   receiptBranding: { headerColor: string; footerText: string; socials: string[] };
   notificationPrefs: { email: boolean; dashboard: boolean; sound: boolean };
+  taxRules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
 }
 
 const DAY_LABEL: Record<DayKey, string> = {
@@ -138,6 +140,11 @@ export function SettingsClient({ initial }: { initial: InitialSettings }) {
         initial={initial.notificationPrefs}
         pending={isPending}
         onSubmit={(payload) => run('notifications', () => updateNotificationPrefsAction(payload))}
+      />
+      <TaxRulesSection
+        initial={initial.taxRules}
+        pending={isPending}
+        onSubmit={(taxRules) => run('tax rules', () => updateTaxRulesAction({ taxRules }))}
       />
     </>
   );
@@ -630,6 +637,106 @@ function NotificationsSection({
             {key === 'dashboard' ? 'Dashboard alerts' : `${key}`}
           </label>
         ))}
+        <SaveButton pending={pending} />
+      </form>
+    </Section>
+  );
+}
+
+type TaxRuleEntry = { name: string; percent: number; inclusive: boolean; label?: string };
+
+function TaxRulesSection({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: TaxRuleEntry[];
+  pending: boolean;
+  onSubmit: (rules: TaxRuleEntry[]) => void;
+}) {
+  const [rules, setRules] = useState<TaxRuleEntry[]>(initial);
+
+  function addRule() {
+    setRules([...rules, { name: '', percent: 0, inclusive: false, label: '' }]);
+  }
+
+  function removeRule(i: number) {
+    setRules(rules.filter((_, idx) => idx !== i));
+  }
+
+  function updateRule(i: number, patch: Partial<TaxRuleEntry>) {
+    setRules(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+
+  return (
+    <Section title="Tax Rules">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(rules);
+        }}
+        className="flex flex-col gap-3"
+      >
+        <p className="text-muted-foreground text-sm">
+          Tax is applied to each order. Exclusive taxes are added on top of the subtotal; inclusive
+          taxes are already embedded in item prices.
+        </p>
+        {rules.map((rule, i) => (
+          <div key={i} className="border-border flex flex-col gap-2 rounded-md border p-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Name (e.g. GST)"
+                value={rule.name}
+                onChange={(e) => updateRule(i, { name: e.target.value })}
+                className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
+                required
+              />
+              <input
+                type="number"
+                placeholder="%"
+                value={rule.percent}
+                min={0}
+                max={100}
+                step={0.01}
+                onChange={(e) => updateRule(i, { percent: parseFloat(e.target.value) || 0 })}
+                className="border-input bg-background w-20 rounded-md border px-3 py-1.5 text-sm"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => removeRule(i)}
+                className="text-destructive text-sm hover:underline"
+              >
+                Remove
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={rule.inclusive}
+                  onChange={(e) => updateRule(i, { inclusive: e.target.checked })}
+                />
+                Inclusive (tax already in price)
+              </label>
+              <input
+                type="text"
+                placeholder="Receipt label (optional)"
+                value={rule.label ?? ''}
+                onChange={(e) => updateRule(i, { label: e.target.value })}
+                className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addRule}
+          className="w-fit rounded-md border px-3 py-1.5 text-sm"
+        >
+          + Add tax rule
+        </button>
         <SaveButton pending={pending} />
       </form>
     </Section>

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { APIError } from '@menukaze/shared';
+import { APIError, taxRuleSchema } from '@menukaze/shared';
 import type { Flag } from '@menukaze/rbac';
 import { PermissionDeniedError, requireFlags } from '@/lib/session';
 
@@ -214,6 +214,26 @@ export async function updateNotificationPrefsAction(raw: unknown): Promise<Actio
     await Restaurant.updateOne(
       { _id: restaurantId },
       { $set: { notificationPrefs: parsed.data } },
+    ).exec();
+    revalidatePath('/admin/settings');
+    return { ok: true };
+  });
+}
+
+// ────────────────────── Tax Rules ──────────────────────
+
+const taxRulesInput = z.object({
+  taxRules: z.array(taxRuleSchema).max(10),
+});
+export async function updateTaxRulesAction(raw: unknown): Promise<ActionResult> {
+  const parsed = taxRulesInput.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: zodError(parsed.error) };
+  return withRestaurantId(['settings.edit_profile'], async (restaurantId) => {
+    const conn = await getMongoConnection('live');
+    const { Restaurant } = getModels(conn);
+    await Restaurant.updateOne(
+      { _id: restaurantId },
+      { $set: { taxRules: parsed.data.taxRules } },
     ).exec();
     revalidatePath('/admin/settings');
     return { ok: true };

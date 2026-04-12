@@ -74,6 +74,12 @@ export default async function SettingsPage() {
             dashboard: restaurant.notificationPrefs?.dashboard ?? true,
             sound: restaurant.notificationPrefs?.sound ?? true,
           },
+          taxRules: (restaurant.taxRules ?? []).map((r) => ({
+            name: r.name,
+            percent: r.percent,
+            inclusive: r.inclusive,
+            label: r.label,
+          })),
         }}
       />
     </main>
