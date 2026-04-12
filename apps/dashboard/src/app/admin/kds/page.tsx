@@ -28,7 +28,7 @@ export default async function KdsPage() {
   ]);
 
   // Resolve table numbers for the dine-in orders in the current feed so
-  // the KDS card can print "Table 4" instead of an ObjectId (spec §9).
+  // the KDS card can print "Table 4" instead of an ObjectId.
   const tableIds = Array.from(
     new Set(orders.map((o) => o.tableId).filter((id): id is NonNullable<typeof id> => Boolean(id))),
   );

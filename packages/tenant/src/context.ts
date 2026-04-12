@@ -1,11 +1,7 @@
 /**
- * Tenant context — the per-request object every handler reads to know which
+ * Tenant context is the per-request object every handler reads to know which
  * restaurant the request belongs to. Constructed by the Next.js / tRPC / Hono
  * middleware after `parseHost(req.headers.host)` resolves a `restaurants` row.
- *
- * The middleware adapters live in their respective wrapper packages (added in
- * Phase 3 once Next.js, tRPC, and Hono are installed). This package only owns
- * the data shape and the lookup helper.
  */
 
 import { APIError } from '@menukaze/shared';

@@ -4,7 +4,7 @@
  * picking subsets of these flags. Custom roles let restaurants build their
  * own subsets at runtime.
  *
- * Flags marked OWNER_ONLY can never be granted to a Custom role — they are
+ * Flags marked OWNER_ONLY can never be granted to a custom role. They are
  * structurally locked to the Owner so platform-critical actions cannot be
  * delegated.
  */
@@ -73,7 +73,7 @@ export const FLAGS = [
   'settings.edit_branding',
   'settings.edit_notifications',
 
-  // Owner-only
+  // Owner-only permissions
   'api_keys.manage',
   'webhooks.manage',
   'billing.manage',

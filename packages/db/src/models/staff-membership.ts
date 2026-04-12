@@ -41,7 +41,7 @@ const staffMembershipSchema = new Schema<StaffMembershipDoc>(
 
 staffMembershipSchema.plugin(tenantScopedPlugin);
 
-// (restaurantId, userId) is unique — one membership per user per restaurant.
+// A user can only have one membership per restaurant.
 staffMembershipSchema.index({ restaurantId: 1, userId: 1 }, { unique: true });
 // Used by login flow to enumerate a user's memberships across tenants.
 staffMembershipSchema.index({ userId: 1 });

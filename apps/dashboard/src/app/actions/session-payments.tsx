@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
@@ -21,6 +22,30 @@ const settleSessionInput = z.object({
   method: z.enum(['cash', 'terminal']),
 });
 
+type CounterPaymentMethod = z.infer<typeof settleSessionInput>['method'];
+
+interface CounterSessionRecord {
+  _id: Types.ObjectId;
+  tableId: Types.ObjectId;
+  customer: { name: string; email: string };
+}
+
+interface CounterRestaurantRecord {
+  name: string;
+  currency: string;
+  locale: string;
+}
+
+interface CounterRoundRecord {
+  _id: Types.ObjectId;
+  totalMinor: number;
+  items: Array<{ name: string; quantity: number; lineTotalMinor: number }>;
+}
+
+function getCounterPaymentMethodLabel(method: CounterPaymentMethod): string {
+  return method === 'terminal' ? 'Counter terminal' : 'Cash at counter';
+}
+
 async function publishOrderStatusChanges(
   restaurantId: string,
   orderIds: string[],
@@ -40,6 +65,190 @@ async function publishOrderStatusChanges(
     );
   } catch (error) {
     console.warn('[dashboard] order status publish failed', error);
+  }
+}
+
+async function publishTableSessionState({
+  restaurantId,
+  tableId,
+  sessionId,
+  tableStatus,
+  sessionReason,
+  tableReason,
+  changedAt,
+}: {
+  restaurantId: string;
+  tableId: string;
+  sessionId: string;
+  tableStatus: 'paid' | 'available';
+  sessionReason: 'payment_succeeded' | 'closed';
+  tableReason: 'payment_succeeded' | 'table_released';
+  changedAt: Date;
+}): Promise<void> {
+  try {
+    await Promise.all([
+      publishRealtimeEvent(channels.tables(restaurantId), {
+        type: 'table.status_changed',
+        tableId,
+        status: tableStatus,
+        changedAt: changedAt.toISOString(),
+        reason: tableReason,
+      }),
+      publishRealtimeEvent(channels.customerSession(restaurantId, sessionId), {
+        type: 'session.updated',
+        sessionId,
+        updatedAt: changedAt.toISOString(),
+        reason: sessionReason,
+      }),
+    ]);
+  } catch (error) {
+    console.warn('[dashboard] table session publish failed', error);
+  }
+}
+
+async function markCounterRoundsPaid({
+  orderModel,
+  restaurantId,
+  tableSessionId,
+  actorUserId,
+  methodLabel,
+  paidAt,
+}: {
+  orderModel: ReturnType<typeof getModels>['Order'];
+  restaurantId: Types.ObjectId;
+  tableSessionId: Types.ObjectId;
+  actorUserId: Types.ObjectId;
+  methodLabel: string;
+  paidAt: Date;
+}): Promise<void> {
+  await orderModel
+    .updateMany(
+      { restaurantId, sessionId: tableSessionId },
+      {
+        $set: {
+          'payment.gateway': 'cash',
+          'payment.status': 'succeeded',
+          'payment.methodLabel': methodLabel,
+          'payment.paidAt': paidAt,
+          status: 'completed',
+          completedAt: paidAt,
+        },
+        $unset: {
+          'payment.failureReason': 1,
+          'payment.razorpayOrderId': 1,
+          'payment.razorpayPaymentId': 1,
+          'payment.razorpaySignature': 1,
+        },
+        $push: {
+          statusHistory: {
+            status: 'completed',
+            at: paidAt,
+            byUserId: actorUserId,
+          },
+        },
+      },
+    )
+    .exec();
+}
+
+async function markCounterSessionPaid({
+  tableSessionModel,
+  tableModel,
+  restaurantId,
+  tableSession,
+  paidAt,
+}: {
+  tableSessionModel: ReturnType<typeof getModels>['TableSession'];
+  tableModel: ReturnType<typeof getModels>['Table'];
+  restaurantId: Types.ObjectId;
+  tableSession: CounterSessionRecord;
+  paidAt: Date;
+}): Promise<void> {
+  await tableSessionModel
+    .updateOne(
+      { restaurantId, _id: tableSession._id },
+      {
+        $set: {
+          status: 'paid',
+          paidAt,
+          lastActivityAt: paidAt,
+          paymentModeRequested: 'counter',
+        },
+      },
+    )
+    .exec();
+  await tableModel
+    .updateOne({ restaurantId, _id: tableSession.tableId }, { $set: { status: 'paid' } })
+    .exec();
+}
+
+async function releaseCounterSession({
+  tableSessionModel,
+  tableModel,
+  restaurantId,
+  tableSession,
+  releasedAt,
+}: {
+  tableSessionModel: ReturnType<typeof getModels>['TableSession'];
+  tableModel: ReturnType<typeof getModels>['Table'];
+  restaurantId: Types.ObjectId;
+  tableSession: CounterSessionRecord;
+  releasedAt: Date;
+}): Promise<void> {
+  await tableSessionModel
+    .updateOne(
+      { restaurantId, _id: tableSession._id },
+      { $set: { status: 'closed', closedAt: releasedAt, lastActivityAt: releasedAt } },
+    )
+    .exec();
+  await tableModel
+    .updateOne(
+      { restaurantId, _id: tableSession.tableId },
+      { $set: { status: 'available', lastReleasedAt: releasedAt } },
+    )
+    .exec();
+}
+
+async function sendCounterReceiptEmail({
+  tableSession,
+  restaurant,
+  rounds,
+  methodLabel,
+  paidAt,
+}: {
+  tableSession: CounterSessionRecord;
+  restaurant: CounterRestaurantRecord;
+  rounds: CounterRoundRecord[];
+  methodLabel: string;
+  paidAt: Date;
+}): Promise<void> {
+  try {
+    const currency = parseCurrencyCode(restaurant.currency);
+    const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
+    const items = rounds.flatMap((round) =>
+      round.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        lineTotalLabel: formatMoney(item.lineTotalMinor, currency, restaurant.locale),
+      })),
+    );
+    await sendTransactionalEmail({
+      to: tableSession.customer.email,
+      subject: `Receipt · ${restaurant.name}`,
+      react: CounterSessionReceiptEmailInline({
+        restaurantName: restaurant.name,
+        customerName: tableSession.customer.name,
+        paymentMethodLabel: methodLabel,
+        items,
+        totalLabel: formatMoney(totalMinor, currency, restaurant.locale),
+        paidAt: paidAt.toLocaleString(restaurant.locale, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      }),
+    });
+  } catch (error) {
+    console.warn('[dashboard] counter receipt email failed', error);
   }
 }
 
@@ -76,131 +285,62 @@ export async function settleSessionAtCounterAction(raw: unknown): Promise<Action
         if (rounds.length === 0) return { ok: false, error: 'No rounds found for this session.' };
 
         const now = new Date();
-        const methodLabel =
-          parsed.data.method === 'terminal' ? 'Counter terminal' : 'Cash at counter';
-
-        await Order.updateMany(
-          { restaurantId, sessionId: tableSession._id },
-          {
-            $set: {
-              'payment.gateway': 'cash',
-              'payment.status': 'succeeded',
-              'payment.methodLabel': methodLabel,
-              'payment.paidAt': now,
-              status: 'completed',
-              completedAt: now,
-            },
-            $unset: {
-              'payment.failureReason': 1,
-              'payment.razorpayOrderId': 1,
-              'payment.razorpayPaymentId': 1,
-              'payment.razorpaySignature': 1,
-            },
-            $push: {
-              statusHistory: {
-                status: 'completed',
-                at: now,
-                byUserId: actorUserId,
-              },
-            },
-          },
-        ).exec();
-
-        await TableSession.updateOne(
-          { restaurantId, _id: tableSession._id },
-          {
-            $set: {
-              status: 'paid',
-              paidAt: now,
-              lastActivityAt: now,
-              paymentModeRequested: 'counter',
-            },
-          },
-        ).exec();
-        await Table.updateOne(
-          { restaurantId, _id: tableSession.tableId },
-          { $set: { status: 'paid' } },
-        ).exec();
+        const methodLabel = getCounterPaymentMethodLabel(parsed.data.method);
+        await markCounterRoundsPaid({
+          orderModel: Order,
+          restaurantId,
+          tableSessionId: tableSession._id,
+          actorUserId,
+          methodLabel,
+          paidAt: now,
+        });
+        await markCounterSessionPaid({
+          tableSessionModel: TableSession,
+          tableModel: Table,
+          restaurantId,
+          tableSession,
+          paidAt: now,
+        });
 
         const restaurantIdStr = String(restaurantId);
         const tableIdStr = String(tableSession.tableId);
         const sessionIdStr = String(tableSession._id);
         const orderIds = rounds.map((round) => String(round._id));
         await publishOrderStatusChanges(restaurantIdStr, orderIds, 'completed', now);
+        await publishTableSessionState({
+          restaurantId: restaurantIdStr,
+          tableId: tableIdStr,
+          sessionId: sessionIdStr,
+          tableStatus: 'paid',
+          tableReason: 'payment_succeeded',
+          sessionReason: 'payment_succeeded',
+          changedAt: now,
+        });
 
-        try {
-          await publishRealtimeEvent(channels.tables(restaurantIdStr), {
-            type: 'table.status_changed',
-            tableId: tableIdStr,
-            status: 'paid',
-            changedAt: now.toISOString(),
-            reason: 'payment_succeeded',
-          });
-          await publishRealtimeEvent(channels.customerSession(restaurantIdStr, sessionIdStr), {
-            type: 'session.updated',
-            sessionId: sessionIdStr,
-            updatedAt: now.toISOString(),
-            reason: 'payment_succeeded',
-          });
-        } catch (error) {
-          console.warn('[dashboard] paid-state publish failed', error);
-        }
+        await releaseCounterSession({
+          tableSessionModel: TableSession,
+          tableModel: Table,
+          restaurantId,
+          tableSession,
+          releasedAt: now,
+        });
+        await publishTableSessionState({
+          restaurantId: restaurantIdStr,
+          tableId: tableIdStr,
+          sessionId: sessionIdStr,
+          tableStatus: 'available',
+          tableReason: 'table_released',
+          sessionReason: 'closed',
+          changedAt: now,
+        });
 
-        await TableSession.updateOne(
-          { restaurantId, _id: tableSession._id },
-          { $set: { status: 'closed', closedAt: now, lastActivityAt: now } },
-        ).exec();
-        await Table.updateOne(
-          { restaurantId, _id: tableSession.tableId },
-          { $set: { status: 'available', lastReleasedAt: now } },
-        ).exec();
-
-        try {
-          await publishRealtimeEvent(channels.tables(restaurantIdStr), {
-            type: 'table.status_changed',
-            tableId: tableIdStr,
-            status: 'available',
-            changedAt: now.toISOString(),
-            reason: 'table_released',
-          });
-          await publishRealtimeEvent(channels.customerSession(restaurantIdStr, sessionIdStr), {
-            type: 'session.updated',
-            sessionId: sessionIdStr,
-            updatedAt: now.toISOString(),
-            reason: 'closed',
-          });
-        } catch (error) {
-          console.warn('[dashboard] close-state publish failed', error);
-        }
-
-        try {
-          const currency = parseCurrencyCode(restaurant.currency);
-          const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
-          const items = rounds.flatMap((round) =>
-            round.items.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              lineTotalLabel: formatMoney(item.lineTotalMinor, currency, restaurant.locale),
-            })),
-          );
-          await sendTransactionalEmail({
-            to: tableSession.customer.email,
-            subject: `Receipt · ${restaurant.name}`,
-            react: CounterSessionReceiptEmailInline({
-              restaurantName: restaurant.name,
-              customerName: tableSession.customer.name,
-              paymentMethodLabel: methodLabel,
-              items,
-              totalLabel: formatMoney(totalMinor, currency, restaurant.locale),
-              paidAt: now.toLocaleString(restaurant.locale, {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              }),
-            }),
-          });
-        } catch (error) {
-          console.warn('[dashboard] counter receipt email failed', error);
-        }
+        await sendCounterReceiptEmail({
+          tableSession,
+          restaurant,
+          rounds,
+          methodLabel,
+          paidAt: now,
+        });
 
         revalidatePath('/admin/tables');
         revalidatePath('/admin/orders');

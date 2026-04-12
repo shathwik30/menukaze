@@ -4,9 +4,9 @@ import { Schema, type Types, type Model, type Connection, type HydratedDocument 
  * Tenant root. There is one `restaurants` document per tenant. Every other
  * tenant-scoped collection has `restaurantId` pointing here.
  *
- * Note: this collection is NOT decorated with `tenantScopedPlugin` because IT
- * IS the tenant root — queries against `restaurants` are inherently
- * cross-tenant from the platform's perspective (super-admin, signup flow).
+ * Note: this collection is not decorated with `tenantScopedPlugin` because it
+ * is the tenant root. Platform flows such as signup and super-admin need
+ * cross-tenant restaurant lookups.
  */
 
 export interface RestaurantDoc {
@@ -20,7 +20,7 @@ export interface RestaurantDoc {
   locale: string;
   timezone: string;
 
-  /** Short marketing tagline shown on the storefront hero (spec §6). */
+  /** Short marketing tagline shown on the storefront hero. */
   description?: string;
   /** Public-facing contact email. Distinct from the owner's BetterAuth user. */
   email?: string;
@@ -33,8 +33,8 @@ export interface RestaurantDoc {
   /** Minimum cart total (in minor units) required to check out. 0 = disabled. */
   minimumOrderMinor: number;
   /**
-   * Flat delivery fee (in minor units) added at checkout when the customer
-   * picks delivery. Complex zone-based fees ship later (§20 deferred list).
+   * Flat delivery fee in minor units, added at checkout when the customer
+   * picks delivery.
    */
   deliveryFeeMinor: number;
   /** Inactivity timeout for QR dine-in sessions. Defaults to 3 hours. */

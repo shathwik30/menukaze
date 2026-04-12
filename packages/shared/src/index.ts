@@ -1,5 +1,5 @@
 /**
- * Menukaze shared package — leaf, zero internal deps.
+ * Menukaze shared package. Leaf package with zero internal dependencies.
  *
  * Re-exports the public surface of client-safe shared modules. Server-only
  * utilities stay on explicit subpaths such as `@menukaze/shared/razorpay`

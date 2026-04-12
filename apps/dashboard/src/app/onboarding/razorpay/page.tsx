@@ -6,11 +6,7 @@ import { RazorpayConnectForm } from './razorpay-connect-form';
 export const dynamic = 'force-dynamic';
 
 /**
- * Step 6 of the onboarding wizard — Razorpay Connection.
- *
- * Guards:
- *   - Must be signed in AND have a restaurant (requireOnboarded).
- *   - Must be on the 'razorpay' step → otherwise bounce to /admin.
+ * Payment setup page for the onboarding flow.
  */
 export default async function OnboardingRazorpayPage() {
   const { restaurantId } = await requirePageFlag(['payments.configure']);

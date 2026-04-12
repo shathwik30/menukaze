@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createMenuStarterAction } from '@/app/actions/menu';
 
 interface ItemRow {
-  /** Stable React key — not sent to the server. */
+  /** Stable React key that is not sent to the server. */
   rowId: number;
   name: string;
   priceMajor: string;

@@ -2,10 +2,10 @@ import { Schema, type Model, type Connection, type HydratedDocument } from 'mong
 
 /**
  * BetterAuth identity. One row per human. Multi-tenancy is handled by the
- * separate `staff_memberships` collection — a user can be Owner of one
+ * separate `staff_memberships` collection. A user can be owner of one
  * restaurant and Waiter at another.
  *
- * Not tenant-scoped — the BetterAuth login flow looks up users by email
+ * Not tenant-scoped: the BetterAuth login flow looks up users by email
  * across all tenants.
  */
 export interface UserDoc {

@@ -5,9 +5,8 @@ import { StartSessionForm } from './start-form';
 export const dynamic = 'force-dynamic';
 
 /**
- * QR landing. Resolves the table by token (cross-tenant lookup — the QR
- * token IS the tenant selector), checks for an existing active session,
- * and either renders the start form or short-circuits to the session page.
+ * QR landing. The QR token selects the table and tenant, then existing active
+ * sessions short-circuit to the shared session page.
  */
 export default async function TableLandingPage({
   params,
@@ -43,8 +42,7 @@ export default async function TableLandingPage({
     );
   }
 
-  // Concurrent scan: if an active session already exists on this table, send
-  // everyone to the same place.
+  // Concurrent scans should join the same active table session.
   const existing = await TableSession.findOne({
     restaurantId: table.restaurantId,
     tableId: table._id,

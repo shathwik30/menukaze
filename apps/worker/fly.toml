@@ -1,9 +1,8 @@
-# Menukaze worker — Fly.io app config.
-# `flyctl launch --no-deploy` runs in Phase 6 to claim a name; this file is
-# the canonical config for that command.
+# Menukaze worker Fly.io app config.
+# This file is the canonical production worker deployment config.
 
 app = "menukaze-worker"
-primary_region = "bom"  # Mumbai — closest to launch tenants
+primary_region = "bom"  # Mumbai, closest to launch tenants.
 
 [build]
   dockerfile = "Dockerfile"

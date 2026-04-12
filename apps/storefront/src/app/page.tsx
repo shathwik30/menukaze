@@ -11,7 +11,7 @@ import { CartButton } from './_components/cart-button';
 export const dynamic = 'force-dynamic';
 
 /**
- * Dynamic metadata per tenant — search crawlers hit the subdomain and need
+ * Dynamic metadata per tenant. Search crawlers hit the subdomain and need
  * restaurant-specific title / description / og image. Failing to resolve a
  * tenant here returns the default shell metadata from layout.tsx.
  */
@@ -39,8 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function StorefrontHomePage() {
   const restaurant = await resolveTenantOrNotFound();
 
-  // A restaurant that hasn't clicked Go Live yet gets a "Coming Soon" page —
-  // still a valid tenant, just not open for orders.
+  // A restaurant can exist before it is live, but it should not accept orders.
   if (!restaurant.liveAt) {
     return <ComingSoonView name={restaurant.name} />;
   }
@@ -68,9 +67,7 @@ export default async function StorefrontHomePage() {
   const openStatus = computeOpenStatus(restaurant);
   const todayHours = formatTodayHours(restaurant);
 
-  // Schema.org Restaurant JSON-LD — helps Google, Bing, Yandex, Baidu, Naver
-  // render rich results (§6 bullet 15). Hours are serialized as the
-  // compressed "Mo-Su 09:00-22:00"-style openingHours string per spec.
+  // Schema.org Restaurant JSON-LD helps search engines render rich results.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Restaurant',

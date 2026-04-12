@@ -50,10 +50,10 @@ export function computeTax(subtotalMinor: number, taxRules: TaxRule[]): TaxBreak
 
     if (rule.inclusive) {
       // Tax is embedded in the price: extract it from the subtotal.
-      // derivation: grossPrice = netPrice * (1 + rate)  →  tax = gross - gross/(1+rate)
+      // Derivation: grossPrice = netPrice * (1 + rate), so tax = gross - gross / (1 + rate).
       const tax = Math.round(subtotalMinor - subtotalMinor / (1 + rule.percent / 100));
       taxMinor += tax;
-      // surcharge stays 0 — already priced in
+      // surchargeMinor stays 0 because the tax is already priced in.
     } else {
       const tax = Math.round((subtotalMinor * rule.percent) / 100);
       taxMinor += tax;

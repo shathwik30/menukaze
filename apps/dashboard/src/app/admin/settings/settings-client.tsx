@@ -387,7 +387,7 @@ function DeliverySection({
           />
         </label>
         <p className="text-muted-foreground text-xs">
-          Zone-based delivery and in-store preparation timers ship post-MVP (§20 deferred list).
+          Advanced delivery zones and in-store preparation timers can be added later.
         </p>
         <SaveButton pending={pending} />
       </form>

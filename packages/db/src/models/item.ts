@@ -2,13 +2,9 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
- * A menu Item — what a customer actually orders. Modifiers are embedded
+ * A menu item is what a customer actually orders. Modifiers are embedded
  * (read-heavy, always fetched with the item) and snapshot at order time so
  * future menu edits never rewrite history.
- *
- * Phase 4 step 4 ships the minimum viable item: name + price + dietary tags.
- * Phase 4 step 15 (Menu Management Dashboard) extends this with image upload,
- * combo bundles, scheduled menus, multi-language names, etc.
  */
 export interface ItemModifierOption {
   _id?: Types.ObjectId;
@@ -34,17 +30,17 @@ export interface ItemDoc {
   description?: string;
   /** Always integer minor units (cents/paise/etc). */
   priceMinor: number;
-  /** ISO 4217 — duplicated from the parent restaurant for snapshot safety. */
+  /** ISO 4217 currency code copied from the parent restaurant for snapshot safety. */
   currency: string;
   imageUrl?: string;
   dietaryTags: string[];
   modifiers: ItemModifierGroup[];
   /** Fixed bundle contents for combo / meal-deal items. */
   comboOf?: Types.ObjectId[];
-  /** Real-time availability toggle (Step 5 sold-out toggle). */
+  /** Real-time availability toggle for hiding unavailable items. */
   soldOut: boolean;
   ageRestricted?: boolean;
-  /** Optional KDS station override — falls back to category.stationIds. */
+  /** Optional KDS station override. Falls back to category.stationIds. */
   stationIds?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;

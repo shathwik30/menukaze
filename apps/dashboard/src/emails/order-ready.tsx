@@ -7,10 +7,8 @@ interface Props {
 }
 
 /**
- * Outbound email sent when an operator transitions an order to `ready`.
- * Spec §13 line 844 requires "Order ready / out for delivery" emails.
- * Kept inline and styleless-beyond-inline-CSS so it renders in every
- * client — same pattern as the storefront's confirmation template.
+ * Customer email for ready, delivery, and dine-in service status changes.
+ * Uses plain tags and inline styles so Resend can render it consistently.
  */
 export function OrderReadyEmail({
   restaurantName,

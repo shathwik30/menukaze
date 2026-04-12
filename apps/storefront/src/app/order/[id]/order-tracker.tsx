@@ -27,9 +27,8 @@ function stepIndex(status: OrderStatus): number {
 
 /**
  * Subscribes to the customer order channel and renders a progress bar that
- * updates in real time whenever the dashboard (Step 13) publishes a status
- * change. Falls back to the SSR'd initial status if the realtime connection
- * never opens.
+ * updates whenever the dashboard publishes a status change. Falls back to the
+ * server-rendered initial status if the realtime connection never opens.
  */
 export function OrderTracker({
   restaurantId,

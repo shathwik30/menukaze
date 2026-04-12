@@ -6,12 +6,7 @@ import { TablesSetupForm } from './tables-setup-form';
 export const dynamic = 'force-dynamic';
 
 /**
- * Step 5 of the onboarding wizard — Tables + QR Codes.
- *
- * Guards:
- *   - Must be signed in AND have a restaurant (requireOnboarded).
- *   - Must be on the 'tables' step of the wizard → otherwise bounce to
- *     /admin (the /admin page's own routing then decides where to go).
+ * Table setup page for the onboarding flow.
  */
 export default async function OnboardingTablesPage() {
   const { restaurantId } = await requirePageFlag(['tables.edit']);

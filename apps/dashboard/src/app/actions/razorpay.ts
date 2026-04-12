@@ -22,18 +22,7 @@ export type ConnectRazorpayInput = z.infer<typeof inputSchema>;
 export type ConnectRazorpayResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Step 6 of the onboarding wizard — Razorpay Connection.
- *
- * Flow:
- *   1. zod-validate the pasted keyId + keySecret
- *   2. Call the real Razorpay API to verify the keys work
- *      (bypassed in dev when MENUKAZE_SKIP_RAZORPAY_VERIFICATION=true)
- *   3. AES-256-GCM envelope-encrypt both values with ENCRYPTION_KEY
- *   4. Persist the encrypted values on the Restaurant doc
- *   5. Advance onboardingStep → 'go-live'
- *
- * The keyId and keySecret never exist unencrypted at rest — only the
- * envelope-encoded strings land in MongoDB.
+ * Verifies Razorpay credentials, stores them encrypted, and advances onboarding.
  */
 export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorpayResult> {
   let restaurantId;

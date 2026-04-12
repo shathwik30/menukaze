@@ -90,8 +90,7 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
     },
     emailAndPassword: {
       enabled: true,
-      // Defaults to ON for safety. Dev sets MENUKAZE_REQUIRE_EMAIL_VERIFICATION=false
-      // in .env.local until Phase 4 step 12 wires Resend for verification email.
+      // Defaults to ON for safety; local dev can opt out with the env flag.
       requireEmailVerification: process.env['MENUKAZE_REQUIRE_EMAIL_VERIFICATION'] !== 'false',
       autoSignIn: true,
       minPasswordLength: 8,

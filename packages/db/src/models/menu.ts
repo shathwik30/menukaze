@@ -2,11 +2,11 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
- * A Menu is the top-level container for a restaurant's offerings — e.g.
+ * A menu is the top-level container for a restaurant's offerings, such as
  * "Breakfast Menu", "Lunch Menu", "Weekend Brunch". A restaurant has at
- * least one Menu and may schedule multiple menus to swap by time of day.
+ * least one menu and may schedule multiple menus to swap by time of day.
  *
- * Categories live under a Menu; Items live under a Category.
+ * Categories live under a menu; items live under a category.
  */
 export interface MenuDoc {
   restaurantId: Types.ObjectId;

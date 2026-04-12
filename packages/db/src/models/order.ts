@@ -3,14 +3,14 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
- * A customer order — the canonical record for every purchase on the
+ * A customer order is the canonical record for every purchase on the
  * platform. Orders arrive from five channels (storefront, qr_dinein, kiosk,
  * walk_in, api) and transition through a fixed status FSM driven by dashboard
  * actions, KDS taps, or webhook callbacks.
  *
  * Line items, modifiers, prices, and customer info are all **snapshotted** at
  * order creation time. A menu edit after the fact must never rewrite order
- * history — historical receipts, analytics, and audit trails depend on an
+ * history. Historical receipts, analytics, and audit trails depend on an
  * immutable record of what the customer actually ordered and paid for.
  *
  * Payment state is embedded on the order (rather than a separate Payment
@@ -22,7 +22,7 @@ export type OrderChannel = 'storefront' | 'qr_dinein' | 'kiosk' | 'walk_in' | 'a
 export type OrderType = 'dine_in' | 'pickup' | 'delivery';
 
 /**
- * FSM — the canonical statuses every order flows through. Not every status
+ * Canonical statuses every order flows through. Not every status
  * applies to every order type: delivery skips `served`, dine-in skips
  * `out_for_delivery`, etc. The KDS and dashboard handlers enforce which
  * transitions are legal.
@@ -55,7 +55,7 @@ export interface OrderModifierSnapshot {
 
 export interface OrderLineItem {
   itemId: Types.ObjectId;
-  /** Snapshot at order time — future menu edits do not rewrite this. */
+  /** Snapshot at order time. Future menu edits do not rewrite this. */
   name: string;
   priceMinor: number;
   quantity: number;
@@ -127,7 +127,7 @@ export interface OrderDoc {
   /** Stamped when the order transitions to a terminal status. */
   completedAt?: Date;
 
-  /** Operator-supplied reason for cancellation / refund. Spec §5 line 205. */
+  /** Operator-supplied reason for cancellation or refund. */
   cancelReason?: string;
 
   createdAt: Date;
@@ -136,7 +136,7 @@ export interface OrderDoc {
 
 /**
  * Generate a short human-readable public id, e.g. "MK-7K9F4X".
- * 4 random bytes → 8 base32 chars; we slice to 6 for readability.
+ * 6 random bytes are mapped to 6 base32-style characters for readability.
  * Uniqueness is enforced by the unique index on (restaurantId, publicOrderId).
  */
 export function generatePublicOrderId(): string {

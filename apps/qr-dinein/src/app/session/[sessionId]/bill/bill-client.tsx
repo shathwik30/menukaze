@@ -150,7 +150,7 @@ export function BillClient({
         },
         modal: {
           ondismiss: () => {
-            /* user closed — no error, they can retry */
+            /* Customer closed the modal, so leave the bill retryable. */
           },
         },
       });

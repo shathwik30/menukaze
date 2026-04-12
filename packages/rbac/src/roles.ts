@@ -1,5 +1,5 @@
 /**
- * Predefined role → flag-set mapping. Custom roles override the flag set
+ * Predefined role-to-flag mapping. Custom roles override the flag set
  * with their own. Roles are resolved at request time by `resolveFlags`.
  */
 
@@ -72,8 +72,8 @@ export interface MembershipForResolve {
 
 /**
  * Compute the effective flag set for a staff member.
- * - Owner / Manager / Waiter / Kitchen / Cashier → fixed sets above.
- * - Custom → use the membership's `customPermissions` (filtered to known flags).
+ * - Owner / Manager / Waiter / Kitchen / Cashier: fixed sets above.
+ * - Custom: use the membership's `customPermissions` filtered to known flags.
  */
 export function resolveFlags(membership: MembershipForResolve): ReadonlySet<Flag> {
   if (membership.role === 'custom') {

@@ -4,7 +4,7 @@ export default function SuperAdminHome() {
       <h1 className="text-4xl font-bold">Menukaze Super Admin</h1>
       <p className="text-muted-foreground text-xl">Platform owner console</p>
       <p className="text-muted-foreground text-sm">
-        Phase 4+: merchants, billing, plans, feature flags, platform health.
+        Manage merchants, billing, plans, feature flags, and platform health.
       </p>
     </main>
   );

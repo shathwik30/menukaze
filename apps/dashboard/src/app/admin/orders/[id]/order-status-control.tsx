@@ -10,11 +10,7 @@ interface Props {
   currentStatus: OrderStatus;
 }
 
-/**
- * Mirrors the server-side NEXT_STATUSES map so the UI only shows legal
- * transitions. The server is still the source of truth — updateOrderStatusAction
- * re-validates before touching the DB.
- */
+/** Keeps client controls aligned with the server-side status state machine. */
 const NEXT_STATUSES: Record<OrderStatus, { next: OrderStatus; label: string }[]> = {
   received: [
     { next: 'confirmed', label: 'Confirm' },
@@ -69,8 +65,7 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
           disabled={isPending}
           onClick={() => {
             setError(null);
-            // Cancel requires a reason per spec §5 line 205 — we prompt
-            // inline here rather than a modal to keep the UI minimal.
+            // Prompt inline so every cancellation records an audit reason.
             let cancelReason: string | undefined;
             if (t.next === 'cancelled') {
               const typed = window.prompt('Reason for cancelling this order?');

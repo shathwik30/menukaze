@@ -3,12 +3,10 @@ import type { HydratedDocument } from 'mongoose';
 import type { ItemDoc, RestaurantDoc, TableDoc } from '@menukaze/db';
 
 /**
- * Post-onboarding checklist (spec §4). Each item is either critical
- * (blocks the dashboard from being "actually usable") or optional (nice to
- * have). The card on /admin hides once the critical items are all done
- * AND the user clicks Dismiss.
+ * Post-onboarding checklist. Critical items describe the minimum setup needed
+ * before the dashboard is operational; optional items improve launch quality.
  *
- * The helper is pure — it takes already-loaded data and derives the
+ * The helper is pure: it takes already-loaded data and derives the
  * completion state. /admin does the parallel loads once and passes them in.
  */
 
@@ -50,8 +48,6 @@ export function computeChecklist(
   // or the user has progressed past the tables step (explicit skip).
   const tablesDone = tables.length > 0 || stepPast(step, 'tables');
 
-  // Image / tax / branding / test-order / QR-print completion come from
-  // future steps — for now they default to false (not critical).
   const hasImages = items.some((it) => Boolean(it.imageUrl));
   const hasTax = (restaurant.taxRules ?? []).length > 0;
   const hasBranding = Boolean(
@@ -100,21 +96,21 @@ export function computeChecklist(
       label: 'Menu item images',
       done: hasImages,
       critical: false,
-      detail: 'Wires up with Menu Management (Step 15)',
+      detail: hasImages ? 'At least one image uploaded' : 'No item images yet',
     },
     {
       id: 'tax',
       label: 'Tax rates',
       done: hasTax,
       critical: false,
-      detail: 'Wires up with Settings (Step 17)',
+      detail: hasTax ? 'Tax rules configured' : 'No tax rules configured',
     },
     {
       id: 'branding',
       label: 'Receipt branding',
       done: hasBranding,
       critical: false,
-      detail: 'Wires up with Settings (Step 17)',
+      detail: hasBranding ? 'Receipt branding configured' : 'Default receipt branding',
     },
   ];
 

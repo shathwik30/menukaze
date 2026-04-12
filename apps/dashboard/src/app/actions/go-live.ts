@@ -7,15 +7,7 @@ import { PermissionDeniedError, requireFlags } from '@/lib/session';
 export type GoLiveResult = { ok: true; liveAt: string } | { ok: false; error: string };
 
 /**
- * Step 8 of the onboarding wizard — activate the restaurant.
- *
- * Advances onboardingStep → 'complete' and stamps `liveAt`. Requires:
- *   - current step === 'go-live'
- *   - at least one menu item exists
- *
- * Razorpay is soft-required: the storefront will show "Coming Soon" on
- * checkout if `razorpayKeyIdEnc` isn't set, but Go Live still works so
- * the user can preview their storefront without payment first.
+ * Activates a restaurant after the required onboarding data exists.
  */
 export async function goLiveAction(): Promise<GoLiveResult> {
   let restaurantId;
@@ -54,7 +46,6 @@ export async function goLiveAction(): Promise<GoLiveResult> {
 
 /**
  * Hide the post-onboarding checklist card on /admin.
- * Used as a `<form action>` — returns void so Next.js accepts the signature.
  */
 export async function dismissChecklistAction(): Promise<void> {
   const { restaurantId } = await requireFlags(['settings.edit_profile']);

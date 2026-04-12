@@ -15,18 +15,9 @@ import {
 } from '@/lib/action-helpers';
 
 /**
- * CRUD server actions for the Menu Management Dashboard (Phase 4 step 15).
- *
- * Every action here:
- *  1. Resolves the acting restaurant through the shared action helper.
- *  2. Validates input with Zod.
- *  3. Queries with an explicit `{ restaurantId }` filter so the tenant-scoped
- *     plugin never needs the escape hatch.
- *  4. Calls revalidatePath('/admin/menu') on success so the UI re-renders.
- *
- * MVP scope: images are plain URLs and menus can be scheduled; UploadThing
- * and combo bundles remain follow-up work. Modifiers can be edited as
- * structured JSON via updateItemAction.
+ * Menu management actions. Each action validates input, resolves the active
+ * restaurant through the shared helper, scopes writes by `restaurantId`, and
+ * refreshes `/admin/menu` after a successful mutation.
  */
 
 const menuInput = z.object({
@@ -144,7 +135,7 @@ async function resolveComboItemIds(
   return { ok: true, ids: comboIds };
 }
 
-// ─────────────────────────────  Menus  ─────────────────────────────
+// Menu actions
 
 export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = menuInput.safeParse(raw);
@@ -205,7 +196,6 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
     return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Menu, Category, Item } = getModels(conn);
-      // Cascade delete — categories under this menu, and their items.
       const categories = await Category.find({ restaurantId, menuId }).exec();
       const categoryIds = categories.map((c) => c._id);
       if (categoryIds.length > 0) {
@@ -221,7 +211,7 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
   }
 }
 
-// ──────────────────────────  Categories  ──────────────────────────
+// Category actions
 
 export async function createCategoryAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = categoryInput.safeParse(raw);
@@ -299,7 +289,7 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   }
 }
 
-// ────────────────────────────  Items  ────────────────────────────
+// Item actions
 
 export async function createItemAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = itemInput.safeParse(raw);
@@ -414,9 +404,6 @@ export async function toggleItemSoldOutAction(raw: unknown): Promise<ActionResul
   if (!itemId) return invalidEntityError('item');
 
   try {
-    // Sold-out toggle is the one action kitchen staff can perform via the
-    // flag matrix. We allow either full menu.edit OR the narrower
-    // menu.toggle_availability flag.
     return await withRestaurantAction(['menu.toggle_availability'], async ({ restaurantId }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);

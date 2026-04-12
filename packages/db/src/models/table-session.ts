@@ -8,12 +8,12 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * which is an `Order` document with this session's `_id` stamped on its
  * `sessionId` field.
  *
- * Session state FSM:
- *   active          — customers still ordering
- *   bill_requested  — customer pressed "Request bill"; no more rounds
- *   paid            — payment succeeded, sweeper will close
- *   closed          — terminal, table returned to available
- *   needs_review    — terminal, unpaid after timeout
+ * Session state machine:
+ *   active: customers still ordering
+ *   bill_requested: customer requested the bill and no more rounds are accepted
+ *   paid: payment succeeded and the session is ready to close
+ *   closed: terminal; table returned to available
+ *   needs_review: terminal; unpaid after timeout
  */
 
 export type TableSessionStatus = 'active' | 'bill_requested' | 'paid' | 'closed' | 'needs_review';
@@ -34,7 +34,7 @@ export interface TableSessionDoc {
     email: string;
     phone?: string;
   };
-  /** Optional participant labels for group ordering (Step 23). */
+  /** Optional participant labels for group ordering. */
   participants: TableSessionParticipant[];
 
   startedAt: Date;

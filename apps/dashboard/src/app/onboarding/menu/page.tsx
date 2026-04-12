@@ -6,11 +6,7 @@ import { MenuSetupForm } from './menu-setup-form';
 export const dynamic = 'force-dynamic';
 
 /**
- * Step 2 of the onboarding wizard — Menu Setup.
- *
- * Guards:
- *   - Must be signed in AND have a restaurant (requireOnboarded handles both).
- *   - Must be on the 'menu' step → redirect away otherwise.
+ * Menu setup page for the onboarding flow.
  */
 export default async function OnboardingMenuPage() {
   const { restaurantId } = await requirePageFlag(['menu.edit']);

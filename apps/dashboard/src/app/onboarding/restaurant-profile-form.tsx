@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createRestaurantAction } from '@/app/actions/onboarding';
 
 /**
- * Country → derived defaults. Picking a country auto-fills the currency,
+ * Country-derived defaults. Picking a country auto-fills the currency,
  * locale, and IANA timezone fields. Users can override locale/timezone later
  * from Settings; currency is locked at restaurant creation.
  */
@@ -41,7 +41,7 @@ function isCountryCode(value: string): value is CountryCode {
   return COUNTRY_CODE_SET.has(value);
 }
 
-/** kebab-case slugify with the same rules as the slugSchema in @menukaze/shared. */
+/** Kebab-case slugify with the same rules as the slugSchema in @menukaze/shared. */
 function toSlug(value: string): string {
   return value
     .toLowerCase()

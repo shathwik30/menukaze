@@ -24,15 +24,7 @@ export type CreateTablesStarterResult =
   | { ok: false; error: string };
 
 /**
- * Step 5 of the onboarding wizard — Tables + QR Codes.
- *
- * If hasTables=yes and tableCount=N, creates N tables numbered 1..N with a
- * random 24-char URL-safe `qrToken` on each (printed on the physical QR
- * sticker). If hasTables=no the action creates zero tables but still
- * advances `onboardingStep` so the wizard moves on.
- *
- * Idempotent re-onboarding: if the restaurant has already been through the
- * tables step (onboardingStep is past 'tables'), the action no-ops.
+ * Creates the initial table set during onboarding and advances the wizard.
  */
 export async function createTablesStarterAction(raw: unknown): Promise<CreateTablesStarterResult> {
   let restaurantId;
@@ -55,7 +47,6 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
-  // Re-onboarding guard
   if (restaurant.onboardingStep !== 'tables') {
     return { ok: false, error: 'This restaurant has already completed the tables step.' };
   }

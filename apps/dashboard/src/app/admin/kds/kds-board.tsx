@@ -85,7 +85,7 @@ function useNewOrderChime(enabled: boolean): () => void {
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.3);
-  }, []); // stable — reads enabled from ref
+  }, []); // Stable because it reads enabled from ref.
 }
 
 const CHANNEL_FILTERS: Array<{

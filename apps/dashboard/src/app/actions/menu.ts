@@ -10,7 +10,7 @@ import { parseMenuCsvImport } from '@/lib/menu-import';
 
 const itemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  /** Price in MAJOR units (e.g. 12.99) — converted to minor units server-side. */
+  /** User-entered major-unit price; stored as integer minor units. */
   priceMajor: z.number().nonnegative().finite(),
   description: z.string().trim().max(1000).optional(),
 });
@@ -37,7 +37,6 @@ export type CreateMenuStarterResult =
   | { ok: true; menuId: string; categoryId: string; itemCount: number }
   | { ok: false; error: string };
 
-/** Decimal places per ISO 4217 currency. JPY/KRW are zero-decimal. */
 const ZERO_DECIMAL = new Set(['JPY', 'KRW']);
 
 function majorToMinor(major: number, currency: string): number {
@@ -46,11 +45,7 @@ function majorToMinor(major: number, currency: string): number {
 }
 
 /**
- * Step 4 of the onboarding wizard — Menu Setup.
- *
- * Creates the user's first Menu, one-or-more Categories under it, and the
- * imported Items atomically inside a Mongoose session. Refuses if the
- * restaurant already has any items (re-onboarding guard).
+ * Creates the first menu tree during onboarding and advances the wizard.
  */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
   let restaurantId;
@@ -70,7 +65,6 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
   const conn = await getMongoConnection('live');
   const { Restaurant, Menu, Category, Item } = getModels(conn);
 
-  // Pull the restaurant once to know which currency to stamp on items.
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
   const currency = restaurant.currency;
@@ -90,7 +84,6 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
     return { ok: false, error: message };
   }
 
-  // Re-onboarding guard: if any items already exist, bounce.
   const existingCount = await Item.countDocuments({ restaurantId }).exec();
   if (existingCount > 0) {
     return { ok: false, error: 'This restaurant already has menu items.' };
@@ -141,7 +134,6 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
         itemCount += itemDocs.length;
       }
 
-      // Advance the wizard pointer so /onboarding knows where to route next.
       await Restaurant.updateOne(
         { _id: restaurantId },
         { $set: { onboardingStep: 'tables' } },

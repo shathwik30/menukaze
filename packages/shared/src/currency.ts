@@ -33,7 +33,7 @@ export type CurrencyCode =
   | 'DKK';
 
 interface CurrencyMeta {
-  /** ISO 4217 numeric exponent — number of decimal places this currency uses. */
+  /** ISO 4217 numeric exponent, which is the currency decimal count. */
   decimals: number;
   /** Display name in English (used for fallbacks; never user-facing without i18n). */
   name: string;
@@ -43,7 +43,7 @@ interface CurrencyMeta {
  * The set of currencies the platform supports at launch. New currencies are
  * added by appending to this map and the `CurrencyCode` union above.
  *
- * Decimals match ISO 4217 (`exponent`) — JPY/KRW are zero-decimal.
+ * Decimals match ISO 4217 (`exponent`); JPY and KRW are zero-decimal.
  */
 export const CURRENCIES: Record<CurrencyCode, CurrencyMeta> = {
   INR: { decimals: 2, name: 'Indian Rupee' },
@@ -87,13 +87,13 @@ export function currencyCodeOrDefault(
   return isCurrencyCode(value) ? value : fallback;
 }
 
-/** Convert minor units to a major-unit number. JPY 1500 → 1500. USD 1500 → 15.00. */
+/** Convert minor units to a major-unit number. JPY 1500 -> 1500. USD 1500 -> 15.00. */
 export function minorToMajor(amountMinor: number, currency: CurrencyCode): number {
   const decimals = CURRENCIES[currency].decimals;
   return amountMinor / 10 ** decimals;
 }
 
-/** Convert a major-unit number to minor units. USD 15.99 → 1599. JPY 1500 → 1500. */
+/** Convert a major-unit number to minor units. USD 15.99 -> 1599. JPY 1500 -> 1500. */
 export function majorToMinor(amountMajor: number, currency: CurrencyCode): number {
   const decimals = CURRENCIES[currency].decimals;
   return Math.round(amountMajor * 10 ** decimals);

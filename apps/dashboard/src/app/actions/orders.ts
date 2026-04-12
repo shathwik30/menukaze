@@ -1,7 +1,8 @@
 'use server';
 
+import type { Types } from 'mongoose';
 import { z } from 'zod';
-import { getMongoConnection, getModels, type OrderStatus } from '@menukaze/db';
+import { getMongoConnection, getModels, type OrderStatus, type OrderType } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
@@ -17,7 +18,7 @@ import { OrderReadyEmail } from '@/emails/order-ready';
 /**
  * Transitions the canonical status FSM for dashboard operators.
  * - `received`  starting state after checkout (before payment captured)
- * - `confirmed` payment captured — the kitchen can start
+ * - `confirmed` payment captured; the kitchen can start
  * - `preparing` kitchen staff tapped "start"
  * - `ready`     kitchen staff tapped "ready"
  * - `served`    dine-in only, waiter tapped "served"
@@ -51,17 +52,115 @@ const updateInput = z.object({
   cancelReason: z.string().min(1).max(500).optional(),
 });
 
+interface OrderStatusEmailTarget {
+  customer: { email: string; name: string };
+  publicOrderId: string;
+  type: OrderType;
+}
+
 export type UpdateOrderStatusResult =
   | { ok: true; status: OrderStatus }
   | { ok: false; error: string };
+
+function formatOptionalObjectId(value: Types.ObjectId | string): string {
+  return typeof value === 'string' ? value : value.toHexString();
+}
+
+async function publishOrderStatusUpdate({
+  restaurantId,
+  orderId,
+  sessionId,
+  status,
+  changedAt,
+}: {
+  restaurantId: string;
+  orderId: string;
+  sessionId?: Types.ObjectId | string;
+  status: OrderStatus;
+  changedAt: Date;
+}): Promise<void> {
+  const statusChangedEvent = {
+    type: 'order.status_changed',
+    orderId,
+    status,
+    changedAt: changedAt.toISOString(),
+  } as const;
+
+  try {
+    const realtimePublishes = [
+      publishRealtimeEvent(channels.customerOrder(restaurantId, orderId), statusChangedEvent),
+      publishRealtimeEvent(channels.orders(restaurantId), statusChangedEvent),
+    ];
+    if (sessionId) {
+      realtimePublishes.push(
+        publishRealtimeEvent(
+          channels.customerSession(restaurantId, formatOptionalObjectId(sessionId)),
+          {
+            ...statusChangedEvent,
+          },
+        ),
+      );
+    }
+    await Promise.all(realtimePublishes);
+  } catch (error) {
+    console.warn('[orders] ably publish failed', error);
+  }
+}
+
+function shouldSendCustomerStatusEmail(status: OrderStatus): boolean {
+  return status === 'ready' || status === 'out_for_delivery';
+}
+
+function buildOrderStatusEmailSubject(status: OrderStatus, restaurantName: string): string {
+  const statusLabel = status === 'out_for_delivery' ? 'out for delivery' : 'ready';
+  return `Your order is ${statusLabel} · ${restaurantName}`;
+}
+
+async function sendCustomerStatusEmail({
+  conn,
+  restaurantId,
+  orderId,
+  order,
+  status,
+}: {
+  conn: Awaited<ReturnType<typeof getMongoConnection>>;
+  restaurantId: Types.ObjectId;
+  orderId: string;
+  order: OrderStatusEmailTarget;
+  status: OrderStatus;
+}): Promise<void> {
+  if (!shouldSendCustomerStatusEmail(status)) return;
+
+  try {
+    const { Restaurant } = getModels(conn);
+    const restaurant = await Restaurant.findById(restaurantId).exec();
+    const restaurantName = restaurant?.name ?? 'your order';
+    const baseHost =
+      process.env['NEXT_PUBLIC_STOREFRONT_HOST'] ??
+      (restaurant ? `${restaurant.slug}.menukaze.dev` : '');
+    const scheme = baseHost.includes('localhost') ? 'http' : 'https';
+    const trackingUrl = baseHost ? `${scheme}://${baseHost}/order/${orderId}` : undefined;
+
+    await sendTransactionalEmail({
+      to: order.customer.email,
+      subject: buildOrderStatusEmailSubject(status, restaurantName),
+      react: OrderReadyEmail({
+        restaurantName: restaurant?.name ?? 'Menukaze',
+        customerName: order.customer.name,
+        publicOrderId: order.publicOrderId,
+        orderType: order.type,
+        ...(trackingUrl ? { trackingUrl } : {}),
+      }),
+    });
+  } catch (error) {
+    console.warn('[orders] customer status email failed', error);
+  }
+}
 
 export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrderStatusResult> {
   const parsed = updateInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
 
-  // Cancel is a distinct permission (spec §5 — cashier / manager / owner can
-  // cancel) from ordinary status advancement (kitchen + waiter). We require
-  // a reason on cancel below, but the rbac gate happens first.
   const requiredFlag =
     parsed.data.nextStatus === 'cancelled' ? 'orders.cancel' : 'orders.update_status';
   const orderId = parseObjectId(parsed.data.orderId);
@@ -93,7 +192,6 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
         parsed.data.nextStatus === 'completed' || parsed.data.nextStatus === 'cancelled';
       const isCancel = parsed.data.nextStatus === 'cancelled';
 
-      // Require a reason on cancel so the audit trail explains the revert.
       if (isCancel && !parsed.data.cancelReason) {
         return { ok: false, error: 'Please provide a reason for cancelling.' };
       }
@@ -120,61 +218,20 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
 
       const restaurantIdStr = String(restaurantId);
       const orderIdStr = String(orderId);
-      const statusChangedEvent = {
-        type: 'order.status_changed',
+      await publishOrderStatusUpdate({
+        restaurantId: restaurantIdStr,
         orderId: orderIdStr,
+        sessionId: order.sessionId,
         status: parsed.data.nextStatus,
-        changedAt: now.toISOString(),
-      } as const;
-      try {
-        const realtimePublishes = [
-          publishRealtimeEvent(
-            channels.customerOrder(restaurantIdStr, orderIdStr),
-            statusChangedEvent,
-          ),
-          publishRealtimeEvent(channels.orders(restaurantIdStr), statusChangedEvent),
-        ];
-        if (order.sessionId) {
-          realtimePublishes.push(
-            publishRealtimeEvent(
-              channels.customerSession(restaurantIdStr, String(order.sessionId)),
-              statusChangedEvent,
-            ),
-          );
-        }
-        await Promise.all(realtimePublishes);
-      } catch (error) {
-        console.warn('[orders] ably publish failed', error);
-      }
-
-      // Spec §13: customers receive an email when an order transitions to
-      // ready / out_for_delivery. Best-effort — a Resend outage must not
-      // reject the status update.
-      if (parsed.data.nextStatus === 'ready' || parsed.data.nextStatus === 'out_for_delivery') {
-        try {
-          const { Restaurant } = getModels(conn);
-          const restaurant = await Restaurant.findById(restaurantId).exec();
-          const baseHost =
-            process.env['NEXT_PUBLIC_STOREFRONT_HOST'] ??
-            (restaurant ? `${restaurant.slug}.menukaze.dev` : '');
-          const scheme = baseHost.includes('localhost') ? 'http' : 'https';
-          const trackingUrl = baseHost ? `${scheme}://${baseHost}/order/${orderIdStr}` : undefined;
-
-          await sendTransactionalEmail({
-            to: order.customer.email,
-            subject: `Your order is ready · ${restaurant?.name ?? 'your order'}`,
-            react: OrderReadyEmail({
-              restaurantName: restaurant?.name ?? 'Menukaze',
-              customerName: order.customer.name,
-              publicOrderId: order.publicOrderId,
-              orderType: order.type,
-              ...(trackingUrl ? { trackingUrl } : {}),
-            }),
-          });
-        } catch (error) {
-          console.warn('[orders] order-ready email failed', error);
-        }
-      }
+        changedAt: now,
+      });
+      await sendCustomerStatusEmail({
+        conn,
+        restaurantId,
+        orderId: orderIdStr,
+        order,
+        status: parsed.data.nextStatus,
+      });
 
       return { ok: true, status: parsed.data.nextStatus };
     });

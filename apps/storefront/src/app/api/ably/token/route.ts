@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Token endpoint the browser's Ably Realtime client hits (via `authUrl`) to
  * get a short-lived token scoped to one order channel. The order id is the
- * only query param — we look the order up, confirm it belongs to the
+ * only query param. We look the order up, confirm it belongs to the
  * current tenant, and mint a subscribe-only token for that single channel.
  *
  * Security model: order ids are 96-bit ObjectIds, functionally unguessable.

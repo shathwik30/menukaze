@@ -30,16 +30,7 @@ export type CreateRestaurantResult =
   | { ok: true; restaurantId: string }
   | { ok: false; error: string };
 
-/**
- * Onboarding Step 3 — create the restaurant + the owner's StaffMembership.
- *
- * - Authed users only (redirects to /login otherwise).
- * - Refuses if the caller already has a restaurant (race / re-onboarding).
- * - Slug uniqueness is enforced by the unique index on `restaurants.slug`;
- *   we surface the duplicate as a friendly error rather than a 500.
- * - Inserts the restaurant and the owner membership atomically inside a
- *   Mongoose session.
- */
+/** Creates the restaurant and owner membership atomically for a new account. */
 export async function createRestaurantAction(raw: unknown): Promise<CreateRestaurantResult> {
   const session = await requireSession();
   if (session.restaurantId) {
@@ -55,7 +46,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
   const conn = await getMongoConnection('live');
   const { Restaurant, StaffMembership } = getModels(conn);
 
-  // Pre-check the slug for a friendlier error than the unique-index throw.
+  // Give users a clear duplicate-slug error before the transaction starts.
   const existing = await Restaurant.findOne({ slug: input.slug }, { _id: 1 }).exec();
   if (existing) {
     return { ok: false, error: `The subdomain "${input.slug}" is already taken.` };

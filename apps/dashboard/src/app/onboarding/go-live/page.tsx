@@ -6,11 +6,7 @@ import { GoLiveButton } from './go-live-button';
 export const dynamic = 'force-dynamic';
 
 /**
- * Step 8 of the onboarding wizard — Go Live summary + activation.
- *
- * Shows a read-only summary of everything the user configured in steps 1-6
- * (profile, menu, tables, Razorpay), a "Preview storefront" link, and a
- * "Go Live" action button. Activation advances onboardingStep → 'complete'.
+ * Final onboarding review before the restaurant starts accepting orders.
  */
 export default async function OnboardingGoLivePage() {
   const { restaurantId } = await requirePageFlag(['settings.edit_profile']);
@@ -25,9 +21,6 @@ export default async function OnboardingGoLivePage() {
   if (!restaurant) redirect('/onboarding');
   if (restaurant.onboardingStep !== 'go-live') redirect('/admin');
 
-  // In local dev the storefront runs on :3001 at {slug}.localhost.
-  // In production it's {slug}.menukaze.com. We render both so the user can
-  // pick whichever their environment supports.
   const prodStorefront = `https://${restaurant.slug}.menukaze.com`;
   const devStorefront = `http://${restaurant.slug}.localhost:3001`;
   const hasRazorpay = Boolean(restaurant.razorpayKeyIdEnc);

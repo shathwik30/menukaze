@@ -8,11 +8,7 @@ import { OrderTracker } from './order-tracker';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Minimal confirmation page. Step 11 will promote this into a live tracking
- * experience via Ably; for Step 10 we only need a verifiable "order placed"
- * landing that proves the end-to-end flow worked.
- */
+/** Customer confirmation and live order tracking page. */
 export default async function OrderConfirmationPage({
   params,
 }: {

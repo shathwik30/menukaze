@@ -5,7 +5,7 @@
  * lets the same code run against either database without manual model
  * registration.
  *
- * As more collections are added (channels, orders, reservations, …), append
+ * As more collections are added, append
  * their exports here.
  */
 

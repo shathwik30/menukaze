@@ -1,5 +1,5 @@
 /**
- * Shared zod schemas — the cross-package contract layer.
+ * Shared zod schemas for cross-package contracts.
  *
  * Schemas live here so they can be imported by:
  *   - tRPC routers (internal API input/output)
@@ -105,7 +105,7 @@ export const staffMembershipSchema = z.object({
 export type StaffMembership = z.infer<typeof staffMembershipSchema>;
 
 // ---------------------------------------------------------------------------
-// Restaurant — the tenant root
+// Restaurant tenant root
 // ---------------------------------------------------------------------------
 
 export const operatingHoursDaySchema = z.object({

@@ -3,12 +3,9 @@ import Razorpay from 'razorpay';
 
 /**
  * Verify a pair of Razorpay credentials by making the cheapest possible
- * authenticated API call — `orders.all(count: 1)`. If the keys are invalid
+ * authenticated API call: `orders.all(count: 1)`. If the keys are invalid,
  * Razorpay returns 401; if they're valid it returns an (possibly empty)
  * order list.
- *
- * Phase 4 development mode accepts ONLY test-mode keys (rzp_test_ prefix).
- * Live keys will be allowed in a later step once we wire real payment flows.
  *
  * Dev convenience: setting `MENUKAZE_SKIP_RAZORPAY_VERIFICATION=true` in
  * `.env.local` bypasses the API call so smoke tests can run without a real
@@ -29,7 +26,7 @@ export async function verifyRazorpayKeys(
   }
 
   if (process.env['MENUKAZE_SKIP_RAZORPAY_VERIFICATION'] === 'true') {
-    // Dev smoke-test path — format check only, no network call.
+    // Test-helper path: validate the key format without calling Razorpay.
     return { ok: true };
   }
 

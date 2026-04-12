@@ -6,17 +6,7 @@ import { RestaurantProfileForm } from './restaurant-profile-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Onboarding root — wizard entry point.
- *
- * Routing map (reads `restaurant.onboardingStep`):
- *   no restaurant        → render the profile form (step 1)
- *   step === 'menu'      → 307 → /onboarding/menu
- *   step === 'tables'    → 307 → /onboarding/tables
- *   step === 'razorpay'  → 307 → /onboarding/razorpay
- *   step === 'go-live'   → 307 → /onboarding/go-live
- *   step === 'complete'  → 307 → /admin
- */
+/** Routes returning users to their saved onboarding step. */
 export default async function OnboardingPage() {
   const session = await requireSession();
 

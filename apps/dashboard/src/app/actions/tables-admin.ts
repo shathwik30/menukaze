@@ -29,9 +29,8 @@ const updateInput = z.object({
 });
 
 /**
- * Table CRUD for the dashboard (Phase 4 step 16). Regenerating the QR
- * token is a separate action because it should only happen when a sticker
- * is physically replaced — otherwise existing scans would stop resolving.
+ * Dashboard table management. QR token regeneration stays separate because it
+ * invalidates the physical sticker already attached to a table.
  */
 export async function createTableAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = createInput.safeParse(raw);

@@ -12,9 +12,6 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardAdminPage() {
   const { session, restaurantId } = await requireOnboardedRestaurant();
 
-  // Load the restaurant for the header. Bypasses the tenant guard because we
-  // pass an explicit _id filter — there's nothing tenant-scoped about
-  // looking up the tenant root by primary key.
   const conn = await getMongoConnection('live');
   const { Restaurant, Menu, Category, Item, Table } = getModels(conn);
   const [restaurant, menus, categories, items, tables] = await Promise.all([
@@ -44,7 +41,6 @@ export default async function DashboardAdminPage() {
     { href: '/admin/staff', label: 'Staff', visible: canViewStaff },
   ];
 
-  // Post-onboarding checklist — only rendered if the user hasn't dismissed it.
   const showChecklist = restaurant && !restaurant.checklistDismissed && canViewSettings;
   const checklist = restaurant ? computeChecklist(restaurant, items, tables) : null;
 
@@ -216,8 +212,8 @@ export default async function DashboardAdminPage() {
 
       <section className="text-muted-foreground text-sm">
         <p>
-          Phase 4 next steps: storefront (Step 9), cart + checkout (Step 10), order feed (Step 13),
-          single-station KDS (Step 14), menu management (Step 15).
+          Use the navigation above to manage daily operations, configuration, team access, and QR
+          workflows.
         </p>
       </section>
     </main>

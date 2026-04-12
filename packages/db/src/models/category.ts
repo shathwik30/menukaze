@@ -2,9 +2,9 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
- * A Category groups Items within a Menu — "Appetizers", "Mains", "Desserts".
+ * A category groups items within a menu, such as "Appetizers", "Mains", or "Desserts".
  * Items have a categoryId pointing here. The category's stationIds drive
- * which KDS station(s) the items get routed to (Step 26 multi-station KDS).
+ * which KDS stations the items get routed to.
  */
 export interface CategoryDoc {
   restaurantId: Types.ObjectId;
@@ -12,7 +12,7 @@ export interface CategoryDoc {
   name: string;
   /** Sort order within the parent menu. Lower = earlier. */
   order: number;
-  /** Optional KDS station routing — empty/missing means default station. */
+  /** Optional KDS station routing. Empty or missing means default station. */
   stationIds?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;

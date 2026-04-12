@@ -10,8 +10,7 @@ interface Props {
  * Post-onboarding checklist card shown on /admin until the user dismisses
  * it. Dismissal is only allowed once every *critical* item is done.
  *
- * Server component — the Dismiss button is a plain `<form action={...}>`
- * posting to a server action, no client JS needed.
+ * Server component. The Dismiss button posts directly to a server action.
  */
 export function OnboardingChecklistCard({ checklist }: Props) {
   return (

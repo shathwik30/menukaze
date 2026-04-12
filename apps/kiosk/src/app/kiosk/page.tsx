@@ -12,7 +12,8 @@ export default async function KioskScreen() {
         <span className="text-foreground font-mono font-semibold">{slug ?? 'Menukaze'}</span>
       </p>
       <p className="text-muted-foreground text-base">
-        Phase 4 will add: PIN-locked exit, dine-in/takeaway selection, full menu, token numbers.
+        Kiosk ordering will include PIN-locked exit, dining mode selection, full menu browsing, and
+        token numbers.
       </p>
     </main>
   );

@@ -7,21 +7,20 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * QR sticker; scanning the QR points the customer at
  * `{slug}.menukaze.com/t/{qrToken}` to start a dine-in session.
  *
- * Status FSM (spec §5 Table Management):
- *   available → occupied → bill_requested → paid → available
- *   (or → needs_review for timeout / unpaid edge cases)
+ * Status flow: available -> occupied -> bill_requested -> paid -> available.
+ * Timeout or unpaid edge cases move to needs_review.
  */
 export type TableStatus = 'available' | 'occupied' | 'bill_requested' | 'paid' | 'needs_review';
 
 export interface TableDoc {
   restaurantId: Types.ObjectId;
-  /** Sequence number for display (Table 1, Table 2, …). Unique per restaurant. */
+  /** Sequence number for display, such as Table 1 or Table 2. Unique per restaurant. */
   number: number;
   /** Display name. Defaults to "Table {number}" on creation; editable later. */
   name: string;
   /** Seating capacity. Defaults to 4. */
   capacity: number;
-  /** Optional zone tag — indoor, outdoor, bar, private dining. */
+  /** Optional zone tag, such as indoor, outdoor, bar, or private dining. */
   zone?: string;
   /** Random 24-char URL-safe token encoded in the printed QR sticker. */
   qrToken: string;
@@ -33,7 +32,7 @@ export interface TableDoc {
 
 /**
  * Generate a cryptographically random URL-safe token for a table's QR code.
- * 18 random bytes → 24 base64url characters → ~144 bits of entropy.
+ * 18 random bytes -> 24 base64url characters -> about 144 bits of entropy.
  */
 export function generateQrToken(): string {
   return randomBytes(18).toString('base64url');
