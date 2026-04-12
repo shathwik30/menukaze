@@ -82,11 +82,13 @@ const CHANNEL_FILTERS: Array<{
   { id: 'api', label: 'API' },
 ];
 
+type ChannelFilter = (typeof CHANNEL_FILTERS)[number]['id'];
+
 export function KdsBoard({ restaurantId, initialCards }: Props) {
   const router = useRouter();
   const [cards, setCards] = useState<KdsCard[]>(initialCards);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [channelFilter, setChannelFilter] = useState<'all' | string>('all');
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [isPending, start] = useTransition();
   const chime = useNewOrderChime(soundEnabled);
   const cardsRef = useRef(cards);

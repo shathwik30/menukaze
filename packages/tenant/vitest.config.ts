@@ -1,8 +1,3 @@
-import { defineConfig } from 'vitest/config';
+import { createNodeVitestConfig } from '@menukaze/vitest-config/node';
 
-export default defineConfig({
-  test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
-  },
-});
+export default createNodeVitestConfig();

@@ -14,9 +14,73 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      e2e: ${{ steps.filter.outputs.e2e }}
+      dashboard_preview: ${{ steps.filter.outputs.dashboard_preview }}
+      storefront_preview: ${{ steps.filter.outputs.storefront_preview }}
+      qr_dinein_preview: ${{ steps.filter.outputs.qr_dinein_preview }}
+      kiosk_preview: ${{ steps.filter.outputs.kiosk_preview }}
+      super_admin_preview: ${{ steps.filter.outputs.super_admin_preview }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            e2e:
+              - 'apps/**'
+              - 'packages/**'
+              - 'tooling/playwright-config/**'
+              - 'docker-compose.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            dashboard_preview:
+              - 'apps/dashboard/**'
+              - 'packages/**'
+              - 'tooling/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            storefront_preview:
+              - 'apps/storefront/**'
+              - 'packages/**'
+              - 'tooling/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            qr_dinein_preview:
+              - 'apps/qr-dinein/**'
+              - 'packages/**'
+              - 'tooling/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            kiosk_preview:
+              - 'apps/kiosk/**'
+              - 'packages/**'
+              - 'tooling/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            super_admin_preview:
+              - 'apps/super-admin/**'
+              - 'packages/**'
+              - 'tooling/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+
   install:
     name: Install
     runs-on: ubuntu-latest
+    needs: changes
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,6 +173,142 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    if: needs.changes.outputs.e2e == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm services:up
+      - run: pnpm db:seed
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            apps/*/playwright-report
+            apps/*/test-results
+
+  preview:
+    name: Preview
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    if: >-
+      github.event_name == 'pull_request' && (
+        needs.changes.outputs.dashboard_preview == 'true' ||
+        needs.changes.outputs.storefront_preview == 'true' ||
+        needs.changes.outputs.qr_dinein_preview == 'true' ||
+        needs.changes.outputs.kiosk_preview == 'true' ||
+        needs.changes.outputs.super_admin_preview == 'true'
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [dashboard, storefront, qr-dinein, kiosk, super-admin]
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID_DASHBOARD: ${{ secrets.VERCEL_PROJECT_ID_DASHBOARD }}
+      VERCEL_PROJECT_ID_STOREFRONT: ${{ secrets.VERCEL_PROJECT_ID_STOREFRONT }}
+      VERCEL_PROJECT_ID_QR_DINEIN: ${{ secrets.VERCEL_PROJECT_ID_QR_DINEIN }}
+      VERCEL_PROJECT_ID_KIOSK: ${{ secrets.VERCEL_PROJECT_ID_KIOSK }}
+      VERCEL_PROJECT_ID_SUPER_ADMIN: ${{ secrets.VERCEL_PROJECT_ID_SUPER_ADMIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve app target
+        id: target
+        env:
+          APP: ${{ matrix.app }}
+          DASHBOARD_CHANGED: ${{ needs.changes.outputs.dashboard_preview }}
+          STOREFRONT_CHANGED: ${{ needs.changes.outputs.storefront_preview }}
+          QR_DINEIN_CHANGED: ${{ needs.changes.outputs.qr_dinein_preview }}
+          KIOSK_CHANGED: ${{ needs.changes.outputs.kiosk_preview }}
+          SUPER_ADMIN_CHANGED: ${{ needs.changes.outputs.super_admin_preview }}
+        run: |
+          case "$APP" in
+            dashboard)
+              APP_PATH="apps/dashboard"
+              CHANGED="$DASHBOARD_CHANGED"
+              PROJECT_ID="$VERCEL_PROJECT_ID_DASHBOARD"
+              ;;
+            storefront)
+              APP_PATH="apps/storefront"
+              CHANGED="$STOREFRONT_CHANGED"
+              PROJECT_ID="$VERCEL_PROJECT_ID_STOREFRONT"
+              ;;
+            qr-dinein)
+              APP_PATH="apps/qr-dinein"
+              CHANGED="$QR_DINEIN_CHANGED"
+              PROJECT_ID="$VERCEL_PROJECT_ID_QR_DINEIN"
+              ;;
+            kiosk)
+              APP_PATH="apps/kiosk"
+              CHANGED="$KIOSK_CHANGED"
+              PROJECT_ID="$VERCEL_PROJECT_ID_KIOSK"
+              ;;
+            super-admin)
+              APP_PATH="apps/super-admin"
+              CHANGED="$SUPER_ADMIN_CHANGED"
+              PROJECT_ID="$VERCEL_PROJECT_ID_SUPER_ADMIN"
+              ;;
+            *)
+              echo "Unknown app: $APP" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+
+          if [ "$CHANGED" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$PROJECT_ID" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "project_id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Skip note
+        if: steps.target.outputs.skip == 'true'
+        run: echo "Skipping preview for ${{ matrix.app }} — unchanged app or missing Vercel secrets." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy preview
+        if: steps.target.outputs.skip != 'true'
+        id: deploy
+        working-directory: ${{ steps.target.outputs.path }}
+        env:
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.project_id }}
+        run: |
+          pnpm dlx vercel@latest pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          pnpm dlx vercel@latest build --token="$VERCEL_TOKEN"
+          DEPLOY_URL="$(pnpm dlx vercel@latest deploy --prebuilt --token="$VERCEL_TOKEN")"
+          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Preview summary
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          echo "- ${{ steps.target.outputs.app }}: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
 
   gitleaks:
     name: Secret Scan

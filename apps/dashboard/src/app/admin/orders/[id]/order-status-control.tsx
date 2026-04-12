@@ -74,8 +74,8 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
             let cancelReason: string | undefined;
             if (t.next === 'cancelled') {
               const typed = window.prompt('Reason for cancelling this order?');
-              if (!typed || !typed.trim()) return;
-              cancelReason = typed.trim();
+              cancelReason = typed?.trim();
+              if (!cancelReason) return;
             }
             start(async () => {
               const result = await updateOrderStatusAction({

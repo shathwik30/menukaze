@@ -38,9 +38,20 @@ export default async function TablesPage() {
             Dine-in tables and QR codes for {restaurant?.name}
           </p>
         </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+        <div className="flex items-center gap-4">
+          {rows.length > 0 ? (
+            <Link
+              href="/admin/tables/print"
+              target="_blank"
+              className="text-foreground text-sm underline underline-offset-4"
+            >
+              Print all QRs
+            </Link>
+          ) : null}
+          <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
+            ← Back
+          </Link>
+        </div>
       </header>
 
       <TablesManager tables={rows} />

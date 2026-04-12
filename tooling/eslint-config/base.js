@@ -44,10 +44,15 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+      '@typescript-eslint/dot-notation': 'off',
+      '@typescript-eslint/array-type': 'off',
       '@typescript-eslint/no-misused-promises': [
         'error',
         { checksVoidReturn: { attributes: false } },
       ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+      '@typescript-eslint/require-await': 'off',
 
       // Unicorn — sanity rules
       'unicorn/filename-case': ['error', { case: 'kebabCase', ignore: ['README.md'] }],

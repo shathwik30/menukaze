@@ -56,7 +56,7 @@ describe('envelopeEncrypt / envelopeDecrypt', () => {
     const encoded = envelopeEncrypt('sensitive');
     const [v, iv, ct, tag] = encoded.split(':');
     // Flip one char in the ciphertext segment
-    const flipped = ct!.charAt(0) === 'A' ? 'B' + ct!.slice(1) : 'A' + ct!.slice(1);
+    const flipped = ct!.startsWith('A') ? 'B' + ct!.slice(1) : 'A' + ct!.slice(1);
     const tampered = [v, iv, flipped, tag].join(':');
     expect(() => envelopeDecrypt(tampered)).toThrow();
   });

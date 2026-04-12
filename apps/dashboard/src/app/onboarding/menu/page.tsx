@@ -5,7 +5,7 @@ import { requireOnboarded } from '@/lib/session';
 import { MenuSetupForm } from './menu-setup-form';
 
 /**
- * Step 2 of the onboarding wizard — Menu Setup (manual entry only).
+ * Step 2 of the onboarding wizard — Menu Setup.
  *
  * Guards:
  *   - Must be signed in AND have a restaurant (requireOnboarded handles both).
@@ -32,8 +32,8 @@ export default async function OnboardingMenuPage() {
         <p className="text-muted-foreground text-sm">Step 2 of 6</p>
         <h1 className="mt-1 text-3xl font-bold">Add your first menu items</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Create one category and the items inside it. You can add more categories, modifiers,
-          variants, and images later from the Menu Management dashboard.
+          Create menu items manually or import a CSV from your spreadsheet. You can add more
+          categories, modifiers, variants, and images later from the Menu Management dashboard.
         </p>
       </header>
 

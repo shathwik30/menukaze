@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
+import { parseMenuCsvImport } from '@/lib/menu-import';
 
 const itemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -13,11 +14,21 @@ const itemInputSchema = z.object({
   description: z.string().trim().max(1000).optional(),
 });
 
-const inputSchema = z.object({
+const manualInputSchema = z.object({
+  mode: z.literal('manual'),
   menuName: z.string().trim().min(1).max(120).default('Main Menu'),
   categoryName: z.string().trim().min(1).max(120),
   items: z.array(itemInputSchema).min(1).max(50),
 });
+
+const csvInputSchema = z.object({
+  mode: z.literal('csv'),
+  menuName: z.string().trim().min(1).max(120).default('Main Menu'),
+  csvText: z.string().trim().min(1),
+  defaultCategoryName: z.string().trim().min(1).max(120).default('General'),
+});
+
+const inputSchema = z.discriminatedUnion('mode', [manualInputSchema, csvInputSchema]);
 
 export type CreateMenuStarterInput = z.infer<typeof inputSchema>;
 
@@ -34,11 +45,10 @@ function majorToMinor(major: number, currency: string): number {
 }
 
 /**
- * Step 4 of the onboarding wizard — Menu Setup (manual entry only; CSV import
- * is post-MVP per the product doc §20).
+ * Step 4 of the onboarding wizard — Menu Setup.
  *
- * Creates the user's first Menu, one Category under it, and N Items under
- * the category atomically inside a Mongoose session. Refuses if the
+ * Creates the user's first Menu, one-or-more Categories under it, and the
+ * imported Items atomically inside a Mongoose session. Refuses if the
  * restaurant already has any items (re-onboarding guard).
  */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
@@ -63,6 +73,21 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
   const currency = restaurant.currency;
 
+  let categoriesToCreate: Array<{
+    name: string;
+    items: Array<{ name: string; priceMajor: number; description?: string }>;
+  }> | null = null;
+
+  try {
+    categoriesToCreate =
+      input.mode === 'manual'
+        ? [{ name: input.categoryName.trim(), items: input.items }]
+        : parseMenuCsvImport(input.csvText, input.defaultCategoryName);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid CSV input.';
+    return { ok: false, error: message };
+  }
+
   // Re-onboarding guard: if any items already exist, bounce.
   const existingCount = await Item.countDocuments({ restaurantId }).exec();
   if (existingCount > 0) {
@@ -72,7 +97,8 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
   const dbSession = await conn.startSession();
   try {
     let menuId: Types.ObjectId | null = null;
-    let categoryIdOut: Types.ObjectId | null = null;
+    let firstCategoryId: Types.ObjectId | null = null;
+    let itemCount = 0;
 
     await dbSession.withTransaction(async () => {
       const [menu] = await Menu.create([{ restaurantId, name: input.menuName, order: 0 }], {
@@ -82,26 +108,36 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
       const menuIdLocal = menu._id as Types.ObjectId;
       menuId = menuIdLocal;
 
-      const [category] = await Category.create(
-        [{ restaurantId, menuId: menuIdLocal, name: input.categoryName, order: 0 }],
-        { session: dbSession },
-      );
-      if (!category) throw new APIError('internal_error');
-      const categoryIdLocal = category._id as Types.ObjectId;
-      categoryIdOut = categoryIdLocal;
+      for (const [categoryOrder, categoryInput] of categoriesToCreate.entries()) {
+        const [category] = await Category.create(
+          [
+            {
+              restaurantId,
+              menuId: menuIdLocal,
+              name: categoryInput.name,
+              order: categoryOrder,
+            },
+          ],
+          { session: dbSession },
+        );
+        if (!category) throw new APIError('internal_error');
+        const categoryIdLocal = category._id as Types.ObjectId;
+        if (!firstCategoryId) firstCategoryId = categoryIdLocal;
 
-      const itemDocs = input.items.map((it) => ({
-        restaurantId,
-        categoryId: categoryIdLocal,
-        name: it.name,
-        description: it.description,
-        priceMinor: majorToMinor(it.priceMajor, currency),
-        currency,
-        dietaryTags: [] as string[],
-        modifiers: [] as never[],
-        soldOut: false,
-      }));
-      await Item.create(itemDocs, { session: dbSession });
+        const itemDocs = categoryInput.items.map((it) => ({
+          restaurantId,
+          categoryId: categoryIdLocal,
+          name: it.name,
+          description: it.description,
+          priceMinor: majorToMinor(it.priceMajor, currency),
+          currency,
+          dietaryTags: [] as string[],
+          modifiers: [] as never[],
+          soldOut: false,
+        }));
+        await Item.create(itemDocs, { session: dbSession });
+        itemCount += itemDocs.length;
+      }
 
       // Advance the wizard pointer so /onboarding knows where to route next.
       await Restaurant.updateOne(
@@ -111,14 +147,14 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
       ).exec();
     });
 
-    if (!menuId || !categoryIdOut) {
+    if (!menuId || !firstCategoryId) {
       return { ok: false, error: 'Could not create the menu. Please try again.' };
     }
     return {
       ok: true,
       menuId: String(menuId),
-      categoryId: String(categoryIdOut),
-      itemCount: input.items.length,
+      categoryId: String(firstCategoryId),
+      itemCount,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error.';

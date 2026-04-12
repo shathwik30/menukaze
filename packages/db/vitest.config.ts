@@ -1,9 +1,7 @@
-import { defineConfig } from 'vitest/config';
+import { createNodeVitestConfig } from '@menukaze/vitest-config/node';
 
-export default defineConfig({
+export default createNodeVitestConfig({
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
     // mongodb-memory-server downloads/extracts a Mongo binary on first run.
     testTimeout: 60_000,
     hookTimeout: 60_000,

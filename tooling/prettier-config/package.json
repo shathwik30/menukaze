@@ -1,0 +1,14 @@
+{
+  "name": "@menukaze/prettier-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "./index.cjs",
+  "files": [
+    "index.cjs"
+  ],
+  "peerDependencies": {
+    "prettier": "^3.8.2",
+    "prettier-plugin-tailwindcss": "^0.6.14"
+  }
+}

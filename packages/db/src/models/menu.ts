@@ -1,4 +1,4 @@
-import { Schema, Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**

@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // Workspace packages are consumed source-direct (TypeScript), so Next must
   // transpile them as part of its build.
   transpilePackages: [

@@ -46,7 +46,6 @@ export function StorefrontHeader({
         <div className="flex items-start gap-4">
           {logoUrl ? (
             // Inline img keeps this a server component without next/image setup
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoUrl}
               alt={`${name} logo`}

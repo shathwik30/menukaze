@@ -5,8 +5,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "dev": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec tsx watch src/index.ts'",
+    "start": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec tsx src/index.ts'",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },

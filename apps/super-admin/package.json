@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3004",
-    "build": "next build",
-    "start": "next start --port 3004",
+    "dev": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next dev --port 3004'",
+    "build": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next build'",
+    "start": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next start --port 3004'",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@menukaze/auth": "workspace:*",

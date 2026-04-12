@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { formatMoney, type CurrencyCode } from '@menukaze/shared';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
@@ -39,12 +37,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function StorefrontHomePage() {
-  // Short-circuit apex / reserved hosts so /admin.menukaze.com etc. doesn't
-  // try to resolve a tenant (the middleware already marked them).
-  const h = await headers();
-  const kind = h.get('x-tenant-kind');
-  if (kind !== 'subdomain' && kind !== 'custom') notFound();
-
   const restaurant = await resolveTenantOrNotFound();
 
   // A restaurant that hasn't clicked Go Live yet gets a "Coming Soon" page —
@@ -90,14 +82,13 @@ export default async function StorefrontHomePage() {
       addressCountry: restaurant.addressStructured.country,
     },
     servesCuisine: items.map((i) => i.name).slice(0, 5),
-    menu: `https://${h.get('host') ?? ''}/`,
+    menu: `https://${restaurant.slug}.menukaze.com/`,
   };
 
   return (
     <>
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <StorefrontHeader

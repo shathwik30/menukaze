@@ -138,19 +138,21 @@ export function CheckoutForm({
         email: intent.customer.email,
         ...(intent.customer.phone ? { contact: intent.customer.phone } : {}),
       },
-      handler: async (response) => {
-        const verified = await verifyPaymentAction({
-          orderId: intent.orderId,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-        });
-        if (!verified.ok) {
-          setError(verified.error);
-          setSubmitting(false);
-          return;
-        }
-        clear();
-        router.push(`/order/${intent.orderId}`);
+      handler: (response) => {
+        void (async () => {
+          const verified = await verifyPaymentAction({
+            orderId: intent.orderId,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          });
+          if (!verified.ok) {
+            setError(verified.error);
+            setSubmitting(false);
+            return;
+          }
+          clear();
+          router.push(`/order/${intent.orderId}`);
+        })();
       },
       modal: {
         ondismiss: () => {
