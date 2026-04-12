@@ -30,6 +30,28 @@ interface TenantSkipOption {
   skipTenantGuard?: boolean;
 }
 
+type TenantGuardQuery = Query<unknown, unknown> & {
+  getOptions(): TenantSkipOption;
+  getQuery(): Record<string, unknown>;
+  model: { modelName: string };
+};
+
+type TenantGuardAggregate = Aggregate<unknown[]> & {
+  options?: TenantSkipOption;
+  pipeline(): Array<Record<string, unknown>>;
+  _model?: { modelName: string };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getMatchStage(stage: unknown): Record<string, unknown> | null {
+  if (!isRecord(stage)) return null;
+  const matchStage = stage['$match'];
+  return isRecord(matchStage) ? matchStage : null;
+}
+
 const QUERY_HOOKS = [
   'find',
   'findOne',
@@ -53,38 +75,30 @@ export function tenantScopedPlugin(schema: Schema): void {
   }
 
   for (const hook of QUERY_HOOKS) {
-    schema.pre(hook, async function () {
-      // `this` here is a Mongoose Query instance.
-      const query = this as unknown as Query<unknown, unknown> & {
-        getOptions(): TenantSkipOption;
-        getQuery(): Record<string, unknown>;
-        model: { modelName: string };
-      };
-      const opts = query.getOptions();
+    schema.pre(hook, async function (this: TenantGuardQuery) {
+      const opts = this.getOptions();
       if (opts.skipTenantGuard) return;
 
-      const filter = query.getQuery();
+      const filter = this.getQuery();
       if (!('restaurantId' in filter) || filter.restaurantId == null) {
-        throw new TenantContextMissingError(query.model.modelName, hook);
+        throw new TenantContextMissingError(this.model.modelName, hook);
       }
     });
   }
 
   // Aggregate gets its own hook because the Mongoose `pre('aggregate', ...)`
   // signature is different — `this` is the Aggregate, not a Query.
-  schema.pre('aggregate', async function () {
-    const agg = this as unknown as Aggregate<unknown[]> & {
-      options?: TenantSkipOption;
-      pipeline(): Array<Record<string, unknown>>;
-      _model?: { modelName: string };
-    };
-    if (agg.options?.skipTenantGuard) return;
+  schema.pre('aggregate', async function (this: TenantGuardAggregate) {
+    if (this.options?.skipTenantGuard) return;
 
-    const pipeline = agg.pipeline();
-    const firstStage = pipeline[0] as Record<string, unknown> | undefined;
-    const matchStage = firstStage?.['$match'] as Record<string, unknown> | undefined;
-    if (!matchStage || !('restaurantId' in matchStage) || matchStage['restaurantId'] == null) {
-      const modelName = agg._model?.modelName ?? 'Aggregate';
+    const pipeline = this.pipeline();
+    const matchStage = getMatchStage(pipeline[0]);
+    if (
+      !isRecord(matchStage) ||
+      !('restaurantId' in matchStage) ||
+      matchStage['restaurantId'] == null
+    ) {
+      const modelName = this._model?.modelName ?? 'Aggregate';
       throw new TenantContextMissingError(modelName, 'aggregate');
     }
   });

@@ -14,6 +14,11 @@ export type HostKind =
 export type ReservedSubdomain = 'www' | 'admin' | 'api' | 'sandbox-api' | 'status';
 
 const RESERVED: ReservedSubdomain[] = ['www', 'admin', 'api', 'sandbox-api', 'status'];
+const RESERVED_SET: ReadonlySet<string> = new Set(RESERVED);
+
+function isReservedSubdomain(value: string): value is ReservedSubdomain {
+  return RESERVED_SET.has(value);
+}
 
 const APEX_DOMAINS = new Set([
   'menukaze.com',
@@ -54,8 +59,8 @@ export function parseHost(rawHost: string | null | undefined): HostKind {
     if (host.endsWith(suffix)) {
       const sub = host.slice(0, -suffix.length);
       if (!sub || sub.includes('.')) continue; // multi-level subdomain → keep looking
-      if ((RESERVED as string[]).includes(sub)) {
-        return { kind: 'reserved', subdomain: sub as ReservedSubdomain };
+      if (isReservedSubdomain(sub)) {
+        return { kind: 'reserved', subdomain: sub };
       }
       return { kind: 'subdomain', slug: sub };
     }

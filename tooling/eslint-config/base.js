@@ -70,7 +70,6 @@ export default tseslint.config(
     files: ['**/*.config.{js,ts,mjs,cjs}', 'scripts/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
     rules: {
       'unicorn/filename-case': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 );

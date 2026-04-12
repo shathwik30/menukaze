@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { BillClient, type BillLine } from './bill-client';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +41,7 @@ export default async function BillPage({ params }: { params: Promise<{ sessionId
     redirect(`/session/${sessionId}`);
   }
 
-  const currency = restaurant.currency as CurrencyCode;
+  const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
 
   const lines: BillLine[] = rounds.flatMap((round) =>

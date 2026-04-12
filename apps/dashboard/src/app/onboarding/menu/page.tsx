@@ -4,6 +4,8 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireOnboarded } from '@/lib/session';
 import { MenuSetupForm } from './menu-setup-form';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Step 2 of the onboarding wizard — Menu Setup.
  *

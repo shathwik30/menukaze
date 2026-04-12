@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { filterActiveMenus, formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { filterActiveMenus, formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { computeOpenStatus, formatTodayHours } from '@/lib/hours';
 import { StorefrontHeader } from './_components/storefront-header';
@@ -63,7 +63,7 @@ export default async function StorefrontHomePage() {
   const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
   const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
 
-  const currency = restaurant.currency as CurrencyCode;
+  const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
   const openStatus = computeOpenStatus(restaurant);
   const todayHours = formatTodayHours(restaurant);

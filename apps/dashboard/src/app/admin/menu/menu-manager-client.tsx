@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import {
   createMenuAction,
   createCategoryAction,
@@ -26,6 +27,18 @@ export interface ManagerModifierGroup {
   max: number;
   options: ManagerModifierOption[];
 }
+
+const modifierOptionSchema = z.object({
+  name: z.string().min(1).max(120),
+  priceMinor: z.number().int().min(0),
+});
+
+const modifierGroupSchema = z.object({
+  name: z.string().min(1).max(120),
+  required: z.boolean(),
+  max: z.number().int().min(0),
+  options: z.array(modifierOptionSchema).max(20),
+});
 
 export interface ManagerItem {
   id: string;
@@ -107,10 +120,7 @@ function parseModifiers(value: string): ManagerModifierGroup[] {
   const trimmed = value.trim();
   if (!trimmed) return [];
   const parsed: unknown = JSON.parse(trimmed);
-  if (!Array.isArray(parsed)) {
-    throw new Error('Modifiers must be a JSON array.');
-  }
-  return parsed as ManagerModifierGroup[];
+  return z.array(modifierGroupSchema).parse(parsed);
 }
 
 function toggleComboId(selected: string[], id: string): string[] {

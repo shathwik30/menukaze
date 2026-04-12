@@ -1,4 +1,11 @@
 export { channels, channelPatterns } from './channels';
+export {
+  isOrderCreatedEvent,
+  isOrderStatus,
+  isOrderStatusChangedEvent,
+  isTableStatusChangedEvent,
+  isWaiterCalledEvent,
+} from './events';
 export type {
   RealtimeEvent,
   OrderCreatedEvent,

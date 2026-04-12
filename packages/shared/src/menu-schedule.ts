@@ -39,7 +39,8 @@ function getZonedDateParts(
   const weekday = parts.find((part) => part.type === 'weekday')?.value?.toLowerCase() ?? 'sun';
   const hour = Number.parseInt(parts.find((part) => part.type === 'hour')?.value ?? '0', 10);
   const minute = Number.parseInt(parts.find((part) => part.type === 'minute')?.value ?? '0', 10);
-  const day = weekday.slice(0, 3) as MenuScheduleDay;
+  const weekdayKey = weekday.slice(0, 3);
+  const day = isMenuScheduleDay(weekdayKey) ? weekdayKey : 'sun';
 
   return {
     day: INDEX_TO_DAY[DAY_TO_INDEX[day]] ?? 'sun',
@@ -49,6 +50,10 @@ function getZonedDateParts(
 
 function includesDay(days: readonly MenuScheduleDay[], day: MenuScheduleDay): boolean {
   return days.includes(day);
+}
+
+function isMenuScheduleDay(value: string): value is MenuScheduleDay {
+  return value in DAY_TO_INDEX;
 }
 
 function previousDay(day: MenuScheduleDay): MenuScheduleDay {

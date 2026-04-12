@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
 import { OrdersLive } from './orders-live';
 
@@ -19,7 +19,7 @@ export default async function DashboardOrdersPage() {
     Order.find({ restaurantId }).sort({ createdAt: -1 }).limit(50).lean().exec(),
   ]);
 
-  const currency = (restaurant?.currency ?? 'USD') as CurrencyCode;
+  const currency = currencyCodeOrDefault(restaurant?.currency);
   const locale = restaurant?.locale ?? 'en-US';
 
   const rows = orders.map((o) => ({

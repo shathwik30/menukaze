@@ -4,6 +4,8 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireOnboarded } from '@/lib/session';
 import { TablesSetupForm } from './tables-setup-form';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Step 5 of the onboarding wizard — Tables + QR Codes.
  *

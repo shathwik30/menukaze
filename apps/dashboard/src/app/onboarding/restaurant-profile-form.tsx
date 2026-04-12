@@ -23,6 +23,23 @@ const COUNTRY_DEFAULTS = {
 } as const;
 
 type CountryCode = keyof typeof COUNTRY_DEFAULTS;
+const COUNTRY_CODES = [
+  'IN',
+  'US',
+  'GB',
+  'AE',
+  'SG',
+  'AU',
+  'CA',
+  'DE',
+  'FR',
+  'JP',
+] as const satisfies readonly CountryCode[];
+const COUNTRY_CODE_SET: ReadonlySet<string> = new Set(COUNTRY_CODES);
+
+function isCountryCode(value: string): value is CountryCode {
+  return COUNTRY_CODE_SET.has(value);
+}
 
 /** kebab-case slugify with the same rules as the slugSchema in @menukaze/shared. */
 function toSlug(value: string): string {
@@ -132,12 +149,14 @@ export function RestaurantProfileForm() {
         <select
           required
           value={country}
-          onChange={(event) => setCountry(event.target.value as CountryCode)}
+          onChange={(event) => {
+            if (isCountryCode(event.target.value)) setCountry(event.target.value);
+          }}
           className={inputClass}
         >
-          {Object.entries(COUNTRY_DEFAULTS).map(([code, meta]) => (
+          {COUNTRY_CODES.map((code) => (
             <option key={code} value={code}>
-              {meta.name}
+              {COUNTRY_DEFAULTS[code].name}
             </option>
           ))}
         </select>

@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
 import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
 
@@ -21,7 +21,7 @@ export default async function MenuManagementPage() {
     Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
   ]);
 
-  const currency = (restaurant?.currency ?? 'USD') as CurrencyCode;
+  const currency = currencyCodeOrDefault(restaurant?.currency);
   const locale = restaurant?.locale ?? 'en-US';
   const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
   const categoryNameById = new Map(

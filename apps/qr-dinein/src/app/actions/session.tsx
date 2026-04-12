@@ -16,8 +16,8 @@ import {
   formatMoney,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
+  parseCurrencyCode,
   validateModifierSelection,
-  type CurrencyCode,
 } from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 import { sendTransactionalEmail } from '@/lib/email';
@@ -59,6 +59,15 @@ const customerSchema = z.object({
 });
 
 const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
+
+type SessionTimeoutModels = Pick<ReturnType<typeof getModels>, 'Order' | 'Table' | 'TableSession'>;
+
+function readRazorpayOrderId(order: { id?: unknown }): string {
+  if (typeof order.id !== 'string' || order.id.length === 0) {
+    throw new Error('Razorpay did not return an order id.');
+  }
+  return order.id;
+}
 
 async function publishTableStatus(
   restaurantId: string,
@@ -110,7 +119,7 @@ async function publishSessionUpdate(
 }
 
 async function moveSessionToNeedsReview(
-  models: ReturnType<typeof getModels>,
+  models: SessionTimeoutModels,
   session: {
     _id: Types.ObjectId;
     restaurantId: Types.ObjectId;
@@ -158,7 +167,7 @@ async function moveSessionToNeedsReview(
 }
 
 async function expireSessionIfTimedOut(
-  models: ReturnType<typeof getModels>,
+  models: SessionTimeoutModels,
   session: {
     _id: Types.ObjectId;
     restaurantId: Types.ObjectId;
@@ -225,13 +234,7 @@ export async function startOrJoinSessionAction(
     status: { $in: ['active', 'bill_requested'] },
   }).exec();
   if (existing) {
-    if (
-      await expireSessionIfTimedOut(
-        { Table, TableSession, Restaurant, Order } as ReturnType<typeof getModels>,
-        existing,
-        restaurant,
-      )
-    ) {
+    if (await expireSessionIfTimedOut({ Table, TableSession, Order }, existing, restaurant)) {
       return {
         ok: false,
         error:
@@ -331,13 +334,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const restaurantId = session.restaurantId;
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-  if (
-    await expireSessionIfTimedOut(
-      { TableSession, Item, Order, Restaurant, Table } as ReturnType<typeof getModels>,
-      session,
-      restaurant,
-    )
-  ) {
+  if (await expireSessionIfTimedOut({ TableSession, Order, Table }, session, restaurant)) {
     return {
       ok: false,
       error:
@@ -477,7 +474,7 @@ export async function callWaiterAction(
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
   const expired = await expireSessionIfTimedOut(
-    { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
+    { TableSession, Table, Order },
     session,
     restaurant,
   );
@@ -529,7 +526,7 @@ async function notifyNeedsReviewByEmail(
     const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
     const totalLabel = formatMoney(
       totalMinor,
-      restaurant.currency as CurrencyCode,
+      parseCurrencyCode(restaurant.currency),
       restaurant.locale,
     );
 
@@ -591,13 +588,7 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
   const restaurantId = session.restaurantId;
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-  if (
-    await expireSessionIfTimedOut(
-      { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
-      session,
-      restaurant,
-    )
-  ) {
+  if (await expireSessionIfTimedOut({ TableSession, Table, Order }, session, restaurant)) {
     return {
       ok: false,
       error: 'This session timed out and now needs staff assistance before payment can continue.',
@@ -624,7 +615,7 @@ export async function requestBillAction(sessionId: string): Promise<RequestBillR
     receipt: `session-${String(session._id).slice(-12)}`,
     notes: { sessionId: String(session._id), channel: 'qr_dinein' },
   });
-  const razorpayOrderId = rzpOrder.id as string;
+  const razorpayOrderId = readRazorpayOrderId(rzpOrder);
 
   await TableSession.updateOne(
     { restaurantId, _id: session._id },
@@ -691,13 +682,7 @@ export async function requestCounterPaymentAction(
 
   const restaurant = await Restaurant.findById(session.restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-  if (
-    await expireSessionIfTimedOut(
-      { TableSession, Table, Order, Restaurant } as ReturnType<typeof getModels>,
-      session,
-      restaurant,
-    )
-  ) {
+  if (await expireSessionIfTimedOut({ TableSession, Table, Order }, session, restaurant)) {
     return {
       ok: false,
       error: 'This session timed out and now needs staff assistance before payment can continue.',
@@ -867,7 +852,7 @@ export async function verifySessionPaymentAction(
       restaurantId: session.restaurantId,
       sessionId: session._id,
     }).exec();
-    const currency = restaurant.currency as CurrencyCode;
+    const currency = parseCurrencyCode(restaurant.currency);
     const locale = restaurant.locale;
     const totalMinor = rounds.reduce((s, o) => s + o.totalMinor, 0);
     const items = rounds.flatMap((o) =>

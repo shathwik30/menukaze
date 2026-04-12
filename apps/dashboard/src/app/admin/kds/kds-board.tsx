@@ -3,8 +3,19 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
-import { channels, type OrderStatus } from '@menukaze/realtime';
+import {
+  channels,
+  isOrderCreatedEvent,
+  isOrderStatusChangedEvent,
+  type OrderStatus,
+} from '@menukaze/realtime';
 import { updateOrderStatusAction } from '@/app/actions/orders';
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
 
 export interface KdsCard {
   id: string;
@@ -52,8 +63,7 @@ function useNewOrderChime(enabled: boolean): () => void {
   return () => {
     if (!enabled || typeof window === 'undefined') return;
     const AudioContextCtor: typeof AudioContext | undefined =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      window.AudioContext ?? window.webkitAudioContext;
     if (!AudioContextCtor) return;
     ctxRef.current ??= new AudioContextCtor();
     const ctx = ctxRef.current;
@@ -99,12 +109,12 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
     const channel = client.channels.get(channels.orders(restaurantId));
 
     const handler = (msg: Ably.Message) => {
-      const data = msg.data as { type: string; orderId: string; status?: OrderStatus };
-      if (msg.name === 'order.created') {
+      if (msg.name === 'order.created' && isOrderCreatedEvent(msg.data)) {
         // Full card isn't on the event; re-fetch the server component.
         chime();
         router.refresh();
-      } else if (msg.name === 'order.status_changed' && data.status) {
+      } else if (msg.name === 'order.status_changed' && isOrderStatusChangedEvent(msg.data)) {
+        const data = msg.data;
         const status = data.status;
         setCards((prev) => {
           // If the new status is terminal, drop the card from the KDS.

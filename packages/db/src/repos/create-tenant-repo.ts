@@ -67,7 +67,7 @@ export function createTenantRepo<TDoc extends { restaurantId: unknown }>(
 
     create: async (doc) => {
       const created = await model.create({ ...doc, restaurantId });
-      return created as unknown as HydratedDocument<TDoc>;
+      return created;
     },
 
     updateOne: (filter, update) =>

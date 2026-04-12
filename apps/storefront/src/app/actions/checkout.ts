@@ -11,7 +11,7 @@ import {
 } from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import { formatMoney, type CurrencyCode, validateModifierSelection } from '@menukaze/shared';
+import { formatMoney, parseCurrencyCode, validateModifierSelection } from '@menukaze/shared';
 import { getRazorpayClient } from '@/lib/razorpay-server';
 import { sendTransactionalEmail } from '@/lib/email';
 import { OrderConfirmationEmail } from '@/emails/order-confirmation';
@@ -42,6 +42,13 @@ const checkoutInput = z.object({
 });
 
 export type CheckoutInput = z.infer<typeof checkoutInput>;
+
+function readRazorpayOrderId(order: { id?: unknown }): string {
+  if (typeof order.id !== 'string' || order.id.length === 0) {
+    throw new Error('Razorpay did not return an order id.');
+  }
+  return order.id;
+}
 
 export type CreatePaymentIntentResult =
   | {
@@ -185,7 +192,11 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   if (minOrder > 0 && subtotalMinor < minOrder) {
     return {
       ok: false,
-      error: `Minimum order is ${formatMoney(minOrder, restaurant.currency as CurrencyCode, restaurant.locale)}.`,
+      error: `Minimum order is ${formatMoney(
+        minOrder,
+        parseCurrencyCode(restaurant.currency),
+        restaurant.locale,
+      )}.`,
     };
   }
 
@@ -208,7 +219,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
       channel: 'storefront',
     },
   });
-  const razorpayOrderId = razorpayOrder.id as string;
+  const razorpayOrderId = readRazorpayOrderId(razorpayOrder);
 
   const order = await Order.create({
     restaurantId,
@@ -358,7 +369,7 @@ export async function verifyPaymentAction(raw: unknown): Promise<VerifyPaymentRe
   // Best-effort transactional emails — confirmation + receipt. Also fire
   // and do not reject the verification if Resend is down.
   try {
-    const currency = order.currency as CurrencyCode;
+    const currency = parseCurrencyCode(order.currency);
     const locale = restaurant.locale;
     const baseHost =
       process.env['NEXT_PUBLIC_STOREFRONT_HOST'] ?? `${restaurant.slug}.menukaze.dev`;

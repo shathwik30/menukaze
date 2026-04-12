@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import * as Ably from 'ably';
-import { channels, type OrderStatus } from '@menukaze/realtime';
+import { channels, isOrderStatusChangedEvent, type OrderStatus } from '@menukaze/realtime';
 
 export interface OrderRow {
   id: string;
@@ -45,8 +45,8 @@ export function OrdersLive({ restaurantId, initialRows }: Props) {
     const channel = client.channels.get(channels.orders(restaurantId));
 
     const handler = (msg: Ably.Message) => {
-      const payload = msg.data as { type: string; orderId: string; status?: OrderStatus };
-      if (msg.name === 'order.status_changed' && payload.status) {
+      if (msg.name === 'order.status_changed' && isOrderStatusChangedEvent(msg.data)) {
+        const payload = msg.data;
         const status = payload.status;
         setRows((prev) => prev.map((r) => (r.id === payload.orderId ? { ...r, status } : r)));
       }

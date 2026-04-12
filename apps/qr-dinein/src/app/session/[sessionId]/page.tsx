@@ -5,7 +5,7 @@ import {
   filterActiveMenus,
   formatMoney,
   normalizeDineInSessionTimeoutMinutes,
-  type CurrencyCode,
+  parseCurrencyCode,
 } from '@menukaze/shared';
 import { SessionClient, type SessionItem, type SessionRound } from './session-client';
 
@@ -46,7 +46,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
   const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
 
-  const currency = restaurant.currency as CurrencyCode;
+  const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
 
   const sessionItems: SessionItem[] = activeItems.map((i) => {

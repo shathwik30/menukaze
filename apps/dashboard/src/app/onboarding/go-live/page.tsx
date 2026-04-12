@@ -4,6 +4,8 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireOnboarded } from '@/lib/session';
 import { GoLiveButton } from './go-live-button';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Step 8 of the onboarding wizard — Go Live summary + activation.
  *

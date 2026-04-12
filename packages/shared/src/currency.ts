@@ -75,6 +75,18 @@ export function isCurrencyCode(value: unknown): value is CurrencyCode {
   return typeof value === 'string' && value in CURRENCIES;
 }
 
+export function parseCurrencyCode(value: string): CurrencyCode {
+  if (isCurrencyCode(value)) return value;
+  throw new Error(`Unsupported currency code: ${value}`);
+}
+
+export function currencyCodeOrDefault(
+  value: string | null | undefined,
+  fallback: CurrencyCode = 'USD',
+): CurrencyCode {
+  return isCurrencyCode(value) ? value : fallback;
+}
+
 /** Convert minor units to a major-unit number. JPY 1500 → 1500. USD 1500 → 15.00. */
 export function minorToMajor(amountMinor: number, currency: CurrencyCode): number {
   const decimals = CURRENCIES[currency].decimals;

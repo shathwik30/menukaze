@@ -3,7 +3,7 @@
  * with their own. Roles are resolved at request time by `resolveFlags`.
  */
 
-import { ALL_FLAGS, FLAGS, type Flag } from './flags';
+import { ALL_FLAGS, FLAGS, isFlag, type Flag } from './flags';
 
 export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
 
@@ -79,7 +79,7 @@ export function resolveFlags(membership: MembershipForResolve): ReadonlySet<Flag
   if (membership.role === 'custom') {
     const valid = new Set<Flag>();
     for (const candidate of membership.customPermissions ?? []) {
-      if (ALL_FLAGS.has(candidate as Flag)) valid.add(candidate as Flag);
+      if (isFlag(candidate)) valid.add(candidate);
     }
     return valid;
   }

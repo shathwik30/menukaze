@@ -87,6 +87,7 @@ export const FLAGS = [
 export type Flag = (typeof FLAGS)[number];
 
 export const ALL_FLAGS = new Set<Flag>(FLAGS);
+const ALL_FLAG_VALUES: ReadonlySet<string> = new Set(FLAGS);
 
 /**
  * Flags that can never be assigned to a Custom role. Enforced by
@@ -98,9 +99,10 @@ export const OWNER_ONLY_FLAGS = new Set<Flag>([
   'webhooks.manage',
   'billing.manage',
 ]);
+const OWNER_ONLY_FLAG_VALUES: ReadonlySet<string> = new Set(OWNER_ONLY_FLAGS);
 
 export function isFlag(value: unknown): value is Flag {
-  return typeof value === 'string' && ALL_FLAGS.has(value as Flag);
+  return typeof value === 'string' && ALL_FLAG_VALUES.has(value);
 }
 
 export class InvalidCustomRoleError extends Error {
@@ -115,6 +117,6 @@ export class InvalidCustomRoleError extends Error {
  * Called when a manager creates or edits a Custom role.
  */
 export function assertCustomRoleFlags(flags: readonly string[]): void {
-  const invalid = flags.filter((f) => !ALL_FLAGS.has(f as Flag) || OWNER_ONLY_FLAGS.has(f as Flag));
+  const invalid = flags.filter((flag) => !isFlag(flag) || OWNER_ONLY_FLAG_VALUES.has(flag));
   if (invalid.length > 0) throw new InvalidCustomRoleError(invalid);
 }

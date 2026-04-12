@@ -5,7 +5,7 @@ import {
   formatMoney,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
-  type CurrencyCode,
+  parseCurrencyCode,
 } from '@menukaze/shared';
 
 export const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
@@ -179,7 +179,7 @@ export async function sweepTimedOutSessions(now: Date = new Date()): Promise<Swe
       const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
       const totalLabel = formatMoney(
         totalMinor,
-        restaurant.currency as CurrencyCode,
+        parseCurrencyCode(restaurant.currency),
         restaurant.locale,
       );
       await Promise.all(

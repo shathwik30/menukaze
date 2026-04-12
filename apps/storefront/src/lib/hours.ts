@@ -1,6 +1,7 @@
 import type { RestaurantDoc } from '@menukaze/db';
 
 type DayKey = RestaurantDoc['hours'][number]['day'];
+type RestaurantHours = Pick<RestaurantDoc, 'hours' | 'timezone'>;
 const DAY_ORDER: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DAY_LABEL: Record<DayKey, string> = {
   mon: 'Monday',
@@ -48,7 +49,7 @@ function isInWindow(now: string, open: string, close: string): boolean {
   return cmp(open, now) <= 0 && cmp(now, close) < 0;
 }
 
-export function computeOpenStatus(restaurant: RestaurantDoc, at = new Date()): OpenStatus {
+export function computeOpenStatus(restaurant: RestaurantHours, at = new Date()): OpenStatus {
   const hours = restaurant.hours ?? [];
   if (hours.length === 0) return { open: false };
 
@@ -80,7 +81,7 @@ export function computeOpenStatus(restaurant: RestaurantDoc, at = new Date()): O
   return { open: false };
 }
 
-export function formatTodayHours(restaurant: RestaurantDoc, at = new Date()): string {
+export function formatTodayHours(restaurant: RestaurantHours, at = new Date()): string {
   const { day } = getLocalParts(restaurant.timezone, at);
   const today = restaurant.hours.find((h) => h.day === day);
   if (!today || today.closed || !today.open || !today.close) return 'Closed today';

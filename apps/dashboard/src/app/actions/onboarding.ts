@@ -99,7 +99,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
         { session: dbSession },
       );
       if (!restaurant) throw new APIError('internal_error');
-      restaurantId = restaurant._id as Types.ObjectId;
+      restaurantId = restaurant._id;
 
       await StaffMembership.create(
         [

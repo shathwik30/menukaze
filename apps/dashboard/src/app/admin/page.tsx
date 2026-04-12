@@ -2,11 +2,13 @@ import { Types } from 'mongoose';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
 import { computeChecklist } from '@/lib/onboarding-checklist';
 import { signOutAction } from '@/app/actions/auth';
 import { OnboardingChecklistCard } from './onboarding-checklist-card';
+
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardAdminPage() {
   const session = await requireOnboarded();
@@ -25,7 +27,7 @@ export default async function DashboardAdminPage() {
     Table.find({ restaurantId }).sort({ number: 1 }).exec(),
   ]);
 
-  const currency = (restaurant?.currency ?? 'USD') as CurrencyCode;
+  const currency = currencyCodeOrDefault(restaurant?.currency);
   const locale = restaurant?.locale ?? 'en-US';
   const slug = restaurant?.slug ?? 'demo';
   const firstTable = tables[0];

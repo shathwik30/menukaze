@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requireOnboarded } from '@/lib/session';
 import { OrderStatusControl } from './order-status-control';
 
@@ -29,7 +29,7 @@ export default async function DashboardOrderDetailPage({
   ]);
   if (!order) notFound();
 
-  const currency = (restaurant?.currency ?? order.currency) as CurrencyCode;
+  const currency = currencyCodeOrDefault(restaurant?.currency ?? order.currency);
   const locale = restaurant?.locale ?? 'en-US';
 
   return (

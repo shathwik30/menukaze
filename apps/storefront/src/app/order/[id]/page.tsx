@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { channels } from '@menukaze/realtime';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { OrderTracker } from './order-tracker';
@@ -31,7 +31,7 @@ export default async function OrderConfirmationPage({
   }).exec();
   if (!order) notFound();
 
-  const currency = order.currency as CurrencyCode;
+  const currency = parseCurrencyCode(order.currency);
   const locale = restaurant.locale;
   const paid = order.payment.status === 'succeeded';
 

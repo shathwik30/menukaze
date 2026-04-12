@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const restaurantFindExec = vi.fn();
   const tableSessionFindExec = vi.fn();
+  interface PaymentFailureUpdate {
+    $set: Record<'payment.status' | 'payment.failureReason', string>;
+  }
 
   return {
     getMongoConnection: vi.fn(),
@@ -28,7 +31,9 @@ const mocks = vi.hoisted(() => {
       updateOne: vi.fn(() => ({ exec: vi.fn().mockResolvedValue(undefined) })),
     },
     Order: {
-      updateMany: vi.fn(() => ({ exec: vi.fn().mockResolvedValue(undefined) })),
+      updateMany: vi.fn((_filter: unknown, _update: PaymentFailureUpdate) => ({
+        exec: vi.fn().mockResolvedValue(undefined),
+      })),
     },
     restaurantFindExec,
     tableSessionFindExec,
@@ -85,13 +90,9 @@ describe('sweepTimedOutSessions', () => {
     const result = await sweepTimedOutSessions(now);
 
     expect(result).toEqual({ scanned: 1, expired: 1 });
-    const updateCalls = mocks.Order.updateMany.mock.calls as unknown as Array<
-      [unknown, { $set: Record<'payment.status' | 'payment.failureReason', string> }]
-    >;
-    const update = (updateCalls[0]?.[1] ?? null) as {
-      $set: Record<'payment.status' | 'payment.failureReason', string>;
-    };
-    expect(update).not.toBeNull();
+    const update = mocks.Order.updateMany.mock.calls[0]?.[1];
+    expect(update).toBeDefined();
+    if (!update) throw new Error('Expected Order.updateMany to be called.');
     expect(update.$set['payment.status']).toBe('failed');
     expect(update.$set['payment.failureReason']).toBe(TIMED_OUT_PAYMENT_FAILURE_REASON);
     expect(mocks.TableSession.updateOne).toHaveBeenCalledWith(

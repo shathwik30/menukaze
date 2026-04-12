@@ -105,7 +105,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
         session: dbSession,
       });
       if (!menu) throw new APIError('internal_error');
-      const menuIdLocal = menu._id as Types.ObjectId;
+      const menuIdLocal = menu._id;
       menuId = menuIdLocal;
 
       for (const [categoryOrder, categoryInput] of categoriesToCreate.entries()) {
@@ -121,7 +121,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
           { session: dbSession },
         );
         if (!category) throw new APIError('internal_error');
-        const categoryIdLocal = category._id as Types.ObjectId;
+        const categoryIdLocal = category._id;
         if (!firstCategoryId) firstCategoryId = categoryIdLocal;
 
         const itemDocs = categoryInput.items.map((it) => ({
@@ -131,8 +131,8 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
           description: it.description,
           priceMinor: majorToMinor(it.priceMajor, currency),
           currency,
-          dietaryTags: [] as string[],
-          modifiers: [] as never[],
+          dietaryTags: [],
+          modifiers: [],
           soldOut: false,
         }));
         await Item.create(itemDocs, { session: dbSession });

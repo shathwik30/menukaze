@@ -105,13 +105,16 @@ export class APIError extends Error {
   }
 }
 
+function isErrorRecord(error: unknown): error is Error & { code: unknown; status: unknown } {
+  return error instanceof Error && 'code' in error && 'status' in error;
+}
+
 /** Type guard so frameworks can detect APIError without `instanceof` failing across realms. */
 export function isAPIError(error: unknown): error is APIError {
   return (
-    error instanceof Error &&
-    'code' in error &&
-    'status' in error &&
-    typeof (error as APIError).code === 'string' &&
-    (error as APIError).code in ERROR_CODES
+    isErrorRecord(error) &&
+    typeof error.code === 'string' &&
+    error.code in ERROR_CODES &&
+    typeof error.status === 'number'
   );
 }

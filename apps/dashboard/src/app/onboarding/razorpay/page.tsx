@@ -4,6 +4,8 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireOnboarded } from '@/lib/session';
 import { RazorpayConnectForm } from './razorpay-connect-form';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Step 6 of the onboarding wizard — Razorpay Connection.
  *

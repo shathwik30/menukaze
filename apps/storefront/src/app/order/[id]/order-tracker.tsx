@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as Ably from 'ably';
-import type { OrderStatus, OrderStatusChangedEvent } from '@menukaze/realtime';
+import { isOrderStatusChangedEvent, type OrderStatus } from '@menukaze/realtime';
 
 interface Props {
   restaurantId: string;
@@ -50,7 +50,8 @@ export function OrderTracker({
     const channel = client.channels.get(channelName);
     const handler = (message: Ably.Message) => {
       if (message.name !== 'order.status_changed') return;
-      const payload = message.data as OrderStatusChangedEvent;
+      if (!isOrderStatusChangedEvent(message.data)) return;
+      const payload = message.data;
       if (payload.orderId === orderId) setStatus(payload.status);
     };
     void channel.subscribe(handler);

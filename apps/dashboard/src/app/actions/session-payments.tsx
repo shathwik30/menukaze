@@ -2,23 +2,34 @@
 
 import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import { formatMoney, type CurrencyCode } from '@menukaze/shared';
+import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { sendTransactionalEmail } from '@/lib/email';
 import { PermissionDeniedError, requireAnyFlag } from '@/lib/session';
+
+const settleSessionInput = z.object({
+  sessionId: z.unknown(),
+  method: z.unknown(),
+});
 
 export async function settleSessionAtCounterAction(
   raw: unknown,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const input = raw as { sessionId?: string; method?: 'cash' | 'terminal' };
-  if (!input?.sessionId || !Types.ObjectId.isValid(input.sessionId)) {
+  const parsed = settleSessionInput.safeParse(raw);
+  if (
+    !parsed.success ||
+    typeof parsed.data.sessionId !== 'string' ||
+    !Types.ObjectId.isValid(parsed.data.sessionId)
+  ) {
     return { ok: false, error: 'Unknown session.' };
   }
-  if (input.method !== 'cash' && input.method !== 'terminal') {
+  if (parsed.data.method !== 'cash' && parsed.data.method !== 'terminal') {
     return { ok: false, error: 'Choose cash or terminal.' };
   }
+  const input = { sessionId: parsed.data.sessionId, method: parsed.data.method };
 
   let sessionUser;
   try {
@@ -146,7 +157,7 @@ export async function settleSessionAtCounterAction(
   }
 
   try {
-    const currency = restaurant.currency as CurrencyCode;
+    const currency = parseCurrencyCode(restaurant.currency);
     const totalMinor = rounds.reduce((sum, round) => sum + round.totalMinor, 0);
     const items = rounds.flatMap((round) =>
       round.items.map((item) => ({

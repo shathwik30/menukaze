@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
-import { channels } from '@menukaze/realtime';
+import { channels, isTableStatusChangedEvent, isWaiterCalledEvent } from '@menukaze/realtime';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   createTableAction,
@@ -87,23 +87,9 @@ export function TablesManager({ restaurantId, tables }: Props) {
     };
 
     const handler = (message: Ably.Message) => {
-      const payload = message.data as
-        | {
-            type: 'table.status_changed';
-            tableId: string;
-            status: ManagerTable['status'];
-            changedAt: string;
-            reason?: string;
-          }
-        | {
-            type: 'waiter.called';
-            tableId: string;
-            sessionId: string;
-            calledAt: string;
-            reason?: 'call_waiter' | 'payment_help';
-          };
+      const payload: unknown = message.data;
 
-      if (payload.type === 'table.status_changed') {
+      if (isTableStatusChangedEvent(payload)) {
         setRows((prev) =>
           prev.map((table) =>
             table.id === payload.tableId ? { ...table, status: payload.status } : table,
@@ -120,7 +106,7 @@ export function TablesManager({ restaurantId, tables }: Props) {
         }
       }
 
-      if (payload.type === 'waiter.called') {
+      if (isWaiterCalledEvent(payload)) {
         const tableName =
           rowsRef.current.find((table) => table.id === payload.tableId)?.name ?? 'Table';
         upsertAlert(

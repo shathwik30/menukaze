@@ -4,6 +4,8 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { requireSession } from '@/lib/session';
 import { RestaurantProfileForm } from './restaurant-profile-form';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Onboarding root — wizard entry point.
  *

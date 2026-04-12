@@ -14,6 +14,16 @@ import {
 } from '@/app/actions/settings';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+const DAY_KEYS = [
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+  'sun',
+] as const satisfies readonly DayKey[];
+
 interface DayHours {
   day: DayKey;
   closed: boolean;
@@ -353,7 +363,7 @@ function HoursSection({
   onSubmit: (hours: DayHours[]) => void;
 }) {
   const [hours, setHours] = useState<DayHours[]>(
-    (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as DayKey[]).map((day) => {
+    DAY_KEYS.map((day) => {
       const existing = initial.find((h) => h.day === day);
       return existing ?? { day, closed: false, open: '09:00', close: '22:00' };
     }),

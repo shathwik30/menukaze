@@ -37,6 +37,7 @@ interface Props {
 }
 
 const ROLE_OPTIONS: StaffRole[] = ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'];
+const ROLE_OPTION_SET: ReadonlySet<string> = new Set(ROLE_OPTIONS);
 const CUSTOM_FLAG_OPTIONS = FLAGS.filter((flag) => !OWNER_ONLY_FLAGS.has(flag));
 const FLAG_GROUPS = Array.from(
   CUSTOM_FLAG_OPTIONS.reduce((groups, flag) => {
@@ -50,6 +51,10 @@ const FLAG_GROUPS = Array.from(
 
 function titleCase(value: string) {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function isStaffRole(value: string): value is StaffRole {
+  return ROLE_OPTION_SET.has(value);
 }
 
 function describeRole(role: StaffRole, customPermissions: string[]) {
@@ -149,7 +154,8 @@ function InviteForm({
           <select
             value={inviteRole}
             onChange={(e) => {
-              const nextRole = e.target.value as StaffRole;
+              if (!isStaffRole(e.target.value)) return;
+              const nextRole = e.target.value;
               setInviteRole(nextRole);
               if (nextRole !== 'custom') setCustomPermissions([]);
             }}
@@ -226,7 +232,8 @@ function MemberRow({
             value={role}
             disabled={pending || isCurrentUser}
             onChange={(e) => {
-              const nextRole = e.target.value as StaffRole;
+              if (!isStaffRole(e.target.value)) return;
+              const nextRole = e.target.value;
               setRole(nextRole);
               if (nextRole !== 'custom') setCustomPermissions([]);
             }}

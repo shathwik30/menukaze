@@ -66,7 +66,7 @@ export async function requireSession(): Promise<CurrentSession> {
 export async function requireOnboarded(): Promise<CurrentSession & { restaurantId: string }> {
   const session = await requireSession();
   if (!session.restaurantId) redirect('/onboarding');
-  return session as CurrentSession & { restaurantId: string };
+  return { ...session, restaurantId: session.restaurantId };
 }
 
 /**

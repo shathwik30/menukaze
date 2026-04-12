@@ -11,12 +11,13 @@ import { computeOpenStatus, formatTodayHours } from './hours';
  */
 
 type Hours = RestaurantDoc['hours'];
+type RestaurantHours = Pick<RestaurantDoc, 'hours' | 'timezone'>;
 
-function restaurant(hours: Hours): RestaurantDoc {
+function restaurant(hours: Hours): RestaurantHours {
   return {
     timezone: 'UTC',
     hours,
-  } as unknown as RestaurantDoc;
+  };
 }
 
 const mondayNoon = new Date('2026-04-13T12:00:00Z');
