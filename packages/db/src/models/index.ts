@@ -61,6 +61,35 @@ export {
   type TableSessionStatus,
   type TableSessionParticipant,
 } from './table-session';
+export { superAdminModel, type SuperAdminDoc, type SuperAdminModel } from './super-admin';
+export { planModel, type PlanDoc, type PlanModel } from './plan';
+export {
+  subscriptionModel,
+  type SubscriptionDoc,
+  type SubscriptionModel,
+  type SubscriptionStatus,
+  type SubscriptionOverrides,
+} from './subscription';
+export {
+  invoiceModel,
+  type InvoiceDoc,
+  type InvoiceModel,
+  type InvoiceStatus,
+  type InvoiceLineItem,
+  type DunningAttempt,
+} from './invoice';
+export { featureFlagModel, type FeatureFlagDoc, type FeatureFlagModel } from './feature-flag';
+export {
+  platformAuditLogModel,
+  type PlatformAuditLogDoc,
+  type PlatformAuditLogModel,
+} from './platform-audit-log';
+export {
+  promoCodeModel,
+  type PromoCodeDoc,
+  type PromoCodeModel,
+  type PromoCodeType,
+} from './promo-code';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -73,6 +102,13 @@ import { tableModel } from './table';
 import { orderModel } from './order';
 import { staffInviteModel } from './staff-invite';
 import { tableSessionModel } from './table-session';
+import { superAdminModel } from './super-admin';
+import { planModel } from './plan';
+import { subscriptionModel } from './subscription';
+import { invoiceModel } from './invoice';
+import { featureFlagModel } from './feature-flag';
+import { platformAuditLogModel } from './platform-audit-log';
+import { promoCodeModel } from './promo-code';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -90,6 +126,13 @@ export function getModels(connection: Connection) {
     Order: orderModel(connection),
     StaffInvite: staffInviteModel(connection),
     TableSession: tableSessionModel(connection),
+    SuperAdmin: superAdminModel(connection),
+    Plan: planModel(connection),
+    Subscription: subscriptionModel(connection),
+    Invoice: invoiceModel(connection),
+    FeatureFlag: featureFlagModel(connection),
+    PlatformAuditLog: platformAuditLogModel(connection),
+    PromoCode: promoCodeModel(connection),
   };
 }
 
