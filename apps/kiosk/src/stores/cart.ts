@@ -38,7 +38,7 @@ interface KioskCartState {
 // Plain in-memory store — no persistence needed on a kiosk.
 // The state lives as long as the browser tab is open; a hard refresh
 // resets everything cleanly, which is the correct kiosk behaviour.
-export const useKioskCart = create<KioskCartState>()((set, get) => ({
+export const useKioskCart = create<KioskCartState>((set, get) => ({
   restaurantId: null,
   currency: null,
   locale: null,
