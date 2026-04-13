@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { serializeTaxRules } from '@/lib/tax-rules';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { CheckoutClient } from './checkout-client';
 
@@ -17,7 +18,7 @@ export default async function KioskCheckoutPage() {
       currency={restaurant.currency}
       locale={restaurant.locale}
       razorpayReady={razorpayReady}
-      taxRules={restaurant.taxRules ?? []}
+      taxRules={serializeTaxRules(restaurant.taxRules)}
       minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
       estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
     />

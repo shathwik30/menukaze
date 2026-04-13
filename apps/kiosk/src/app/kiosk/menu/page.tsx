@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { filterActiveMenus, formatMoney, parseCurrencyCode } from '@menukaze/shared';
+import { serializeTaxRules } from '@/lib/tax-rules';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { MenuClient, type KioskCategory, type KioskItem, type KioskMenu } from './menu-client';
 
@@ -27,6 +28,7 @@ export default async function KioskMenuPage() {
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
+  const taxRules = serializeTaxRules(restaurant.taxRules);
   const itemNameById = new Map(items.map((i) => [String(i._id), i.name]));
 
   const kioskMenus: KioskMenu[] = activeMenus.map((m) => ({
@@ -71,7 +73,7 @@ export default async function KioskMenuPage() {
       menus={kioskMenus}
       categories={kioskCategories}
       items={kioskItems}
-      taxRules={restaurant.taxRules ?? []}
+      taxRules={taxRules}
       minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
     />
   );
