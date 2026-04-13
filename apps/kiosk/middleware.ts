@@ -24,25 +24,9 @@ function buildCsp(nonce: string): string {
 export function middleware(request: NextRequest): NextResponse {
   const parsed = parseHost(request.headers.get('host'));
   const reqHeaders = new Headers(request.headers);
-
-  // A kiosk device is always locked to one restaurant. When running on
-  // localhost (apex) or when no subdomain can be parsed, fall back to the
-  // KIOSK_RESTAURANT_SLUG env var so the tenant is resolved automatically.
-  const fallbackSlug = process.env['KIOSK_RESTAURANT_SLUG'];
-
-  if (parsed.kind === 'subdomain') {
-    reqHeaders.set('x-tenant-kind', 'subdomain');
-    reqHeaders.set('x-tenant-slug', parsed.slug);
-  } else if (parsed.kind === 'custom') {
-    reqHeaders.set('x-tenant-kind', 'custom');
-    reqHeaders.set('x-tenant-host', parsed.host);
-  } else if (fallbackSlug) {
-    // apex / localhost — inject the hardcoded restaurant slug
-    reqHeaders.set('x-tenant-kind', 'subdomain');
-    reqHeaders.set('x-tenant-slug', fallbackSlug);
-  } else {
-    reqHeaders.set('x-tenant-kind', parsed.kind);
-  }
+  reqHeaders.set('x-tenant-kind', parsed.kind);
+  if (parsed.kind === 'subdomain') reqHeaders.set('x-tenant-slug', parsed.slug);
+  if (parsed.kind === 'custom') reqHeaders.set('x-tenant-host', parsed.host);
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   reqHeaders.set('x-nonce', nonce);
