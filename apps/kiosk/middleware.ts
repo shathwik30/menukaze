@@ -1,13 +1,41 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { parseHost } from '@menukaze/tenant/host';
 
+function buildCsp(nonce: string): string {
+  const directives: Record<string, string> = {
+    'default-src': "'self'",
+    'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://checkout.razorpay.com`,
+    'style-src': "'self' 'unsafe-inline'",
+    'img-src': "'self' data: blob: https://utfs.io https://cdn.razorpay.com",
+    'font-src': "'self' data:",
+    'connect-src':
+      "'self' https://realtime.ably.io wss://realtime.ably.io https://rest.ably.io https://api.razorpay.com https://lumberjack.razorpay.com",
+    'frame-src': 'https://api.razorpay.com',
+    'object-src': "'none'",
+    'base-uri': "'self'",
+    'frame-ancestors': "'none'",
+    'upgrade-insecure-requests': '',
+  };
+  return Object.entries(directives)
+    .map(([k, v]) => (v ? `${k} ${v}` : k))
+    .join('; ');
+}
+
 export function middleware(request: NextRequest): NextResponse {
   const parsed = parseHost(request.headers.get('host'));
-  const headers = new Headers(request.headers);
-  headers.set('x-tenant-kind', parsed.kind);
-  if (parsed.kind === 'subdomain') headers.set('x-tenant-slug', parsed.slug);
-  if (parsed.kind === 'custom') headers.set('x-tenant-host', parsed.host);
-  return NextResponse.next({ request: { headers } });
+  const reqHeaders = new Headers(request.headers);
+  reqHeaders.set('x-tenant-kind', parsed.kind);
+  if (parsed.kind === 'subdomain') reqHeaders.set('x-tenant-slug', parsed.slug);
+  if (parsed.kind === 'custom') reqHeaders.set('x-tenant-host', parsed.host);
+
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  reqHeaders.set('x-nonce', nonce);
+
+  const response = NextResponse.next({ request: { headers: reqHeaders } });
+  response.headers.set('Content-Security-Policy', buildCsp(nonce));
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return response;
 }
 
 export const config = {

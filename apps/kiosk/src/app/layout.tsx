@@ -10,7 +10,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-background text-foreground min-h-screen overflow-hidden antialiased">
+      {/*
+       * overflow-hidden prevents pull-to-refresh and rubber-band scrolling on
+       * iOS / Android kiosk tablets. touch-manipulation removes the 300 ms tap
+       * delay on touch screens.
+       */}
+      <body
+        className="bg-background text-foreground h-screen w-screen select-none overflow-hidden antialiased"
+        style={{ touchAction: 'manipulation' }}
+      >
         {children}
       </body>
     </html>

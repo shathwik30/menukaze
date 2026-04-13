@@ -1,0 +1,81 @@
+'use client';
+
+import { usePinExit } from '@/hooks/use-pin-exit';
+
+/**
+ * Invisible tap-zone (top-right corner) + PIN modal.
+ * Mount this once in the kiosk layout so it is always present.
+ */
+export function PinOverlay() {
+  const { showPin, pin, error, appendDigit, backspace, submitPin, dismiss } = usePinExit();
+
+  return (
+    <>
+      {/* Invisible 64×64 tap zone — 5 taps opens PIN */}
+      <div
+        id="kiosk-exit-trigger"
+        className="fixed right-0 top-0 z-50 h-16 w-16 cursor-default"
+        aria-hidden="true"
+      />
+
+      {showPin ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="mb-4 text-center text-xl font-bold text-slate-900">Staff PIN</h2>
+
+            <div className="mb-4 flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-3xl tracking-[0.5em] text-slate-900">
+              {pin.replace(/./g, '●') || (
+                <span className="text-base text-slate-300">Enter PIN</span>
+              )}
+            </div>
+
+            {error ? <p className="mb-3 text-center text-sm text-red-600">{error}</p> : null}
+
+            <div className="grid grid-cols-3 gap-2">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => appendDigit(d)}
+                  className="h-14 rounded-xl bg-slate-100 text-2xl font-semibold text-slate-900 active:bg-slate-200"
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={dismiss}
+                className="h-14 rounded-xl bg-slate-100 text-sm font-medium text-slate-500 active:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => appendDigit('0')}
+                className="h-14 rounded-xl bg-slate-100 text-2xl font-semibold text-slate-900 active:bg-slate-200"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={backspace}
+                className="h-14 rounded-xl bg-slate-100 text-xl font-medium text-slate-600 active:bg-slate-200"
+              >
+                ⌫
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void submitPin()}
+              disabled={pin.length === 0}
+              className="mt-4 h-12 w-full rounded-xl bg-slate-900 text-base font-semibold text-white active:bg-slate-700 disabled:opacity-40"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
