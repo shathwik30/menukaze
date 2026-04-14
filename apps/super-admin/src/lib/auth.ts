@@ -8,9 +8,22 @@ import { nextCookies } from 'better-auth/next-js';
  */
 let cached: Promise<AuthInstance> | null = null;
 
+const LOCAL_SUPER_ADMIN_ORIGINS = [
+  'http://localhost:3004',
+  'http://127.0.0.1:3004',
+  'http://admin.localhost.menukaze.dev:3004',
+];
+
+function getSuperAdminAuthUrl(): string {
+  return process.env['SUPER_ADMIN_BETTER_AUTH_URL'] ?? 'http://localhost:3004';
+}
+
 export function getAuth(): Promise<AuthInstance> {
+  const baseURL = getSuperAdminAuthUrl();
+
   cached ??= createAuth({
-    baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3004',
+    baseURL,
+    trustedOrigins: Array.from(new Set([baseURL, ...LOCAL_SUPER_ADMIN_ORIGINS])),
     plugins: [nextCookies()],
   });
   return cached;

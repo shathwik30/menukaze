@@ -169,7 +169,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     };
   }
 
-  const { surchargeMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
+  const { surchargeMinor, taxMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
   const totalMinor = subtotalMinor + surchargeMinor;
   if (totalMinor <= 0) return { ok: false, error: 'Your cart is empty.' };
 
@@ -207,7 +207,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     },
     items: snapshotLines,
     subtotalMinor,
-    taxMinor: 0,
+    taxMinor,
     tipMinor: 0,
     totalMinor,
     currency: restaurant.currency,

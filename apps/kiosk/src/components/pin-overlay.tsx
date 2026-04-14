@@ -11,7 +11,7 @@ export function PinOverlay() {
 
   return (
     <>
-      {/* Invisible 64×64 tap zone — 5 taps opens PIN */}
+      {/* Invisible 64 x 64 tap zone. 5 taps opens PIN. */}
       <div
         id="kiosk-exit-trigger"
         className="fixed right-0 top-0 z-50 h-16 w-16 cursor-default"
@@ -19,13 +19,13 @@ export function PinOverlay() {
       />
 
       {showPin ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-72 rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="mb-4 text-center text-xl font-bold text-slate-900">Staff PIN</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6">
+          <div className="w-80 rounded-lg bg-white p-6 shadow-2xl">
+            <h2 className="mb-4 text-center text-xl font-bold text-zinc-950">Staff PIN</h2>
 
-            <div className="mb-4 flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-3xl tracking-[0.5em] text-slate-900">
+            <div className="mb-4 flex h-14 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-3xl tracking-[0.5em] text-zinc-950">
               {pin.replace(/./g, '●') || (
-                <span className="text-base text-slate-300">Enter PIN</span>
+                <span className="text-base tracking-normal text-zinc-400">Enter PIN</span>
               )}
             </div>
 
@@ -37,7 +37,7 @@ export function PinOverlay() {
                   key={d}
                   type="button"
                   onClick={() => appendDigit(d)}
-                  className="h-14 rounded-xl bg-slate-100 text-2xl font-semibold text-slate-900 active:bg-slate-200"
+                  className="h-14 rounded-lg bg-zinc-100 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
                 >
                   {d}
                 </button>
@@ -45,21 +45,21 @@ export function PinOverlay() {
               <button
                 type="button"
                 onClick={dismiss}
-                className="h-14 rounded-xl bg-slate-100 text-sm font-medium text-slate-500 active:bg-slate-200"
+                className="h-14 rounded-lg bg-zinc-100 text-sm font-medium text-zinc-600 active:bg-zinc-200"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => appendDigit('0')}
-                className="h-14 rounded-xl bg-slate-100 text-2xl font-semibold text-slate-900 active:bg-slate-200"
+                className="h-14 rounded-lg bg-zinc-100 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
               >
                 0
               </button>
               <button
                 type="button"
                 onClick={backspace}
-                className="h-14 rounded-xl bg-slate-100 text-xl font-medium text-slate-600 active:bg-slate-200"
+                className="h-14 rounded-lg bg-zinc-100 text-xl font-medium text-zinc-700 active:bg-zinc-200"
               >
                 ⌫
               </button>
@@ -69,7 +69,7 @@ export function PinOverlay() {
               type="button"
               onClick={() => void submitPin()}
               disabled={pin.length === 0}
-              className="mt-4 h-12 w-full rounded-xl bg-slate-900 text-base font-semibold text-white active:bg-slate-700 disabled:opacity-40"
+              className="mt-4 h-12 w-full rounded-lg bg-zinc-950 text-base font-semibold text-white active:bg-zinc-800 disabled:opacity-40"
             >
               Confirm
             </button>

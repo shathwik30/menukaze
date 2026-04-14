@@ -4,38 +4,53 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
 import { isOrderStatusChangedEvent, type OrderStatus } from '@menukaze/realtime';
+import { formatPickupNumber } from '@menukaze/shared';
 
-const RESET_AFTER_MS = 30_000; // 30 s then back to attract screen
+const RESET_AFTER_MS = 120_000;
 
 interface Props {
   restaurantId: string;
   orderId: string;
   publicOrderId: string;
+  initialStatus: OrderStatus;
   customerName: string;
   totalLabel: string;
   itemLines: Array<{ name: string; quantity: number }>;
   estimatedPrepMinutes: number;
+  readyTimeLabel: string;
+  orderTypeLabel: string;
+  paid: boolean;
 }
 
 const STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
   received: 'Order received',
-  confirmed: 'Confirmed — being prepared',
+  confirmed: 'Confirmed',
   preparing: 'Being prepared',
-  ready: 'Ready for collection!',
+  ready: 'Ready for collection',
+  served: 'Served',
+  out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 };
+
+const STATUS_ORDER: OrderStatus[] = ['received', 'confirmed', 'preparing', 'ready', 'completed'];
 
 export function ConfirmClient({
   restaurantId,
   orderId,
   publicOrderId,
+  initialStatus,
   customerName,
   totalLabel,
   itemLines,
   estimatedPrepMinutes,
+  readyTimeLabel,
+  orderTypeLabel,
+  paid,
 }: Props) {
   const router = useRouter();
-  const [status, setStatus] = useState<OrderStatus>('confirmed');
+  const [status, setStatus] = useState<OrderStatus>(initialStatus);
   const [countdown, setCountdown] = useState(Math.round(RESET_AFTER_MS / 1000));
 
   // Subscribe to order status updates via Ably
@@ -64,7 +79,7 @@ export function ConfirmClient({
     const tick = window.setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          router.push('/kiosk');
+          router.replace('/kiosk');
           return 0;
         }
         return c - 1;
@@ -74,47 +89,120 @@ export function ConfirmClient({
   }, [router]);
 
   const statusReady = status === 'ready';
+  const currentRank = Math.max(STATUS_ORDER.indexOf(status), paid ? 1 : 0);
+  const pickupNumber = formatPickupNumber(publicOrderId);
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-8 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-      {/* Token number */}
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-lg font-medium uppercase tracking-widest text-white/60">Order number</p>
-        <p className="text-[120px] font-extrabold leading-none tracking-tight text-white">
-          {publicOrderId}
-        </p>
-      </div>
+    <div className="grid h-screen grid-cols-[1.1fr_0.9fr] bg-zinc-950 text-white">
+      <main className="flex min-h-0 flex-col justify-between px-14 py-12">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.28em] text-emerald-300">
+            Order confirmed
+          </p>
+          <h1 className="mt-4 text-6xl font-black leading-none tracking-tight">
+            Keep this number.
+          </h1>
+        </div>
 
-      {/* Status badge */}
-      <div
-        className={`rounded-2xl px-6 py-3 text-xl font-bold ${
-          statusReady ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'
-        }`}
-      >
-        {STATUS_LABEL[status] ?? status}
-      </div>
+        <div>
+          <p className="text-xl font-bold uppercase tracking-[0.22em] text-white/55">
+            Pickup number
+          </p>
+          <div className="mt-4 flex items-end gap-5">
+            <p className="text-[190px] font-black leading-none tracking-tight">{pickupNumber}</p>
+          </div>
+          <p className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white/75">
+            Listen for this number. Your full reference is {publicOrderId}.
+          </p>
+        </div>
 
-      {/* Summary */}
-      <div className="flex max-w-sm flex-col items-center gap-1 text-center">
-        <p className="text-white/70">
-          Hi {customerName} · {totalLabel}
-        </p>
-        <p className="text-sm text-white/50">
-          {itemLines.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
-        </p>
-        <p className="mt-2 text-sm text-white/50">Ready in ~{estimatedPrepMinutes} minutes</p>
-      </div>
+        <div className="grid max-w-3xl grid-cols-3 gap-3">
+          <div className="rounded-lg border border-white/15 bg-white/5 p-4">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/45">Name</p>
+            <p className="mt-2 text-2xl font-black">{customerName}</p>
+          </div>
+          <div className="rounded-lg border border-white/15 bg-white/5 p-4">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/45">Total</p>
+            <p className="mt-2 font-mono text-2xl font-black">{totalLabel}</p>
+          </div>
+          <div className="rounded-lg border border-white/15 bg-white/5 p-4">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/45">Type</p>
+            <p className="mt-2 text-2xl font-black">{orderTypeLabel}</p>
+          </div>
+        </div>
+      </main>
 
-      {/* Auto-reset notice */}
-      <p className="text-sm text-white/30">New order in {countdown}s…</p>
+      <aside className="flex min-h-0 flex-col bg-white text-zinc-950">
+        <div className="border-b border-zinc-200 p-6">
+          <div
+            className={`inline-flex rounded-lg px-4 py-2 text-base font-black ${
+              statusReady ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-950 text-white'
+            }`}
+          >
+            {STATUS_LABEL[status] ?? status}
+          </div>
+          <h2 className="mt-5 text-4xl font-black">Listen for {pickupNumber}</h2>
+          <p className="mt-3 text-lg leading-relaxed text-zinc-600">
+            Full reference {publicOrderId}. Estimated ready time is {readyTimeLabel}. Most orders
+            take about {estimatedPrepMinutes} minutes.
+          </p>
+        </div>
 
-      <button
-        type="button"
-        onClick={() => router.push('/kiosk')}
-        className="mt-2 rounded-2xl bg-white/10 px-8 py-3 text-base font-semibold text-white active:bg-white/20"
-      >
-        Start new order
-      </button>
+        <div className="border-b border-zinc-200 p-6">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500">Progress</p>
+          <div className="mt-5 flex flex-col gap-3">
+            {STATUS_ORDER.slice(0, 4).map((step, index) => {
+              const reached = currentRank >= index;
+              return (
+                <div key={step} className="flex items-center gap-3">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-black ${
+                      reached ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-100 text-zinc-400'
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                  <span
+                    className={reached ? 'text-lg font-black' : 'text-lg font-bold text-zinc-400'}
+                  >
+                    {STATUS_LABEL[step] ?? step}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
+            Order items
+          </p>
+          <ul className="mt-4 flex flex-col gap-3">
+            {itemLines.map((item, index) => (
+              <li
+                key={`${item.name}-${index}`}
+                className="flex justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-base"
+              >
+                <span className="font-bold">{item.name}</span>
+                <span className="font-mono font-black">x{item.quantity}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="border-t border-zinc-200 p-6">
+          <p className="mb-3 text-center text-sm font-bold text-zinc-500">
+            New order screen in {countdown}s
+          </p>
+          <button
+            type="button"
+            onClick={() => router.replace('/kiosk')}
+            className="h-16 w-full rounded-lg bg-zinc-950 text-xl font-black text-white active:bg-zinc-800"
+          >
+            Start new order
+          </button>
+        </div>
+      </aside>
     </div>
   );
 }

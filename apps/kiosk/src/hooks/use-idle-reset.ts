@@ -6,10 +6,10 @@ import { useKioskCart } from '@/stores/cart';
 
 /**
  * Resets the kiosk to the attract screen after `timeoutMs` ms of inactivity.
- * Uses a stable handler ref so event listeners are only ever added once,
- * preventing accumulation across re-renders.
+ * `enabled` lets payment flows pause the reset while an external checkout
+ * modal owns the customer's attention.
  */
-export function useIdleReset(timeoutMs = 90_000) {
+export function useIdleReset(timeoutMs = 90_000, enabled = true) {
   const router = useRouter();
   const clear = useKioskCart((s) => s.clear);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -23,7 +23,14 @@ export function useIdleReset(timeoutMs = 90_000) {
   timeoutRef.current = timeoutMs;
 
   useEffect(() => {
-    // This stable function is added once and never replaced
+    if (!enabled) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+      return;
+    }
+
+    // The handler reads current values from refs, so toggling enabled does not
+    // capture stale router/cart state.
     function handleActivity() {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
@@ -40,5 +47,5 @@ export function useIdleReset(timeoutMs = 90_000) {
       events.forEach((e) => window.removeEventListener(e, handleActivity));
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, []); // empty — runs once, stable reference guaranteed by refs above
+  }, [enabled]);
 }

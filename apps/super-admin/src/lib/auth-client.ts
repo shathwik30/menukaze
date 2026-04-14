@@ -9,5 +9,5 @@ export const authClient = createAuthClient({
   baseURL:
     typeof window !== 'undefined'
       ? window.location.origin
-      : (process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3004'),
+      : (process.env['SUPER_ADMIN_BETTER_AUTH_URL'] ?? 'http://localhost:3004'),
 });

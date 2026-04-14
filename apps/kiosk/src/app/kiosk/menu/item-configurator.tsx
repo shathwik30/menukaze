@@ -105,32 +105,31 @@ export function ItemConfigurator({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
       onClick={onClose}
     >
       <div
-        className="bg-background w-full max-w-lg rounded-t-3xl p-6 shadow-2xl sm:rounded-3xl"
+        className="w-full max-w-2xl rounded-t-lg bg-white p-6 text-zinc-950 shadow-2xl sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold">{name}</h2>
-            {description ? (
-              <p className="text-muted-foreground mt-1 text-sm">{description}</p>
-            ) : null}
-            <p className="text-muted-foreground mt-1 text-sm">Base {fmt(priceMinor)}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
+              Customize
+            </p>
+            <h2 className="mt-1 text-3xl font-black">{name}</h2>
+            {description ? <p className="mt-2 text-base text-zinc-600">{description}</p> : null}
+            <p className="mt-2 text-sm font-bold text-zinc-500">Base {fmt(priceMinor)}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="border-input rounded-xl border px-4 py-2 text-sm font-medium"
+            className="h-12 rounded-lg border border-zinc-300 px-4 text-sm font-bold active:bg-zinc-100"
           >
             Close
           </button>
         </div>
 
-        {/* Modifier groups */}
         <div className="flex max-h-[55vh] flex-col gap-4 overflow-y-auto pr-1">
           {modifiers.map((group) => {
             const optionNames = selected[group.name] ?? [];
@@ -144,13 +143,13 @@ export function ItemConfigurator({
                     ? 'Optional'
                     : `Optional · up to ${limit}`;
             return (
-              <section key={group.name} className="border-border rounded-2xl border p-4">
+              <section key={group.name} className="rounded-lg border border-zinc-200 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <p className="font-semibold">{group.name}</p>
-                    <p className="text-muted-foreground text-xs">{label}</p>
+                    <p className="text-lg font-black">{group.name}</p>
+                    <p className="text-sm font-medium text-zinc-500">{label}</p>
                   </div>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-black text-zinc-600">
                     {optionNames.length}/{limit}
                   </span>
                 </div>
@@ -160,20 +159,22 @@ export function ItemConfigurator({
                     return (
                       <label
                         key={option.name}
-                        className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-sm transition-colors ${
-                          active ? 'border-foreground bg-accent' : 'border-input'
+                        className={`flex min-h-14 cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors ${
+                          active
+                            ? 'border-emerald-600 bg-emerald-50'
+                            : 'border-zinc-200 bg-white active:bg-zinc-50'
                         }`}
                       >
                         <span className="flex items-center gap-3">
                           <input
                             type="checkbox"
-                            className="h-5 w-5"
+                            className="h-6 w-6 accent-emerald-600"
                             checked={active}
                             onChange={() => toggleOption(group, option.name)}
                           />
-                          <span className="text-base">{option.name}</span>
+                          <span className="text-base font-bold">{option.name}</span>
                         </span>
-                        <span className="font-mono text-sm">
+                        <span className="font-mono text-sm font-bold text-zinc-600">
                           {option.priceMinor === 0 ? 'Included' : `+${option.priceLabel}`}
                         </span>
                       </label>
@@ -186,18 +187,20 @@ export function ItemConfigurator({
         </div>
 
         {error ? (
-          <p className="bg-destructive/10 text-destructive mt-4 rounded-xl px-4 py-2 text-sm">
+          <p className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
             {error}
           </p>
         ) : null}
 
-        {/* Footer */}
         <div className="mt-5 flex items-center justify-between gap-4">
-          <span className="text-xl font-bold">{fmt(previewTotal)}</span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Item total</p>
+            <span className="font-mono text-2xl font-black">{fmt(previewTotal)}</span>
+          </div>
           <button
             type="button"
             onClick={addToCart}
-            className="bg-primary text-primary-foreground h-14 flex-1 rounded-2xl text-lg font-bold active:opacity-80"
+            className="h-16 flex-1 rounded-lg bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400"
           >
             Add to order
           </button>

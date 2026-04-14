@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
-import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney, formatPickupNumber } from '@menukaze/shared';
 import { requirePageFlag } from '@/lib/session';
 import { OrderStatusControl } from './order-status-control';
 
@@ -29,12 +29,18 @@ export default async function DashboardOrderDetailPage({
 
   const currency = currencyCodeOrDefault(restaurant?.currency ?? order.currency);
   const locale = restaurant?.locale ?? 'en-US';
+  const pickupNumber = formatPickupNumber(order.publicOrderId);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{order.publicOrderId}</h1>
+          <h1 className="text-2xl font-bold">
+            #{pickupNumber}{' '}
+            <span className="text-muted-foreground font-mono text-base font-medium">
+              {order.publicOrderId}
+            </span>
+          </h1>
           <p className="text-muted-foreground text-sm">
             {order.customer.name} · {order.customer.email}
           </p>

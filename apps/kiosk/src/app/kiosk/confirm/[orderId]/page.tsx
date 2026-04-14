@@ -28,6 +28,10 @@ export default async function KioskConfirmPage({ params }: PageProps) {
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
   const totalLabel = formatMoney(order.totalMinor, currency, locale);
+  const readyTimeLabel = new Intl.DateTimeFormat(locale, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(order.estimatedReadyAt);
 
   const itemLines = order.items.map((i: { name: string; quantity: number }) => ({
     name: i.name,
@@ -39,10 +43,14 @@ export default async function KioskConfirmPage({ params }: PageProps) {
       restaurantId={String(restaurant._id)}
       orderId={orderId}
       publicOrderId={order.publicOrderId}
+      initialStatus={order.status}
       customerName={order.customer.name}
       totalLabel={totalLabel}
       itemLines={itemLines}
       estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
+      readyTimeLabel={readyTimeLabel}
+      orderTypeLabel={order.type === 'dine_in' ? 'Dine in' : 'Takeaway'}
+      paid={order.payment.status === 'succeeded'}
     />
   );
 }

@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { computeTax, type TaxRule } from '@menukaze/shared';
+import { computeTax, formatPickupNumber, type TaxRule } from '@menukaze/shared';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
-import { PinOverlay } from '@/components/pin-overlay';
 import { createKioskOrderAction, verifyKioskPaymentAction } from '@/app/actions/kiosk';
 
 interface RazorpayOpts {
@@ -44,38 +43,57 @@ interface Props {
   estimatedPrepMinutes: number;
 }
 
-// ── Numeric on-screen keyboard ──────────────────────────────────────────────
-function NumPad({
-  onDigit,
+function NameKeyboard({
+  onLetter,
   onBack,
   onSpace,
+  onClear,
 }: {
-  onDigit: (d: string) => void;
+  onLetter: (d: string) => void;
   onBack: () => void;
   onSpace: () => void;
+  onClear: () => void;
 }) {
-  const rows = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['⌫', '0', ' '],
-  ];
+  const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].map((row) => row.split(''));
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {rows.flat().map((key, i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => {
-            if (key === '⌫') onBack();
-            else if (key === ' ') onSpace();
-            else onDigit(key);
-          }}
-          className="h-14 rounded-xl bg-slate-100 text-xl font-semibold text-slate-900 active:bg-slate-200"
-        >
-          {key === ' ' ? 'Space' : key}
-        </button>
+    <div className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <div key={row.join('')} className="grid grid-cols-10 gap-2">
+          {row.map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onLetter(key)}
+              className="h-12 rounded-lg bg-zinc-100 text-lg font-black text-zinc-950 active:bg-zinc-200"
+            >
+              {key}
+            </button>
+          ))}
+        </div>
       ))}
+      <div className="grid grid-cols-[1fr_2fr_1fr] gap-2">
+        <button
+          type="button"
+          onClick={onClear}
+          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={onSpace}
+          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+        >
+          Space
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -91,7 +109,6 @@ export function CheckoutClient({
   estimatedPrepMinutes,
 }: Props) {
   const router = useRouter();
-  useIdleReset();
 
   const lines = useKioskCart((s) => s.lines);
   const orderMode = useKioskCart((s) => s.orderMode);
@@ -100,6 +117,9 @@ export function CheckoutClient({
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingReference, setPendingReference] = useState<string | null>(null);
+  const [completingPayment, setCompletingPayment] = useState(false);
+  useIdleReset(90_000, !submitting && !completingPayment);
 
   const fmt = (minor: number) =>
     new Intl.NumberFormat(locale, {
@@ -110,8 +130,9 @@ export function CheckoutClient({
 
   // Bounce if cart is empty or no mode selected
   useEffect(() => {
+    if (completingPayment) return;
     if (!orderMode || lines.length === 0) router.replace('/kiosk/menu');
-  }, [orderMode, lines.length, router]);
+  }, [completingPayment, orderMode, lines.length, router]);
 
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
   const { surchargeMinor, taxMinor } = useMemo(
@@ -123,21 +144,19 @@ export function CheckoutClient({
   const belowMinimum = minimumOrderMinor > 0 && subtotal < minimumOrderMinor;
 
   async function pay() {
-    if (!name.trim()) {
-      setError('Please enter your name.');
-      return;
-    }
     if (belowMinimum) {
       setError(`Minimum order is ${fmt(minimumOrderMinor)}.`);
       return;
     }
     setError(null);
+    setPendingReference(null);
     setSubmitting(true);
+    const customerName = name.trim() || 'Guest';
 
     const intent = await createKioskOrderAction({
       restaurantId,
       orderMode: orderMode ?? 'dine_in',
-      customerName: name.trim(),
+      customerName,
       lines: lines.map((l) => ({
         itemId: l.itemId,
         quantity: l.quantity,
@@ -151,6 +170,7 @@ export function CheckoutClient({
       setSubmitting(false);
       return;
     }
+    setPendingReference(intent.publicOrderId);
 
     if (!window.Razorpay) {
       setError('Razorpay failed to load. Please try again or call staff.');
@@ -178,8 +198,9 @@ export function CheckoutClient({
             setSubmitting(false);
             return;
           }
+          setCompletingPayment(true);
           clear();
-          router.push(`/kiosk/confirm/${verified.orderId}`);
+          router.replace(`/kiosk/confirm/${verified.orderId}`);
         })();
       },
       modal: {
@@ -191,118 +212,162 @@ export function CheckoutClient({
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-      <div className="flex h-screen flex-col bg-white">
-        {/* Header */}
-        <header className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
+      <div className="grid h-screen grid-rows-[88px_minmax(0,1fr)] bg-zinc-50 text-zinc-950">
+        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6">
           <button
             type="button"
             onClick={() => router.push('/kiosk/menu')}
-            className="text-muted-foreground text-sm underline"
+            className="h-14 rounded-lg border border-zinc-300 px-5 text-lg font-bold text-zinc-700 active:bg-zinc-100"
           >
-            ← Back to menu
+            Back to menu
           </button>
-          <span className="font-semibold">Review & Pay</span>
-          <div className="w-28" />
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.26em] text-emerald-700">
+              Step 3 of 3
+            </p>
+            <h1 className="text-2xl font-black">Review and pay</h1>
+          </div>
+          <div className="rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white">
+            {orderMode === 'dine_in' ? 'Dine in' : 'Takeaway'}
+          </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
-          {/* Order summary (left) */}
-          <div className="flex w-1/2 flex-col overflow-y-auto border-r p-6">
-            <h2 className="mb-4 text-lg font-bold">
-              Your order · {itemCount} item{itemCount !== 1 ? 's' : ''}
-            </h2>
+        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_460px] overflow-hidden">
+          <main className="min-h-0 overflow-y-auto p-6">
+            <div className="mb-5 flex items-end justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.22em] text-zinc-500">
+                  Your order
+                </p>
+                <h2 className="mt-1 text-4xl font-black">
+                  {itemCount} item{itemCount !== 1 ? 's' : ''}
+                </h2>
+              </div>
+              <p className="rounded-lg bg-emerald-100 px-4 py-3 text-base font-black text-emerald-900">
+                Ready in about {estimatedPrepMinutes} min
+              </p>
+            </div>
+
             <ul className="flex flex-col gap-3">
               {lines.map((line) => {
                 const key = cartLineKey(line);
                 const unitMinor =
                   line.priceMinor + line.modifiers.reduce((s, m) => s + m.priceMinor, 0);
                 return (
-                  <li key={key} className="flex items-start justify-between gap-3 text-sm">
+                  <li
+                    key={key}
+                    className="flex items-start justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4"
+                  >
                     <div className="min-w-0">
-                      <p className="font-medium">
-                        {line.quantity}× {line.name}
+                      <p className="text-xl font-black">
+                        {line.quantity} x {line.name}
                       </p>
                       {line.modifiers.length > 0 ? (
-                        <p className="text-muted-foreground text-xs">
+                        <p className="mt-1 text-sm font-medium text-zinc-500">
                           {line.modifiers.map((m) => m.optionName).join(', ')}
                         </p>
                       ) : null}
                     </div>
-                    <span className="shrink-0 font-mono text-sm">
+                    <span className="shrink-0 font-mono text-lg font-black">
                       {fmt(unitMinor * line.quantity)}
                     </span>
                   </li>
                 );
               })}
             </ul>
-            <div className="mt-auto border-t pt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-mono">{fmt(subtotal)}</span>
-              </div>
-              {taxMinor > 0 ? (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-mono">{fmt(taxMinor)}</span>
+          </main>
+
+          <aside className="flex min-h-0 flex-col border-l border-zinc-200 bg-white">
+            <div className="border-b border-zinc-200 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
+                Payment total
+              </p>
+              <div className="mt-4 space-y-2 text-base">
+                <div className="flex justify-between text-zinc-600">
+                  <span>Subtotal</span>
+                  <span className="font-mono">{fmt(subtotal)}</span>
                 </div>
-              ) : null}
-              <div className="mt-2 flex justify-between text-xl font-bold">
-                <span>Total</span>
-                <span className="font-mono">{fmt(total)}</span>
+                {taxMinor > 0 ? (
+                  <div className="flex justify-between text-zinc-600">
+                    <span>Tax</span>
+                    <span className="font-mono">{fmt(taxMinor)}</span>
+                  </div>
+                ) : null}
+                <div className="flex items-end justify-between border-t border-zinc-200 pt-3 text-3xl font-black">
+                  <span>Total</span>
+                  <span className="font-mono">{fmt(total)}</span>
+                </div>
               </div>
-              <p className="text-muted-foreground mt-2 text-xs">
-                Ready in ~{estimatedPrepMinutes} min ·{' '}
-                {orderMode === 'dine_in' ? 'Dine in' : 'Takeaway'}
-              </p>
-            </div>
-          </div>
-
-          {/* Name entry + pay (right) */}
-          <div className="flex w-1/2 flex-col p-6">
-            <h2 className="mb-4 text-lg font-bold">Your name</h2>
-            <div className="mb-4 flex h-14 items-center rounded-2xl border bg-slate-50 px-4 text-2xl font-medium tracking-wide">
-              {name || <span className="text-base text-slate-300">Enter your name</span>}
             </div>
 
-            <NumPad
-              onDigit={(d) => setName((n) => n + d)}
-              onBack={() => setName((n) => n.slice(0, -1))}
-              onSpace={() => setName((n) => (n.endsWith(' ') ? n : n + ' '))}
-            />
-
-            {/* Also show a real text input as fallback for attached keyboard */}
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={60}
-              placeholder="Or type here…"
-              className="border-input bg-background mt-3 h-10 rounded-xl border px-4 text-sm"
-            />
-
-            {error ? (
-              <p className="mt-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
-            ) : null}
-
-            {!razorpayReady ? (
-              <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
-                Payments are not set up for this restaurant yet.
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <label className="block">
+                <span className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Name for pickup
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={32}
+                  placeholder="Optional"
+                  className="mt-3 h-16 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-3xl font-black uppercase tracking-wide outline-none focus:border-emerald-600"
+                />
+              </label>
+              <p className="mt-2 text-sm font-medium text-zinc-500">
+                Leave blank to use Guest. Your order reference is shown after payment.
               </p>
-            ) : null}
 
-            <button
-              type="button"
-              disabled={submitting || !razorpayReady || belowMinimum || !name.trim()}
-              onClick={() => void pay()}
-              className="mt-auto h-16 w-full rounded-2xl bg-slate-900 text-xl font-bold text-white active:bg-slate-700 disabled:opacity-40"
-            >
-              {submitting ? 'Processing…' : `Pay ${fmt(total)}`}
-            </button>
-          </div>
+              <div className="mt-5">
+                <NameKeyboard
+                  onLetter={(d) => setName((n) => (n.length >= 32 ? n : n + d))}
+                  onBack={() => setName((n) => n.slice(0, -1))}
+                  onSpace={() => setName((n) => (n.length >= 32 || n.endsWith(' ') ? n : `${n} `))}
+                  onClear={() => setName('')}
+                />
+              </div>
+
+              {error ? (
+                <p className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
+                  {error}
+                </p>
+              ) : null}
+
+              {pendingReference ? (
+                <p className="mt-4 rounded-lg bg-emerald-100 px-4 py-3 text-sm font-bold text-emerald-900">
+                  Payment opened for pickup number {formatPickupNumber(pendingReference)}. Reference{' '}
+                  {pendingReference}.
+                </p>
+              ) : null}
+
+              {!razorpayReady ? (
+                <p className="mt-4 rounded-lg bg-amber-100 px-4 py-3 text-sm font-bold text-amber-900">
+                  Payments are not set up for this restaurant yet.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-zinc-200 p-5">
+              {belowMinimum ? (
+                <p className="mb-3 rounded-lg bg-amber-100 px-4 py-3 text-sm font-bold text-amber-900">
+                  Minimum order is {fmt(minimumOrderMinor)}.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={submitting || !razorpayReady || belowMinimum || itemCount === 0}
+                onClick={() => void pay()}
+                className="h-16 w-full rounded-lg bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400 disabled:bg-zinc-200 disabled:text-zinc-500"
+              >
+                {submitting ? 'Processing payment' : `Pay ${fmt(total)}`}
+              </button>
+              <p className="mt-3 text-center text-xs font-medium text-zinc-500">
+                A pickup number appears after payment. Keep it visible for collection.
+              </p>
+            </div>
+          </aside>
         </div>
-
-        <PinOverlay />
       </div>
     </>
   );

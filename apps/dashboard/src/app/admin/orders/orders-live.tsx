@@ -10,6 +10,7 @@ import {
   isOrderStatusChangedEvent,
   type OrderStatus,
 } from '@menukaze/realtime';
+import { formatPickupNumber } from '@menukaze/shared';
 
 export interface OrderRow {
   id: string;
@@ -105,35 +106,41 @@ function Section({ title, rows, dimmed }: { title: string; rows: OrderRow[]; dim
             dimmed ? 'divide-border mt-2 divide-y opacity-70' : 'divide-border mt-2 divide-y'
           }
         >
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-              <div className="min-w-0">
-                <p className="text-foreground font-medium">
-                  {row.publicOrderId}{' '}
-                  <span className="text-muted-foreground text-xs font-normal">
-                    · {row.customerName}
+          {rows.map((row) => {
+            const pickupNumber = formatPickupNumber(row.publicOrderId);
+            return (
+              <li key={row.id} className="flex items-center justify-between gap-4 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium">
+                    <span className="font-mono text-base font-semibold">#{pickupNumber}</span>{' '}
+                    <span className="text-muted-foreground font-mono text-xs">
+                      {row.publicOrderId}
+                    </span>{' '}
+                    <span className="text-muted-foreground text-xs font-normal">
+                      · {row.customerName}
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {row.channel} · {row.type} · {new Date(row.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${STATUS_CLASSES[row.status] ?? 'bg-muted text-muted-foreground'}`}
+                  >
+                    {row.status}
                   </span>
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {row.channel} · {row.type} · {new Date(row.createdAt).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${STATUS_CLASSES[row.status] ?? 'bg-muted text-muted-foreground'}`}
-                >
-                  {row.status}
-                </span>
-                <span className="text-foreground font-mono text-sm">{row.totalLabel}</span>
-                <Link
-                  href={`/admin/orders/${row.id}`}
-                  className="text-foreground text-xs underline"
-                >
-                  Open
-                </Link>
-              </div>
-            </li>
-          ))}
+                  <span className="text-foreground font-mono text-sm">{row.totalLabel}</span>
+                  <Link
+                    href={`/admin/orders/${row.id}`}
+                    className="text-foreground text-xs underline"
+                  >
+                    Open
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

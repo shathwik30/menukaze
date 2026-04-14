@@ -10,6 +10,7 @@ export * from './cart';
 export * from './errors';
 export * from './currency';
 export * from './modifiers';
+export * from './order-reference';
 export * from './payments';
 export * from './menu-schedule';
 export * from './schemas';

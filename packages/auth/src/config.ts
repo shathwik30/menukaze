@@ -31,6 +31,7 @@ interface AuthUserWriteDoc {
 interface CreateAuthOptions {
   dbName?: DbName;
   baseURL?: string;
+  trustedOrigins?: BetterAuthOptions['trustedOrigins'];
   /** Override the secret. Falls back to BETTER_AUTH_SECRET env. */
   secret?: string;
   /** Framework-specific plugins (Next.js apps pass `nextCookies()` here). */
@@ -52,6 +53,7 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
   const config: BetterAuthOptions = {
     secret: opts.secret ?? readEnv('BETTER_AUTH_SECRET'),
     baseURL: opts.baseURL ?? process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
+    trustedOrigins: opts.trustedOrigins,
     database: mongodbAdapter(db),
     databaseHooks: {
       user: {

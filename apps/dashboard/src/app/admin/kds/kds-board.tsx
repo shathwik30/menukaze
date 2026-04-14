@@ -9,6 +9,7 @@ import {
   isOrderStatusChangedEvent,
   type OrderStatus,
 } from '@menukaze/realtime';
+import { formatPickupNumber } from '@menukaze/shared';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 
 declare global {
@@ -275,15 +276,17 @@ function Card({
     ageMinutes < 5 ? 'text-muted-foreground' : ageMinutes < 10 ? 'text-amber-600' : 'text-red-600';
 
   const action = STAGE_ACTIONS[card.status];
+  const pickupNumber = formatPickupNumber(card.publicOrderId);
 
   return (
     <article className="border-border bg-background rounded-md border p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-foreground font-mono text-sm font-semibold">
+          <p className="text-foreground font-mono text-2xl font-bold">#{pickupNumber}</p>
+          <p className="text-muted-foreground font-mono text-xs font-semibold">
             {card.publicOrderId}
             {card.tableNumber !== undefined ? (
-              <span className="text-muted-foreground ml-2 text-xs font-semibold">
+              <span className="ml-2 font-sans text-xs font-semibold">
                 · Table {card.tableNumber}
               </span>
             ) : null}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { PinOverlay } from '@/components/pin-overlay';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         style={{ touchAction: 'manipulation' }}
       >
         {children}
+        <PinOverlay />
       </body>
     </html>
   );
