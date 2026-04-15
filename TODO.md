@@ -26,20 +26,13 @@ Not reviewed exhaustively. During Phase 3g audit note any model query pattern th
 
 Pre-commit hook prints a warning but proceeds. Document as optional in CONTRIBUTING, or install via `pnpm dlx` at hook time.
 
-## Inline email JSX in action files
-
-- `apps/dashboard/src/app/actions/session-payments.tsx` — contains `CounterSessionReceiptEmailInline()` (lines 359-445).
-- `apps/qr-dinein/src/app/actions/session.tsx` — contains `SessionReceiptEmailInline()` and `SessionNeedsReviewEmailInline()`.
-
-Phase 3 will extract these into `src/emails/` files and rename the action files back to `.ts`.
-
-## Kiosk `middleware.ts` missing HSTS + X-Frame-Options
-
-Unlike other apps, kiosk does not set `Strict-Transport-Security` or `X-Frame-Options`. If kiosk is ever served from a non-locked-down tablet host, these should be added. Phase 2 middleware factory will normalize this and can opt kiosk in via a flag.
-
 ## Missing `loading.tsx` for async server pages
 
-Phase 3 adds root-level `error.tsx`/`global-error.tsx`/`not-found.tsx` per app. `loading.tsx` is added selectively — some async-fetching pages would benefit (e.g., dashboard `/admin/orders`, `/admin/reservations`, storefront `/order/[id]`). Review case-by-case.
+Phase 3 added root-level `error.tsx` / `global-error.tsx` / `not-found.tsx` per app but deferred segment-level `loading.tsx`. Async-fetching pages that would benefit: dashboard `/admin/orders`, `/admin/reservations`, storefront `/order/[id]`, super-admin `/merchants`. Review case-by-case — blanket skeletons can cause flashes on fast pages.
+
+## GitHub Actions Node 20 deprecation
+
+CI uses `actions/checkout@v4`, `pnpm/action-setup@v4`, `dorny/paths-filter@v3`, `gitleaks/gitleaks-action@v2`, `actions/setup-node@v4`, `actions/cache@v4`, `actions/upload-artifact@v4`. All run on Node 20. GitHub forces Node 24 on 2026-06-02. Bump to versions that ship Node 24 runners before then (most major-version bumps or minor-version upgrades available now).
 
 ## Deferred by the 2026-04-15 refactor
 
