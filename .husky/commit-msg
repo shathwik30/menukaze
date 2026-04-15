@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+# Enforce Conventional Commits via @commitlint/config-conventional.
+# See commitlint.config.js for rule overrides.
+pnpm exec commitlint --edit "$1"

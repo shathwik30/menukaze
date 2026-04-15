@@ -25,18 +25,20 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
+    "@commitlint/cli": "20.5.0",
+    "@commitlint/config-conventional": "20.5.0",
     "@menukaze/playwright-config": "workspace:*",
     "@menukaze/prettier-config": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@playwright/test": "1.55.1",
     "eslint": "9.39.4",
-    "turbo": "2.9.6",
-    "typescript": "5.9.3",
-    "tsx": "4.21.0",
+    "husky": "9.1.7",
+    "lint-staged": "15.5.2",
     "prettier": "3.8.2",
     "prettier-plugin-tailwindcss": "0.6.14",
-    "husky": "9.1.7",
-    "lint-staged": "15.5.2"
+    "tsx": "4.21.0",
+    "turbo": "2.9.6",
+    "typescript": "5.9.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
