@@ -4,15 +4,9 @@ Scope: items spotted during the 2026-04-15 refactor audit that are out of scope 
 
 ## Audit logging coverage (dashboard)
 
-Only `apps/dashboard/src/app/actions/staff.ts` calls `logAuditEvent`. Other mutating actions (settings, menu, orders, tables, reservations, stations, webhooks, api-keys, dsar) write to the DB without emitting audit events. Super-admin by contrast logs every platform action via `logPlatformAction`.
+Recent coverage exists for staff, API keys, webhooks, DSAR, order status, session payments, Razorpay connect, go-live, selected menu item mutations, and selected settings updates. Coverage is still incomplete across remaining mutating dashboard actions, especially onboarding starter/advance actions, table admin, reservations, stations, walk-in/POS, checklist dismissal, webhook test/retry, and unlogged settings/menu/category updates. Super-admin by contrast logs every platform action via `logPlatformAction`.
 
 - Audit: parity with super-admin (every mutating action writes an audit event with actor + entity + before/after).
-
-## Rate limiting — storefront public API
-
-`packages/shared/src/errors.ts` defines `rate_limit_exceeded` with `Retry-After` guidance, but no middleware/enforcement is wired up for `apps/storefront/src/app/api/v1/*`. Public endpoints (`/menu`, `/orders`, `/reservations`, `/restaurant`) are currently unbounded.
-
-- Add an Upstash Redis-backed rate limiter at the route level, keyed by API key + route.
 
 ## Database indexes
 
@@ -28,15 +22,10 @@ CI uses `actions/checkout@v4`, `pnpm/action-setup@v4`, `dorny/paths-filter@v3`, 
 
 ## Deferred by the 2026-04-15 refactor
 
-### Type-safe env with `@t3-oss/env-nextjs`
+### Type-safe env in `@menukaze/db`
 
-Not installed. `process.env['X']` is used throughout the apps and the worker. Adding `@t3-oss/env-nextjs` per app + `@t3-oss/env-core` in `@menukaze/db` and `apps/worker` would catch missing env vars at process boot instead of the first code path that reads them. Rollout plan:
-
-1. Add `@t3-oss/env-nextjs` to `@menukaze/dashboard`; create `apps/dashboard/src/env.ts` that declares the (~8) vars the dashboard reads.
-2. Replace `process.env['X']` in dashboard with `env.X`.
-3. Repeat for the other 4 apps and the worker/db packages.
+Apps and `apps/worker` now use `@t3-oss/env-nextjs` / `@t3-oss/env-core` for boot-time validation. The remaining direct env reads are in `packages/db/src/client.ts`, `packages/db/src/crypto.ts`, and `packages/db/scripts/seed.ts`. Decide whether to introduce `@t3-oss/env-core` in `@menukaze/db` or keep package-level runtime reads because the package is consumed by multiple apps with their own env validation.
 
 ### Named exports in `packages/shared/src/index.ts` (declined)
 
 Evaluated 2026-04-15 and declined: ~150 public symbols across 15 modules. Wildcards are tree-shake-safe under Next.js + Turborepo's ESM pipeline, and enumerating the surface adds maintenance burden (every new export touches index.ts) for marginal grep-ability. Revisit if a future rule (e.g. `no-wildcard-re-exports`) lands in the shared ESLint config.
-

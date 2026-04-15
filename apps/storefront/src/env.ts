@@ -14,6 +14,12 @@ export const env = createEnv({
     ENCRYPTION_KEY: z.string().min(32),
     ABLY_API_KEY: z.string().min(1),
     REDIS_URL: z.string().url().optional(),
+    /**
+     * Upstash REST endpoint + token for /api/v1/* rate limiting. Both
+     * optional — if either is missing the limiter is a no-op.
+     */
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM_ADDRESS: z.string().default('Menukaze <noreply@menukaze.com>'),
     MENUKAZE_SKIP_EMAIL: booleanFromString,
@@ -27,6 +33,8 @@ export const env = createEnv({
     ENCRYPTION_KEY: process.env['ENCRYPTION_KEY'],
     ABLY_API_KEY: process.env['ABLY_API_KEY'],
     REDIS_URL: process.env['REDIS_URL'],
+    UPSTASH_REDIS_REST_URL: process.env['UPSTASH_REDIS_REST_URL'],
+    UPSTASH_REDIS_REST_TOKEN: process.env['UPSTASH_REDIS_REST_TOKEN'],
     RESEND_API_KEY: process.env['RESEND_API_KEY'],
     RESEND_FROM_ADDRESS: process.env['RESEND_FROM_ADDRESS'],
     MENUKAZE_SKIP_EMAIL: process.env['MENUKAZE_SKIP_EMAIL'],

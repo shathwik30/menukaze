@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
+  process.env['MONGODB_URI'] = 'mongodb://localhost:27017/menukaze_test';
+  process.env['ENCRYPTION_KEY'] = 'test-encryption-key-with-32-chars';
+  process.env['ABLY_API_KEY'] = 'test:ably-key';
+
   const restaurantFindExec = vi.fn();
   const tableSessionFindExec = vi.fn();
   interface PaymentFailureUpdate {

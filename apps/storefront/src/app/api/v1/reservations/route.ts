@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { enqueueWebhookEvent, getModels, getMongoConnection } from '@menukaze/db';
 import { computeAvailableSlots, isReservationSlotValid } from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey } from '../_lib/auth';
+import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,14 @@ export async function GET(request: NextRequest): Promise<Response> {
   const ctx = await resolveApiKey(request);
   if (ctx instanceof Response) return ctx;
 
+  const rl = await rateLimitFor(ctx, 'v1:reservations:list');
+  if (!rl.ok) {
+    return apiError('rate_limit_exceeded', 'Rate limit exceeded. See Retry-After.', {
+      headers: rateLimitHeaders(rl),
+    });
+  }
+  const rateHeaders = rateLimitHeaders(rl);
+
   const url = new URL(request.url);
   const date = url.searchParams.get('date');
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -39,7 +48,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (!restaurant) return apiError('not_found', 'Restaurant not found.');
   const settings = restaurant.reservationSettings;
   if (!settings?.enabled) {
-    return jsonOk({ date, available_slots: [] });
+    return jsonOk({ date, available_slots: [] }, { headers: rateHeaders });
   }
   const bookings = await Reservation.find(
     {
@@ -63,21 +72,32 @@ export async function GET(request: NextRequest): Promise<Response> {
       status: b.status,
     })),
   });
-  return jsonOk({
-    date,
-    slot_minutes: settings.slotMinutes,
-    max_party_size: settings.maxPartySize,
-    available_slots: slots.map((s) => ({
-      slot_start: s.slotStart,
-      slot_end: s.slotEnd,
-      has_bookings: s.hasBookings,
-    })),
-  });
+  return jsonOk(
+    {
+      date,
+      slot_minutes: settings.slotMinutes,
+      max_party_size: settings.maxPartySize,
+      available_slots: slots.map((s) => ({
+        slot_start: s.slotStart,
+        slot_end: s.slotEnd,
+        has_bookings: s.hasBookings,
+      })),
+    },
+    { headers: rateHeaders },
+  );
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
   const ctx = await resolveApiKey(request, 'write');
   if (ctx instanceof Response) return ctx;
+
+  const rl = await rateLimitFor(ctx, 'v1:reservations:create');
+  if (!rl.ok) {
+    return apiError('rate_limit_exceeded', 'Rate limit exceeded. See Retry-After.', {
+      headers: rateLimitHeaders(rl),
+    });
+  }
+  const rateHeaders = rateLimitHeaders(rl);
 
   let body: unknown;
   try {
@@ -155,6 +175,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       party_size: input.party_size,
       status,
     },
-    { status: 201 },
+    { status: 201, headers: rateHeaders },
   );
 }

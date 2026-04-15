@@ -20,6 +20,8 @@
     "@menukaze/ui": "workspace:*",
     "@react-email/render": "1.0.3",
     "@t3-oss/env-nextjs": "0.13.11",
+    "@upstash/ratelimit": "2.0.8",
+    "@upstash/redis": "1.37.0",
     "ably": "2.7.0",
     "mongoose": "9.4.1",
     "next": "16.2.3",

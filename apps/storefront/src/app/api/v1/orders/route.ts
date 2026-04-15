@@ -12,6 +12,7 @@ import {
 import { parseObjectIds } from '@menukaze/db/object-id';
 import { computeTax, resolvePrimaryStationId, validateModifierSelection } from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey } from '../_lib/auth';
+import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,14 @@ export async function OPTIONS(): Promise<Response> {
 export async function POST(request: NextRequest): Promise<Response> {
   const ctx = await resolveApiKey(request, 'write');
   if (ctx instanceof Response) return ctx;
+
+  const rl = await rateLimitFor(ctx, 'v1:orders:create');
+  if (!rl.ok) {
+    return apiError('rate_limit_exceeded', 'Rate limit exceeded. See Retry-After.', {
+      headers: rateLimitHeaders(rl),
+    });
+  }
+  const rateHeaders = rateLimitHeaders(rl);
 
   let body: unknown;
   try {
@@ -234,6 +243,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       currency: restaurant.currency,
       estimated_ready_at: estimatedReadyAt.toISOString(),
     },
-    { status: 201 },
+    { status: 201, headers: rateHeaders },
   );
 }
