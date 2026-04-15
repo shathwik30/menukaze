@@ -39,7 +39,6 @@ export default async function AttractScreen() {
         <section className="flex min-h-0 flex-col justify-between px-14 py-12">
           <div className="flex items-center gap-4">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
                 alt={restaurant.name}

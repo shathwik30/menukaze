@@ -247,7 +247,6 @@ export function MenuClient({
                   >
                     <div className="relative aspect-[4/3] bg-zinc-100">
                       {item.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
