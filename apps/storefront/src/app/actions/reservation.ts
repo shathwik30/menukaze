@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { captureException } from '@menukaze/monitoring';
 import { isReservationSlotValid } from '@menukaze/shared';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import { getZodErrorMessage } from '@menukaze/shared/validation';
@@ -101,7 +102,10 @@ export async function createReservationAction(raw: unknown): Promise<CreateReser
       }),
     });
   } catch (error) {
-    console.warn('[reservations] confirmation email failed', error);
+    captureException(error, {
+      surface: 'storefront:reservation',
+      message: 'confirmation email failed',
+    });
   }
 
   return { ok: true, reservationId: String(created._id), status };

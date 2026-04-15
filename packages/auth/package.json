@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@menukaze/db": "workspace:*",
+    "@menukaze/monitoring": "workspace:*",
     "@menukaze/shared": "workspace:*",
     "better-auth": "1.5.6",
     "resend": "4.0.1"

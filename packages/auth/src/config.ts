@@ -12,6 +12,7 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { getMongoConnection, type DbName } from '@menukaze/db';
+import { captureMessage } from '@menukaze/monitoring';
 import { Resend } from 'resend';
 
 interface StaffInviteLookupDoc {
@@ -103,7 +104,10 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
       sendVerificationEmail: async ({ user, url }) => {
         const apiKey = process.env['RESEND_API_KEY'];
         if (!apiKey) {
-          console.warn(`[auth] No RESEND_API_KEY — skipping verification email to ${user.email}`);
+          captureMessage('No RESEND_API_KEY — skipping verification email', 'warning', {
+            surface: 'auth:config',
+            userEmail: user.email,
+          });
           return;
         }
         const from = process.env['RESEND_FROM_ADDRESS'] ?? 'Menukaze <noreply@menukaze.com>';

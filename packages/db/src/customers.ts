@@ -1,4 +1,5 @@
 import type { Connection, Types } from 'mongoose';
+import { captureException } from '@menukaze/monitoring';
 import { getModels } from './models/index';
 import type { CustomerChannel } from './models/customer';
 
@@ -63,6 +64,6 @@ export async function upsertCustomerFromOrder(
       { upsert: true },
     ).exec();
   } catch (error) {
-    console.warn('[customers] upsert failed', error);
+    captureException(error, { surface: 'db:customers', message: 'upsert failed' });
   }
 }

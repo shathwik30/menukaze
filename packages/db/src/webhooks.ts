@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Connection, Types } from 'mongoose';
+import { captureException } from '@menukaze/monitoring';
 import { getModels } from './models/index';
 
 export interface EnqueueEventInput {
@@ -57,7 +58,7 @@ export async function enqueueWebhookEvent(
     );
     return subs.length;
   } catch (error) {
-    console.warn('[webhooks] enqueue failed', error);
+    captureException(error, { surface: 'db:webhooks', message: 'enqueue failed' });
     return 0;
   }
 }

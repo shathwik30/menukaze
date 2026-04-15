@@ -10,6 +10,7 @@ import {
   type OrderType,
 } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
@@ -109,7 +110,7 @@ async function publishOrderStatusUpdate({
     }
     await Promise.all(realtimePublishes);
   } catch (error) {
-    console.warn('[orders] ably publish failed', error);
+    captureException(error, { surface: 'dashboard:orders', message: 'ably publish failed' });
   }
 }
 
@@ -159,7 +160,10 @@ async function sendCustomerStatusEmail({
       }),
     });
   } catch (error) {
-    console.warn('[orders] customer status email failed', error);
+    captureException(error, {
+      surface: 'dashboard:orders',
+      message: 'customer status email failed',
+    });
   }
 }
 

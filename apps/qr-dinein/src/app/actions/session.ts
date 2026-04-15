@@ -15,6 +15,7 @@ import {
   upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
@@ -83,7 +84,7 @@ async function publishTableStatus(
       ...(reason ? { reason } : {}),
     });
   } catch (error) {
-    console.warn('[session] tables publish failed', error);
+    captureException(error, { surface: 'qr-dinein:session', message: 'tables publish failed' });
   }
 }
 
@@ -107,7 +108,7 @@ async function publishSessionUpdate(
       updatedAt: updatedAt.toISOString(),
     });
   } catch (error) {
-    console.warn('[session] session publish failed', error);
+    captureException(error, { surface: 'qr-dinein:session', message: 'session publish failed' });
   }
 }
 
@@ -129,7 +130,10 @@ async function publishOrderStatusChanges(
       ),
     );
   } catch (error) {
-    console.warn('[session] order status publish failed', error);
+    captureException(error, {
+      surface: 'qr-dinein:session',
+      message: 'order status publish failed',
+    });
   }
 }
 
@@ -396,7 +400,10 @@ async function publishWaiterCall(
       reason,
     });
   } catch (error) {
-    console.warn('[session] waiter call publish failed', error);
+    captureException(error, {
+      surface: 'qr-dinein:session',
+      message: 'waiter call publish failed',
+    });
   }
 }
 
@@ -529,7 +536,7 @@ async function sendSessionReceiptEmail(
       }),
     });
   } catch (error) {
-    console.warn('[session] receipt email failed', error);
+    captureException(error, { surface: 'qr-dinein:session', message: 'receipt email failed' });
   }
 }
 
@@ -892,7 +899,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
       createdAt: now.toISOString(),
     });
   } catch (error) {
-    console.warn('[session] order publish failed', error);
+    captureException(error, { surface: 'qr-dinein:session', message: 'order publish failed' });
   }
   await publishSessionUpdate(restaurantIdStr, String(session._id), 'round_added', now);
 
@@ -979,7 +986,10 @@ async function notifyNeedsReviewByEmail(
       ),
     );
   } catch (error) {
-    console.warn('[session] needs-review email failed', error);
+    captureException(error, {
+      surface: 'qr-dinein:session',
+      message: 'needs-review email failed',
+    });
   }
 }
 

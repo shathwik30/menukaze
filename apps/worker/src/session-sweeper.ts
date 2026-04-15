@@ -1,4 +1,5 @@
 import { getMongoConnection, getModels, getRestaurantSupportRecipients } from '@menukaze/db';
+import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
@@ -159,7 +160,10 @@ export async function sweepTimedOutSessions(now: Date = new Date()): Promise<Swe
         },
       );
     } catch (error) {
-      console.warn('[worker] timed-out session publish failed', error);
+      captureException(error, {
+        surface: 'worker:session-sweeper',
+        message: 'timed-out session publish failed',
+      });
     }
 
     try {
@@ -198,7 +202,10 @@ export async function sweepTimedOutSessions(now: Date = new Date()): Promise<Swe
         ),
       );
     } catch (error) {
-      console.warn('[worker] timed-out session email failed', error);
+      captureException(error, {
+        surface: 'worker:session-sweeper',
+        message: 'timed-out session email failed',
+      });
     }
   }
 

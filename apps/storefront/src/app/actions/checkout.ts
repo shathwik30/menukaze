@@ -13,6 +13,7 @@ import {
   upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
@@ -314,7 +315,7 @@ async function publishCheckoutConfirmation(
       }),
     ]);
   } catch (error) {
-    console.warn('[checkout] ably publish failed', error);
+    captureException(error, { surface: 'storefront:checkout', message: 'ably publish failed' });
   }
 }
 
@@ -355,7 +356,7 @@ async function sendCheckoutEmails(
       }),
     });
   } catch (error) {
-    console.warn('[checkout] email send failed', error);
+    captureException(error, { surface: 'storefront:checkout', message: 'email send failed' });
   }
 }
 

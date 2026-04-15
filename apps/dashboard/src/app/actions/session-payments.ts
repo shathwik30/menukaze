@@ -5,6 +5,7 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
@@ -65,7 +66,10 @@ async function publishOrderStatusChanges(
       ),
     );
   } catch (error) {
-    console.warn('[dashboard] order status publish failed', error);
+    captureException(error, {
+      surface: 'dashboard:session-payments',
+      message: 'order status publish failed',
+    });
   }
 }
 
@@ -103,7 +107,10 @@ async function publishTableSessionState({
       }),
     ]);
   } catch (error) {
-    console.warn('[dashboard] table session publish failed', error);
+    captureException(error, {
+      surface: 'dashboard:session-payments',
+      message: 'table session publish failed',
+    });
   }
 }
 
@@ -249,7 +256,10 @@ async function sendCounterReceiptEmail({
       }),
     });
   } catch (error) {
-    console.warn('[dashboard] counter receipt email failed', error);
+    captureException(error, {
+      surface: 'dashboard:session-payments',
+      message: 'counter receipt email failed',
+    });
   }
 }
 

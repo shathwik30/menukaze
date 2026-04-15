@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@menukaze/db": "workspace:*",
+    "@menukaze/monitoring": "workspace:*",
     "@menukaze/realtime": "workspace:*",
     "@menukaze/shared": "workspace:*"
   },

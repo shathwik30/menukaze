@@ -439,6 +439,9 @@ importers:
       '@menukaze/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@menukaze/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@menukaze/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -467,6 +470,9 @@ importers:
       '@menukaze/db':
         specifier: workspace:*
         version: link:../db
+      '@menukaze/monitoring':
+        specifier: workspace:*
+        version: link:../monitoring
       '@menukaze/shared':
         specifier: workspace:*
         version: link:../shared
@@ -492,6 +498,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@menukaze/monitoring':
+        specifier: workspace:*
+        version: link:../monitoring
       '@menukaze/shared':
         specifier: workspace:*
         version: link:../shared

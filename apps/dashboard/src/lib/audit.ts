@@ -8,6 +8,7 @@ import {
   ZERO_HASH,
   type AuditLogDoc,
 } from '@menukaze/db';
+import { captureException } from '@menukaze/monitoring';
 import { ipFromHeaders } from '@menukaze/shared';
 
 interface RecordAuditInput {
@@ -86,6 +87,6 @@ export async function recordAudit(input: RecordAuditInput): Promise<void> {
 
     await AuditLog.create(doc);
   } catch (error) {
-    console.warn('[audit] failed to record entry', error);
+    captureException(error, { surface: 'dashboard:audit', message: 'failed to record entry' });
   }
 }

@@ -11,6 +11,7 @@ import {
   restaurantHasReachedOrderCapacity,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
@@ -246,7 +247,7 @@ export async function createWalkInOrderAction(
           createdAt: now.toISOString(),
         });
       } catch (err) {
-        console.warn('[walk-in] ably publish failed', err);
+        captureException(err, { surface: 'dashboard:walk-in', message: 'ably publish failed' });
       }
 
       await enqueueWebhookEvent(conn, {

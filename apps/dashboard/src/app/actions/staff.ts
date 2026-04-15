@@ -5,6 +5,7 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels, generateInviteToken } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { assertCustomRoleFlags, resolveFlags, type Flag, type StaffRole } from '@menukaze/rbac';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import {
@@ -197,7 +198,7 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
         }),
       });
     } catch (error) {
-      console.warn('[staff] invite email failed', error);
+      captureException(error, { surface: 'dashboard:staff', message: 'invite email failed' });
     }
 
     await recordAudit({

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getModels, getMongoConnection } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { deriveOrderStage, type OrderLineStatus } from '@menukaze/shared';
@@ -193,7 +194,7 @@ export async function advanceOrderLinesAction(raw: unknown): Promise<ActionResul
           changedAt: now.toISOString(),
         });
       } catch (err) {
-        console.warn('[stations] order publish failed', err);
+        captureException(err, { surface: 'dashboard:stations', message: 'order publish failed' });
       }
       revalidatePath('/admin/kds');
       revalidatePath('/admin/orders');
