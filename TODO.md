@@ -14,17 +14,9 @@ Only `apps/dashboard/src/app/actions/staff.ts` calls `logAuditEvent`. Other muta
 
 - Add an Upstash Redis-backed rate limiter at the route level, keyed by API key + route.
 
-## CSRF posture
-
-Server Actions rely on Next.js defaults. Verify same-origin enforcement is active in all apps and document the posture in CLAUDE.md once confirmed.
-
 ## Database indexes
 
-Not reviewed exhaustively. During Phase 3g audit note any model query pattern that would benefit from a missing index here.
-
-## `gitleaks` not locally installed
-
-Pre-commit hook prints a warning but proceeds. Document as optional in CONTRIBUTING, or install via `pnpm dlx` at hook time.
+Not reviewed exhaustively. A focused pass should read each Mongoose schema's `.index()` declarations against the tenant-scoped query patterns in the matching action files and note any missing indexes.
 
 ## Missing `loading.tsx` for async server pages
 
@@ -57,7 +49,7 @@ Not installed. `process.env['X']` is used throughout the apps and the worker. Ad
 
 Mechanical refactor; one PR per app.
 
-### Named exports in `packages/shared/src/index.ts`
+### Named exports in `packages/shared/src/index.ts` (declined)
 
-Currently `export * from './<module>'` for every sub-module. Per the audit this is tree-shake-safe with the current bundler, but named exports make the public surface grep-able. Low priority.
+Evaluated 2026-04-15 and declined: ~150 public symbols across 15 modules. Wildcards are tree-shake-safe under Next.js + Turborepo's ESM pipeline, and enumerating the surface adds maintenance burden (every new export touches index.ts) for marginal grep-ability. Revisit if a future rule (e.g. `no-wildcard-re-exports`) lands in the shared ESLint config.
 

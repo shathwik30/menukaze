@@ -112,7 +112,11 @@ Several packages expose server-only or framework-specific code on explicit subpa
 
 ### Error boundaries and monitoring
 
-Each Next.js app has root-level `error.tsx`, `global-error.tsx`, and `not-found.tsx` route segments. Error boundaries call `captureException(error, { surface: '<app>:<boundary>' })` from `@menukaze/monitoring`; that module is a thin facade around `console.error` today and will be swapped for Sentry without changing call sites.
+Each Next.js app has root-level `error.tsx`, `global-error.tsx`, and `not-found.tsx` route segments. Error boundaries call `captureException(error, { surface: '<app>:<boundary>' })` from `@menukaze/monitoring`; that module is a thin facade around `console.error` today and will be swapped for Sentry without changing call sites. Recoverable side-effect failures (Ably publish, email send, audit write) inside server actions use the same `captureException` call with a more specific `surface` + `message`.
+
+### CSRF / origin posture
+
+Next.js Server Actions enforce same-origin POSTs by default — each action request carries a `Next-Action` header and Next validates `Origin`/`Host` match before dispatching. No extra middleware is required. In development, `allowedDevOrigins: ['127.0.0.1', 'localhost']` in each app's `next.config.ts` extends the allow list so cross-app local navigation (dashboard 3000 ↔ storefront 3001 ↔ qr-dinein 3002 ↔ kiosk 3003 ↔ super-admin 3004) works. Public v1 API endpoints (`apps/storefront/src/app/api/v1/*`) authenticate with API keys and separately enforce a per-key `allowedOrigins` whitelist (`packages/db/src/models/api-key.ts`).
 
 ## Conventions
 

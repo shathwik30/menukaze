@@ -62,6 +62,25 @@ pnpm --filter @menukaze/db test
 pnpm --filter @menukaze/dashboard dev
 ```
 
+## Pre-commit hooks
+
+`.husky/pre-commit` runs `lint-staged` (prettier on staged files) and, if `gitleaks` is installed locally, scans the staged diff for committed secrets. Install:
+
+```bash
+# macOS
+brew install gitleaks
+
+# Ubuntu / Debian
+sudo apt install gitleaks
+
+# everyone else
+go install github.com/gitleaks/gitleaks/v8@latest
+```
+
+CI runs `gitleaks` unconditionally regardless of the local install, but a local install catches secrets before they hit a commit.
+
+`.husky/commit-msg` enforces Conventional Commits via `commitlint`.
+
 ## Conventions
 
 - TypeScript, 2-space indent, single quotes, semicolons, kebab-case filenames (enforced via `unicorn/filename-case`).
