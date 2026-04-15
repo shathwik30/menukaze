@@ -8,6 +8,7 @@
 
 export * from './action-result';
 export * from './cart';
+export * from './cart-store';
 export * from './errors';
 export * from './currency';
 export * from './modifiers';

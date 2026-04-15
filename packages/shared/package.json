@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./cart": "./src/cart.ts",
+    "./cart-store": "./src/cart-store.ts",
     "./errors": "./src/errors.ts",
     "./currency": "./src/currency.ts",
     "./menu-schedule": "./src/menu-schedule.ts",
