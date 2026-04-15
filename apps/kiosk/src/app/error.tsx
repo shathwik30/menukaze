@@ -1,5 +1,6 @@
 'use client';
 
+import { captureException } from '@menukaze/monitoring';
 import { useEffect } from 'react';
 
 export default function KioskError({
@@ -10,8 +11,7 @@ export default function KioskError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO(phase-4): replace with @menukaze/monitoring captureException.
-    console.error('[kiosk] unhandled error', error);
+    captureException(error, { surface: 'kiosk:error' });
   }, [error]);
 
   return (

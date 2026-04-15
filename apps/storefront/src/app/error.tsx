@@ -1,5 +1,6 @@
 'use client';
 
+import { captureException } from '@menukaze/monitoring';
 import { useEffect } from 'react';
 
 export default function StorefrontError({
@@ -10,8 +11,7 @@ export default function StorefrontError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO(phase-4): replace with @menukaze/monitoring captureException.
-    console.error('[storefront] unhandled error', error);
+    captureException(error, { surface: 'storefront:error' });
   }, [error]);
 
   return (

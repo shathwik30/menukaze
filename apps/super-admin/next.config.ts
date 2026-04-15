@@ -6,6 +6,7 @@ const config: NextConfig = {
   transpilePackages: [
     '@menukaze/auth',
     '@menukaze/db',
+    '@menukaze/monitoring',
     '@menukaze/rbac',
     '@menukaze/shared',
     '@menukaze/tenant',

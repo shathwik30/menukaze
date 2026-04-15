@@ -1,5 +1,6 @@
 'use client';
 
+import { captureException } from '@menukaze/monitoring';
 import { useEffect } from 'react';
 
 export default function SuperAdminError({
@@ -10,8 +11,7 @@ export default function SuperAdminError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO(phase-4): replace with @menukaze/monitoring captureException.
-    console.error('[super-admin] unhandled error', error);
+    captureException(error, { surface: 'super-admin:error' });
   }, [error]);
 
   return (

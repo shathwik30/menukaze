@@ -1,5 +1,6 @@
 'use client';
 
+import { captureException } from '@menukaze/monitoring';
 import { useEffect } from 'react';
 
 export default function GlobalError({
@@ -10,8 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO(phase-4): replace with @menukaze/monitoring captureException.
-    console.error('[qr-dinein] global error', error);
+    captureException(error, { surface: 'qr-dinein:global-error' });
   }, [error]);
 
   return (

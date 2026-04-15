@@ -7,6 +7,7 @@ const config: NextConfig = {
   // transpile them as part of its build.
   transpilePackages: [
     '@menukaze/db',
+    '@menukaze/monitoring',
     '@menukaze/realtime',
     '@menukaze/shared',
     '@menukaze/tenant',
