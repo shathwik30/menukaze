@@ -1,8 +1,43 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { startOrJoinSessionAction } from '@/app/actions/session';
+
+const HINT_KEY = 'mk_dinein_hint';
+
+function readOrCreateClientHint(): string {
+  if (typeof window === 'undefined') return '';
+  let value = window.localStorage.getItem(HINT_KEY);
+  if (!value) {
+    const random =
+      window.crypto?.randomUUID?.() ??
+      `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+    value = random;
+    window.localStorage.setItem(HINT_KEY, value);
+  }
+  return value;
+}
+
+function requestCoords(timeoutMs = 8000): Promise<{ lat: number; lng: number } | null> {
+  if (typeof window === 'undefined' || !window.navigator?.geolocation) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value: { lat: number; lng: number } | null): void => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    window.navigator.geolocation.getCurrentPosition(
+      (pos) => done({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => done(null),
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60_000 },
+    );
+    setTimeout(() => done(null), timeoutMs + 200);
+  });
+}
 
 export function StartSessionForm({ qrToken }: { qrToken: string }) {
   const router = useRouter();
@@ -11,6 +46,11 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [clientHint, setClientHint] = useState('');
+
+  useEffect(() => {
+    setClientHint(readOrCreateClientHint());
+  }, []);
 
   return (
     <form
@@ -18,11 +58,12 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
         e.preventDefault();
         setError(null);
         start(async () => {
-          const result = await startOrJoinSessionAction(qrToken, {
-            name,
-            email,
-            phone,
-          });
+          const coords = await requestCoords();
+          const result = await startOrJoinSessionAction(
+            qrToken,
+            { name, email, phone },
+            { ...(coords ? { coords } : {}), clientHint },
+          );
           if (!result.ok) {
             setError(result.error);
             return;

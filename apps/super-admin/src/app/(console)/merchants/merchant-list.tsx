@@ -27,7 +27,15 @@ interface Props {
 }
 
 const STATUS_OPTIONS = ['', 'trial', 'active', 'past_due', 'suspended', 'cancelled'] as const;
-const ONBOARDING_OPTIONS = ['', 'menu', 'tables', 'razorpay', 'go-live', 'complete'] as const;
+const ONBOARDING_OPTIONS = [
+  '',
+  'menu',
+  'tables',
+  'razorpay',
+  'staff',
+  'go-live',
+  'complete',
+] as const;
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {

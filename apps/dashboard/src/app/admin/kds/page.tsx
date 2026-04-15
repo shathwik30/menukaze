@@ -1,22 +1,30 @@
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
-import { KdsBoard, type KdsCard } from './kds-board';
+import { KdsBoard, type KdsCard, type KdsLine, type KdsStation } from './kds-board';
 
 export const dynamic = 'force-dynamic';
 
+interface PageProps {
+  searchParams: Promise<{ station?: string }>;
+}
+
 /**
- * Single-station KDS (kitchen display system). Loads every open order
- * (not terminal, not ready for pickup) and hands them to the client
- * component for real-time updates + tap-through status transitions.
+ * Kitchen display system. Shows every open order. When the `?station=X`
+ * query param is set, the board scopes to a single station: only orders
+ * with at least one line for that station appear, and only that station's
+ * lines are shown / actionable. Without a station filter, the board acts as
+ * the legacy single-screen KDS for the full feed.
  */
-export default async function KdsPage() {
+export default async function KdsPage({ searchParams }: PageProps) {
   const { session, restaurantId } = await requirePageFlag(['kds.view']);
+  const params = await searchParams;
+  const stationFilter = params.station?.trim() ? params.station : null;
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Order, Table } = getModels(conn);
+  const { Restaurant, Order, Table, Station } = getModels(conn);
 
-  const [restaurant, orders] = await Promise.all([
+  const [restaurant, orders, stations] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Order.find({
       restaurantId,
@@ -25,10 +33,9 @@ export default async function KdsPage() {
       .sort({ createdAt: 1 })
       .lean()
       .exec(),
+    Station.find({ restaurantId, archived: false }).sort({ order: 1 }).lean().exec(),
   ]);
 
-  // Resolve table numbers for the dine-in orders in the current feed so
-  // the KDS card can print "Table 4" instead of an ObjectId.
   const tableIds = Array.from(
     new Set(orders.map((o) => o.tableId).filter((id): id is NonNullable<typeof id> => Boolean(id))),
   );
@@ -39,22 +46,46 @@ export default async function KdsPage() {
           .exec()
       : [];
   const tableNumberById = new Map(tables.map((t) => [String(t._id), t.number]));
+  const stationNameById = new Map(stations.map((s) => [String(s._id), s.name]));
 
-  const cards: KdsCard[] = orders.map((o) => ({
-    id: String(o._id),
-    publicOrderId: o.publicOrderId,
-    channel: o.channel,
-    type: o.type,
-    status: o.status,
-    createdAt: o.createdAt instanceof Date ? o.createdAt.toISOString() : String(o.createdAt),
-    items: o.items.map((item) => ({
+  const cards: KdsCard[] = [];
+  for (const o of orders) {
+    const lines: KdsLine[] = o.items.map((item) => ({
+      id: item._id ? String(item._id) : '',
       quantity: item.quantity,
       name: item.name,
       modifiers: item.modifiers.map((m) => m.optionName),
-      notes: item.notes,
-    })),
-    tableId: o.tableId ? String(o.tableId) : undefined,
-    tableNumber: o.tableId ? tableNumberById.get(String(o.tableId)) : undefined,
+      ...(item.notes ? { notes: item.notes } : {}),
+      stationId: item.stationId ? String(item.stationId) : null,
+      stationName: item.stationId ? (stationNameById.get(String(item.stationId)) ?? null) : null,
+      lineStatus: (item.lineStatus ?? 'received') as KdsLine['lineStatus'],
+    }));
+    const visibleLines = stationFilter
+      ? lines.filter((line) => line.stationId === stationFilter)
+      : lines;
+    if (stationFilter && visibleLines.length === 0) continue;
+    const card: KdsCard = {
+      id: String(o._id),
+      publicOrderId: o.publicOrderId,
+      channel: o.channel,
+      type: o.type,
+      status: o.status,
+      createdAt: o.createdAt instanceof Date ? o.createdAt.toISOString() : String(o.createdAt),
+      items: visibleLines,
+      ...(o.tableId ? { tableId: String(o.tableId) } : {}),
+      ...(o.tableId && tableNumberById.get(String(o.tableId)) !== undefined
+        ? { tableNumber: tableNumberById.get(String(o.tableId))! }
+        : {}),
+    };
+    if (o.suspicious) card.suspicious = true;
+    if (o.suspiciousReason) card.suspiciousReason = o.suspiciousReason;
+    cards.push(card);
+  }
+
+  const stationOptions: KdsStation[] = stations.map((s) => ({
+    id: String(s._id),
+    name: s.name,
+    color: s.color ?? null,
   }));
 
   return (
@@ -69,7 +100,41 @@ export default async function KdsPage() {
         </Link>
       </header>
 
-      <KdsBoard restaurantId={session.restaurantId} initialCards={cards} />
+      {stationOptions.length > 0 ? (
+        <nav className="flex flex-wrap items-center gap-2 text-xs">
+          <Link
+            href="/admin/kds"
+            className={`border-border rounded-md border px-2 py-1 ${
+              stationFilter ? 'hover:bg-muted' : 'bg-foreground text-background'
+            }`}
+          >
+            All stations
+          </Link>
+          {stationOptions.map((station) => (
+            <Link
+              key={station.id}
+              href={`/admin/kds?station=${encodeURIComponent(station.id)}`}
+              className={`border-border rounded-md border px-2 py-1 ${
+                stationFilter === station.id ? 'bg-foreground text-background' : 'hover:bg-muted'
+              }`}
+            >
+              {station.name}
+            </Link>
+          ))}
+          <Link
+            href="/admin/stations"
+            className="text-muted-foreground ml-auto underline-offset-2 hover:underline"
+          >
+            Manage stations
+          </Link>
+        </nav>
+      ) : null}
+
+      <KdsBoard
+        restaurantId={session.restaurantId}
+        initialCards={cards}
+        stationFilter={stationFilter}
+      />
     </main>
   );
 }

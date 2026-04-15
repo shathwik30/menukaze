@@ -4,7 +4,12 @@ import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { APIError, slugSchema } from '@menukaze/shared';
-import { validationError } from '@/lib/action-helpers';
+import {
+  actionError,
+  validationError,
+  withRestaurantAction,
+  type ActionResult,
+} from '@/lib/action-helpers';
 import { requireSession } from '@/lib/session';
 
 const inputSchema = z.object({
@@ -114,5 +119,31 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
     return { ok: false, error: `Could not create the restaurant: ${message}` };
   } finally {
     await dbSession.endSession();
+  }
+}
+
+/**
+ * Advance the wizard from the staff-invites step to go-live. Inviting team
+ * members is optional during onboarding — the user can skip and add staff
+ * later from `/admin/staff`.
+ */
+export async function completeStaffStepAction(): Promise<ActionResult> {
+  try {
+    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) throw new Error('Restaurant not found.');
+      if (restaurant.onboardingStep !== 'staff') {
+        throw new Error('This restaurant has already moved past the staff step.');
+      }
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { onboardingStep: 'go-live' } },
+      ).exec();
+      return { ok: true };
+    });
+  } catch (error) {
+    return actionError(error, 'Failed to advance onboarding.');
   }
 }

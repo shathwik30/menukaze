@@ -5,6 +5,7 @@ import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { channels } from '@menukaze/realtime';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { OrderTracker } from './order-tracker';
+import { FeedbackWidget } from './feedback-widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ export default async function OrderConfirmationPage({
   const conn = await getMongoConnection('live');
   const { Order } = getModels(conn);
 
+  const { Feedback } = getModels(conn);
   const order = await Order.findOne({
     restaurantId: restaurant._id,
     _id: orderId,
@@ -31,6 +33,12 @@ export default async function OrderConfirmationPage({
   const currency = parseCurrencyCode(order.currency);
   const locale = restaurant.locale;
   const paid = order.payment.status === 'succeeded';
+  const showFeedback = ['ready', 'served', 'completed'].includes(order.status);
+  const existingFeedback = showFeedback
+    ? await Feedback.findOne({ restaurantId: restaurant._id, orderId: order._id }, { _id: 1 })
+        .lean()
+        .exec()
+    : null;
 
   return (
     <main className="mx-auto max-w-xl px-4 py-10 sm:px-6">
@@ -94,6 +102,15 @@ export default async function OrderConfirmationPage({
           initialPaymentStatus={order.payment.status}
         />
       </div>
+
+      {showFeedback ? (
+        <div className="mt-6">
+          <FeedbackWidget
+            orderId={String(order._id)}
+            alreadySubmitted={Boolean(existingFeedback)}
+          />
+        </div>
+      ) : null}
     </main>
   );
 }

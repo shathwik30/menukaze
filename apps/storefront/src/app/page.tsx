@@ -7,6 +7,7 @@ import { StorefrontHeader } from './_components/storefront-header';
 import { MenuBrowser } from './_components/menu-browser';
 import { CartBoot } from './_components/cart-boot';
 import { CartButton } from './_components/cart-button';
+import { CookiePreferencesLink } from './_components/cookie-consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,7 +156,24 @@ export default async function StorefrontHomePage() {
       </main>
 
       <footer className="border-border text-muted-foreground border-t py-8 text-center text-xs">
-        Powered by Menukaze
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          {restaurant.reservationSettings?.enabled ? (
+            <a
+              href="/reservations"
+              className="hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Reservations
+            </a>
+          ) : null}
+          <a href="/privacy" className="hover:text-foreground underline-offset-2 hover:underline">
+            Privacy
+          </a>
+          <a href="/terms" className="hover:text-foreground underline-offset-2 hover:underline">
+            Terms
+          </a>
+          <CookiePreferencesLink />
+          <span>Powered by Menukaze</span>
+        </div>
       </footer>
 
       <CartBoot restaurantId={String(restaurantId)} currency={currency} locale={locale} />

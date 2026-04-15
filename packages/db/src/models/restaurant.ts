@@ -74,7 +74,7 @@ export interface RestaurantDoc {
    * is completed; `'complete'` means onboarding is done and the user can
    * skip the wizard entirely.
    */
-  onboardingStep: 'menu' | 'tables' | 'razorpay' | 'go-live' | 'complete';
+  onboardingStep: 'menu' | 'tables' | 'razorpay' | 'staff' | 'go-live' | 'complete';
   /** Set when the user clicks Go Live. Null until activation. */
   liveAt?: Date;
   /** User has hidden the post-onboarding checklist card on /admin. */
@@ -115,6 +115,16 @@ export interface RestaurantDoc {
     scope: 'order' | 'item';
     label?: string;
   }>;
+  reservationSettings: {
+    enabled: boolean;
+    slotMinutes: number;
+    maxPartySize: number;
+    bufferMinutes: number;
+    autoConfirm: boolean;
+    reminderHours: number;
+    /** ISO date strings (YYYY-MM-DD in restaurant timezone) closed to bookings. */
+    blockedDates: string[];
+  };
   featureFlags: Map<string, boolean>;
   receiptBranding: {
     headerColor?: string;
@@ -207,7 +217,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     razorpayKeySecretEnc: String,
     onboardingStep: {
       type: String,
-      enum: ['menu', 'tables', 'razorpay', 'go-live', 'complete'],
+      enum: ['menu', 'tables', 'razorpay', 'staff', 'go-live', 'complete'],
       default: 'menu',
     },
     liveAt: Date,
@@ -241,6 +251,15 @@ const restaurantSchema = new Schema<RestaurantDoc>(
         },
       ],
       default: [],
+    },
+    reservationSettings: {
+      enabled: { type: Boolean, default: false },
+      slotMinutes: { type: Number, default: 60, min: 15, max: 240 },
+      maxPartySize: { type: Number, default: 8, min: 1, max: 200 },
+      bufferMinutes: { type: Number, default: 0, min: 0, max: 120 },
+      autoConfirm: { type: Boolean, default: true },
+      reminderHours: { type: Number, default: 24, min: 0, max: 168 },
+      blockedDates: { type: [String], default: [] },
     },
     featureFlags: { type: Map, of: Boolean, default: () => new Map() },
     receiptBranding: {

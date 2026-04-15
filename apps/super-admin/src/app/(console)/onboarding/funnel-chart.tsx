@@ -14,6 +14,7 @@ const STEP_LABELS: Record<string, string> = {
   menu: 'Menu Setup',
   tables: 'Tables Setup',
   razorpay: 'Payment Gateway',
+  staff: 'Staff Invites',
   'go-live': 'Go Live',
   complete: 'Complete',
 };

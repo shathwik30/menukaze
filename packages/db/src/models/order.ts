@@ -53,7 +53,11 @@ export interface OrderModifierSnapshot {
   priceMinor: number;
 }
 
+/** Per-line KDS status. Drives multi-station partial-ready handling. */
+export type OrderLineStatus = 'received' | 'preparing' | 'ready';
+
 export interface OrderLineItem {
+  _id?: Types.ObjectId;
   itemId: Types.ObjectId;
   /** Snapshot at order time. Future menu edits do not rewrite this. */
   name: string;
@@ -63,6 +67,10 @@ export interface OrderLineItem {
   notes?: string;
   /** (priceMinor + sum(modifier priceMinor)) * quantity */
   lineTotalMinor: number;
+  /** Station this line is routed to. Resolved at order create time from item / category station ids. */
+  stationId?: Types.ObjectId;
+  /** Per-line preparation status. Defaults to `received` from the schema. */
+  lineStatus?: OrderLineStatus;
 }
 
 export interface OrderStatusEvent {
@@ -130,6 +138,15 @@ export interface OrderDoc {
   /** Operator-supplied reason for cancellation or refund. */
   cancelReason?: string;
 
+  /**
+   * Set by the QR misuse-prevention anomaly engine when an order trips a
+   * heuristic (off-hours, too-fast follow-up, volume well above table
+   * capacity). Suspicious orders surface a banner on the dashboard for
+   * manual review but still flow to the KDS.
+   */
+  suspicious?: boolean;
+  suspiciousReason?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -167,6 +184,13 @@ const lineItemSchema = new Schema<OrderLineItem>(
     modifiers: { type: [modifierSnapshotSchema], default: [] },
     notes: { type: String, maxlength: 500 },
     lineTotalMinor: { type: Number, required: true, min: 0 },
+    stationId: { type: Schema.Types.ObjectId, ref: 'Station' },
+    lineStatus: {
+      type: String,
+      enum: ['received', 'preparing', 'ready'],
+      required: true,
+      default: 'received',
+    },
   },
   { _id: true },
 );
@@ -250,6 +274,8 @@ const orderSchema = new Schema<OrderDoc>(
     estimatedReadyAt: Date,
     completedAt: Date,
     cancelReason: { type: String, maxlength: 500 },
+    suspicious: { type: Boolean, default: false },
+    suspiciousReason: { type: String, maxlength: 200 },
   },
   { timestamps: true, collection: 'orders' },
 );

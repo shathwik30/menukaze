@@ -90,6 +90,50 @@ export {
   type PromoCodeModel,
   type PromoCodeType,
 } from './promo-code';
+export {
+  reservationModel,
+  type ReservationDoc,
+  type ReservationModel,
+  type ReservationStatus,
+} from './reservation';
+export { stationModel, type StationDoc, type StationModel } from './station';
+export {
+  auditLogModel,
+  computeAuditHash,
+  ZERO_HASH,
+  type AuditLogDoc,
+  type AuditLogModel,
+} from './audit-log';
+export { feedbackModel, type FeedbackDoc, type FeedbackModel } from './feedback';
+export {
+  customerModel,
+  type CustomerDoc,
+  type CustomerModel,
+  type CustomerChannel,
+} from './customer';
+export {
+  apiKeyModel,
+  generateApiKey,
+  hashApiKey,
+  type ApiKeyDoc,
+  type ApiKeyModel,
+  type ApiKeyScope,
+  type ApiKeyEnv,
+} from './api-key';
+export {
+  webhookSubscriptionModel,
+  generateWebhookSecret,
+  type WebhookSubscriptionDoc,
+  type WebhookSubscriptionModel,
+} from './webhook-subscription';
+export {
+  webhookDeliveryModel,
+  WEBHOOK_RETRY_DELAYS_MS,
+  WEBHOOK_MAX_ATTEMPTS,
+  type WebhookDeliveryDoc,
+  type WebhookDeliveryModel,
+  type WebhookDeliveryStatus,
+} from './webhook-delivery';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -109,6 +153,14 @@ import { invoiceModel } from './invoice';
 import { featureFlagModel } from './feature-flag';
 import { platformAuditLogModel } from './platform-audit-log';
 import { promoCodeModel } from './promo-code';
+import { reservationModel } from './reservation';
+import { stationModel } from './station';
+import { auditLogModel } from './audit-log';
+import { feedbackModel } from './feedback';
+import { customerModel } from './customer';
+import { apiKeyModel } from './api-key';
+import { webhookSubscriptionModel } from './webhook-subscription';
+import { webhookDeliveryModel } from './webhook-delivery';
 
 /**
  * Convenience accessor: `getModels(connection).Restaurant`.
@@ -133,6 +185,14 @@ export function getModels(connection: Connection) {
     FeatureFlag: featureFlagModel(connection),
     PlatformAuditLog: platformAuditLogModel(connection),
     PromoCode: promoCodeModel(connection),
+    Reservation: reservationModel(connection),
+    Station: stationModel(connection),
+    AuditLog: auditLogModel(connection),
+    Feedback: feedbackModel(connection),
+    Customer: customerModel(connection),
+    ApiKey: apiKeyModel(connection),
+    WebhookSubscription: webhookSubscriptionModel(connection),
+    WebhookDelivery: webhookDeliveryModel(connection),
   };
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { CookieConsent } from './_components/cookie-consent';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,7 +16,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       {/* Passing nonce on <head> makes Next.js apply it to its own inline scripts. */}
       <head nonce={nonce} />
-      <body className="bg-background text-foreground min-h-screen antialiased">{children}</body>
+      <body className="bg-background text-foreground min-h-screen antialiased">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   );
 }

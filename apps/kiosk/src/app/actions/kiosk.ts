@@ -4,11 +4,13 @@ import { createHmac } from 'node:crypto';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  enqueueWebhookEvent,
   envelopeDecrypt,
   generatePublicOrderId,
   getModels,
   getMongoConnection,
   restaurantHasReachedOrderCapacity,
+  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
@@ -17,6 +19,7 @@ import {
   computeTax,
   formatMoney,
   parseCurrencyCode,
+  resolvePrimaryStationId,
   validateModifierSelection,
 } from '@menukaze/shared';
 import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
@@ -86,7 +89,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
   if (!itemIds) return { ok: false, error: 'Unknown item.' };
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Item, Order } = getModels(conn);
+  const { Restaurant, Item, Order, Category } = getModels(conn);
 
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
@@ -116,6 +119,14 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
 
   const items = await Item.find({ restaurantId, _id: { $in: itemIds } }).exec();
   const itemsById = new Map(items.map((item) => [String(item._id), item]));
+  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
+  const categories =
+    categoryIds.length > 0
+      ? await Category.find({ restaurantId, _id: { $in: categoryIds } }, { stationIds: 1 })
+          .lean()
+          .exec()
+      : [];
+  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
@@ -128,6 +139,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     modifiers: { groupName: string; optionName: string; priceMinor: number }[];
     notes?: string;
     lineTotalMinor: number;
+    stationId?: Types.ObjectId;
   }
 
   const snapshotLines: SnapshotLine[] = [];
@@ -148,6 +160,11 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     const lineTotalMinor = unitMinor * line.quantity;
     subtotalMinor += lineTotalMinor;
 
+    const stationId = resolvePrimaryStationId(
+      item.stationIds ?? null,
+      categoryStationsById.get(String(item.categoryId)) ?? null,
+    );
+
     snapshotLines.push({
       itemId: item._id,
       name: item.name,
@@ -156,6 +173,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
       modifiers: modResult.modifiers,
       ...(line.notes ? { notes: line.notes } : {}),
       lineTotalMinor,
+      ...(stationId ? { stationId } : {}),
     });
   }
 
@@ -321,6 +339,20 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
   } catch (err) {
     console.warn('[kiosk] ably publish failed', err);
   }
+
+  await enqueueWebhookEvent(conn, {
+    restaurantId: order.restaurantId,
+    eventType: 'order.created',
+    data: {
+      id: orderId,
+      public_order_id: order.publicOrderId,
+      channel: { id: 'kiosk', type: 'built_in' },
+      type: order.type,
+      total_minor: order.totalMinor,
+      currency: order.currency,
+      status: 'confirmed',
+    },
+  });
 
   return { ok: true, publicOrderId: order.publicOrderId, orderId };
 }

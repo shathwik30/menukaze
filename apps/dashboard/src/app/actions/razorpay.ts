@@ -64,7 +64,7 @@ export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorp
         $set: {
           razorpayKeyIdEnc: encKeyId,
           razorpayKeySecretEnc: encSecret,
-          onboardingStep: 'go-live',
+          onboardingStep: 'staff',
         },
       },
     ).exec();

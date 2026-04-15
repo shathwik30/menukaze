@@ -147,7 +147,14 @@ export const restaurantThrottlingSchema = z.object({
   maxConcurrentOrders: z.number().int().positive().default(20),
 });
 
-export const onboardingStepSchema = z.enum(['menu', 'tables', 'razorpay', 'go-live', 'complete']);
+export const onboardingStepSchema = z.enum([
+  'menu',
+  'tables',
+  'razorpay',
+  'staff',
+  'go-live',
+  'complete',
+]);
 
 export const restaurantHardeningSchema = z.object({
   strictMode: z.boolean().default(false),

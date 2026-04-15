@@ -7,7 +7,8 @@ import { OrdersLive } from './orders-live';
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardOrdersPage() {
-  const { session, restaurantId } = await requirePageFlag(['orders.view_all']);
+  const { session, restaurantId, permissions } = await requirePageFlag(['orders.view_all']);
+  const canCreateWalkIn = permissions.includes('orders.create_walkin');
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Order } = getModels(conn);
@@ -41,12 +42,22 @@ export default async function DashboardOrdersPage() {
             Live feed for {restaurant?.name} · last 50 orders
           </p>
         </div>
-        <Link
-          href="/admin"
-          className="border-input hover:bg-accent text-sm underline underline-offset-4"
-        >
-          ← Back to dashboard
-        </Link>
+        <div className="flex items-center gap-3">
+          {canCreateWalkIn ? (
+            <Link
+              href="/admin/orders/new"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
+            >
+              + New walk-in order
+            </Link>
+          ) : null}
+          <Link
+            href="/admin"
+            className="border-input hover:bg-accent text-sm underline underline-offset-4"
+          >
+            ← Back to dashboard
+          </Link>
+        </div>
       </header>
 
       <OrdersLive restaurantId={session.restaurantId} initialRows={rows} />

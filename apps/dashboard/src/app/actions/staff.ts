@@ -14,6 +14,7 @@ import {
   type ActionResult,
 } from '@/lib/action-helpers';
 import { PermissionDeniedError, requireFlags, requireSession } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 import { StaffInviteEmail } from '@/emails/staff-invite';
 
 interface NormalizedRoleInput {
@@ -199,6 +200,16 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
       console.warn('[staff] invite email failed', error);
     }
 
+    await recordAudit({
+      restaurantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      role: actorRole,
+      action: 'staff.invited',
+      resourceType: 'invite',
+      resourceId: String(invite._id),
+      metadata: { email: inviteEmail, role: roleInput.role },
+    });
     revalidatePath('/admin/staff');
     return { ok: true, data: { id: String(invite._id) } };
   } catch (error) {
@@ -289,6 +300,16 @@ export async function changeRoleAction(raw: unknown): Promise<ActionResult> {
           $unset: { customPermissions: 1 },
         };
     await StaffMembership.updateOne({ restaurantId, _id: target._id }, update).exec();
+    await recordAudit({
+      restaurantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      role: actorRole,
+      action: 'staff.role_changed',
+      resourceType: 'membership',
+      resourceId: String(target._id),
+      metadata: { from: target.role, to: roleInput.role },
+    });
     revalidatePath('/admin/staff');
     return { ok: true };
   } catch (error) {
@@ -331,6 +352,16 @@ export async function removeStaffAction(membershipId: string): Promise<ActionRes
       { restaurantId, _id: target._id },
       { $set: { status: 'deactivated' } },
     ).exec();
+    await recordAudit({
+      restaurantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      role: actorRole,
+      action: 'staff.removed',
+      resourceType: 'membership',
+      resourceId: String(target._id),
+      metadata: { previousRole: target.role },
+    });
     revalidatePath('/admin/staff');
     return { ok: true };
   } catch (error) {

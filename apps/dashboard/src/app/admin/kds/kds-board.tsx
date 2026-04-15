@@ -11,11 +11,29 @@ import {
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
 import { updateOrderStatusAction } from '@/app/actions/orders';
+import { advanceOrderLinesAction } from '@/app/actions/stations';
 
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
   }
+}
+
+export interface KdsLine {
+  id: string;
+  quantity: number;
+  name: string;
+  modifiers: string[];
+  notes?: string;
+  stationId: string | null;
+  stationName: string | null;
+  lineStatus: 'received' | 'preparing' | 'ready';
+}
+
+export interface KdsStation {
+  id: string;
+  name: string;
+  color: string | null;
 }
 
 export interface KdsCard {
@@ -25,19 +43,17 @@ export interface KdsCard {
   type: string;
   status: OrderStatus;
   createdAt: string;
-  items: Array<{
-    quantity: number;
-    name: string;
-    modifiers: string[];
-    notes?: string;
-  }>;
+  items: KdsLine[];
   tableId?: string;
   tableNumber?: number;
+  suspicious?: boolean;
+  suspiciousReason?: string;
 }
 
 interface Props {
   restaurantId: string;
   initialCards: KdsCard[];
+  stationFilter?: string | null;
 }
 
 const CHANNEL_BADGE: Record<string, string> = {
@@ -103,7 +119,7 @@ const CHANNEL_FILTERS: Array<{
 
 type ChannelFilter = (typeof CHANNEL_FILTERS)[number]['id'];
 
-export function KdsBoard({ restaurantId, initialCards }: Props) {
+export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
   const router = useRouter();
   const [cards, setCards] = useState<KdsCard[]>(initialCards);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -197,14 +213,30 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
-        <Column title="New" cards={grouped.received} onAdvance={advance} pending={isPending} />
+        <Column
+          title="New"
+          cards={grouped.received}
+          onAdvance={advance}
+          onAdvanceLines={advanceLines}
+          pending={isPending}
+          stationFilter={stationFilter ?? null}
+        />
         <Column
           title="Preparing"
           cards={grouped.preparing}
           onAdvance={advance}
+          onAdvanceLines={advanceLines}
           pending={isPending}
+          stationFilter={stationFilter ?? null}
         />
-        <Column title="Ready" cards={grouped.ready} onAdvance={advance} pending={isPending} />
+        <Column
+          title="Ready"
+          cards={grouped.ready}
+          onAdvance={advance}
+          onAdvanceLines={advanceLines}
+          pending={isPending}
+          stationFilter={stationFilter ?? null}
+        />
       </div>
     </>
   );
@@ -227,18 +259,32 @@ export function KdsBoard({ restaurantId, initialCards }: Props) {
       });
     });
   }
+
+  function advanceLines(card: KdsCard, next: 'preparing' | 'ready'): void {
+    const lineIds = card.items.map((line) => line.id).filter((id) => id.length > 0);
+    if (lineIds.length === 0) return;
+    start(async () => {
+      const result = await advanceOrderLinesAction({ orderId: card.id, lineIds, next });
+      if (!result.ok) return;
+      router.refresh();
+    });
+  }
 }
 
 function Column({
   title,
   cards,
   onAdvance,
+  onAdvanceLines,
   pending,
+  stationFilter,
 }: {
   title: string;
   cards: KdsCard[];
   onAdvance: (card: KdsCard) => void;
+  onAdvanceLines: (card: KdsCard, next: 'preparing' | 'ready') => void;
   pending: boolean;
+  stationFilter: string | null;
 }) {
   return (
     <section className="bg-muted flex flex-col gap-3 rounded-lg p-3">
@@ -249,7 +295,14 @@ function Column({
         <p className="text-muted-foreground text-xs">Nothing here yet.</p>
       ) : (
         cards.map((card) => (
-          <Card key={card.id} card={card} onAdvance={onAdvance} pending={pending} />
+          <Card
+            key={card.id}
+            card={card}
+            onAdvance={onAdvance}
+            onAdvanceLines={onAdvanceLines}
+            pending={pending}
+            stationFilter={stationFilter}
+          />
         ))
       )}
     </section>
@@ -259,11 +312,15 @@ function Column({
 function Card({
   card,
   onAdvance,
+  onAdvanceLines,
   pending,
+  stationFilter,
 }: {
   card: KdsCard;
   onAdvance: (card: KdsCard) => void;
+  onAdvanceLines: (card: KdsCard, next: 'preparing' | 'ready') => void;
   pending: boolean;
+  stationFilter: string | null;
 }) {
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -279,7 +336,11 @@ function Card({
   const pickupNumber = formatPickupNumber(card.publicOrderId);
 
   return (
-    <article className="border-border bg-background rounded-md border p-3 shadow-sm">
+    <article
+      className={`bg-background rounded-md border p-3 shadow-sm ${
+        card.suspicious ? 'border-amber-400 ring-1 ring-amber-200' : 'border-border'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-foreground font-mono text-2xl font-bold">#{pickupNumber}</p>
@@ -302,9 +363,14 @@ function Card({
         </div>
         <span className={`font-mono text-xs ${ageClass}`}>{ageMinutes}m</span>
       </div>
+      {card.suspicious ? (
+        <p className="mt-2 rounded-sm bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900">
+          ⚠ Flagged for review{card.suspiciousReason ? ` · ${card.suspiciousReason}` : ''}
+        </p>
+      ) : null}
       <ul className="mt-2 space-y-1 text-sm">
-        {card.items.map((item, i) => (
-          <li key={i}>
+        {card.items.map((item) => (
+          <li key={item.id}>
             <span className="text-foreground font-medium">
               {item.quantity}× {item.name}
             </span>
@@ -316,10 +382,22 @@ function Card({
             {item.notes ? (
               <span className="text-muted-foreground ml-2 text-xs italic">“{item.notes}”</span>
             ) : null}
+            {!stationFilter && item.stationName ? (
+              <span className="text-muted-foreground ml-2 text-[10px] uppercase tracking-wide">
+                @ {item.stationName}
+              </span>
+            ) : null}
+            {stationFilter && item.lineStatus !== 'ready' ? null : stationFilter ? (
+              <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                ✓ Done
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>
-      {action ? (
+      {stationFilter ? (
+        <StationActions card={card} pending={pending} onAdvanceLines={onAdvanceLines} />
+      ) : action ? (
         <button
           type="button"
           disabled={pending}
@@ -330,5 +408,47 @@ function Card({
         </button>
       ) : null}
     </article>
+  );
+}
+
+function StationActions({
+  card,
+  pending,
+  onAdvanceLines,
+}: {
+  card: KdsCard;
+  pending: boolean;
+  onAdvanceLines: (card: KdsCard, next: 'preparing' | 'ready') => void;
+}) {
+  const allReady = card.items.every((line) => line.lineStatus === 'ready');
+  const anyPreparing = card.items.some((line) => line.lineStatus === 'preparing');
+  if (allReady) {
+    return (
+      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        Ready for pass
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 flex gap-2">
+      {!anyPreparing ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onAdvanceLines(card, 'preparing')}
+          className="border-border hover:bg-muted flex-1 rounded-md border py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Start
+        </button>
+      ) : null}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => onAdvanceLines(card, 'ready')}
+        className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-md py-2 text-sm font-semibold disabled:opacity-50"
+      >
+        Mark ready
+      </button>
+    </div>
   );
 }

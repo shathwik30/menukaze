@@ -13,6 +13,7 @@ import {
   withRestaurantAction,
   type ActionResult,
 } from '@/lib/action-helpers';
+import { recordAudit } from '@/lib/audit';
 
 /**
  * Menu management actions. Each action validates input, resolves the active
@@ -299,7 +300,7 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
   if (!categoryId) return invalidEntityError('category');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Category, Item } = getModels(conn);
       const restaurant = await Restaurant.findById(restaurantId).exec();
@@ -321,6 +322,16 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
         ...(comboIds.ids.length > 0 ? { comboOf: comboIds.ids } : {}),
         soldOut: false,
       });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.item.created',
+        resourceType: 'item',
+        resourceId: String(item._id),
+        metadata: { name: parsed.data.name, priceMinor: parsed.data.priceMinor },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(item._id) } };
     });
@@ -337,7 +348,7 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
   if (!itemId) return invalidEntityError('item');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
       const { id: _ignoredItemId, categoryId, ...patch } = parsed.data;
@@ -363,6 +374,18 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
       if (Object.keys(unset).length > 0) update['$unset'] = unset;
       const result = await Item.updateOne({ restaurantId, _id: itemId }, update).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.item.updated',
+        resourceType: 'item',
+        resourceId: String(itemId),
+        metadata: {
+          fields: [...Object.keys(set), ...Object.keys(unset).map((k) => `-${k}`)],
+        },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
@@ -376,7 +399,7 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
   if (!itemId) return invalidEntityError('item');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
       await Item.deleteOne({ restaurantId, _id: itemId }).exec();
@@ -384,6 +407,15 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
         { restaurantId, comboOf: itemId },
         { $pull: { comboOf: itemId } },
       ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.item.deleted',
+        resourceType: 'item',
+        resourceId: String(itemId),
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
@@ -404,16 +436,28 @@ export async function toggleItemSoldOutAction(raw: unknown): Promise<ActionResul
   if (!itemId) return invalidEntityError('item');
 
   try {
-    return await withRestaurantAction(['menu.toggle_availability'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { Item } = getModels(conn);
-      await Item.updateOne(
-        { restaurantId, _id: itemId },
-        { $set: { soldOut: parsed.data.soldOut } },
-      ).exec();
-      revalidatePath('/admin/menu');
-      return { ok: true as const };
-    });
+    return await withRestaurantAction(
+      ['menu.toggle_availability'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { Item } = getModels(conn);
+        await Item.updateOne(
+          { restaurantId, _id: itemId },
+          { $set: { soldOut: parsed.data.soldOut } },
+        ).exec();
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: parsed.data.soldOut ? 'menu.item.sold_out' : 'menu.item.back_in_stock',
+          resourceType: 'item',
+          resourceId: String(itemId),
+        });
+        revalidatePath('/admin/menu');
+        return { ok: true as const };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to toggle item availability.');
   }

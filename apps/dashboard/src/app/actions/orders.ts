@@ -2,7 +2,13 @@
 
 import type { Types } from 'mongoose';
 import { z } from 'zod';
-import { getMongoConnection, getModels, type OrderStatus, type OrderType } from '@menukaze/db';
+import {
+  enqueueWebhookEvent,
+  getMongoConnection,
+  getModels,
+  type OrderStatus,
+  type OrderType,
+} from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
@@ -232,6 +238,33 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
         order,
         status: parsed.data.nextStatus,
       });
+
+      // Map status transitions to the public webhook event catalogue.
+      const eventByStatus: Partial<Record<OrderStatus, string>> = {
+        confirmed: 'order.confirmed',
+        preparing: 'order.preparing',
+        ready: 'order.ready',
+        completed: 'order.completed',
+        cancelled: 'order.cancelled',
+      };
+      const eventType = eventByStatus[parsed.data.nextStatus];
+      if (eventType) {
+        await enqueueWebhookEvent(conn, {
+          restaurantId,
+          eventType,
+          data: {
+            id: orderIdStr,
+            public_order_id: order.publicOrderId,
+            channel: { id: order.channel, type: 'built_in' },
+            status: parsed.data.nextStatus,
+            total_minor: order.totalMinor,
+            currency: order.currency,
+            ...(isCancel && parsed.data.cancelReason
+              ? { cancel_reason: parsed.data.cancelReason }
+              : {}),
+          },
+        });
+      }
 
       return { ok: true, status: parsed.data.nextStatus };
     });

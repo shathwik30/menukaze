@@ -5,7 +5,7 @@ import { StuckMerchants } from './stuck-merchants';
 
 export const dynamic = 'force-dynamic';
 
-const ONBOARDING_STEPS = ['menu', 'tables', 'razorpay', 'go-live', 'complete'] as const;
+const ONBOARDING_STEPS = ['menu', 'tables', 'razorpay', 'staff', 'go-live', 'complete'] as const;
 
 export default async function OnboardingPage() {
   await requireSuperAdmin();

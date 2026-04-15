@@ -29,6 +29,9 @@ export default async function OnboardingPage() {
       case 'razorpay':
         redirect('/onboarding/razorpay');
         break;
+      case 'staff':
+        redirect('/onboarding/staff');
+        break;
       case 'go-live':
         redirect('/onboarding/go-live');
         break;

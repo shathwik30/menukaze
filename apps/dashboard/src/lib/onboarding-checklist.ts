@@ -30,7 +30,7 @@ export interface ChecklistSummary {
   percent: number;
 }
 
-const STEP_ORDER = ['menu', 'tables', 'razorpay', 'go-live', 'complete'] as const;
+const STEP_ORDER = ['menu', 'tables', 'razorpay', 'staff', 'go-live', 'complete'] as const;
 type Step = (typeof STEP_ORDER)[number];
 
 function stepPast(current: Step, target: Step): boolean {

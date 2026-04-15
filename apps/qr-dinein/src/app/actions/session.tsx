@@ -1,25 +1,34 @@
 'use server';
 
 import { createHmac } from 'node:crypto';
+import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  enqueueWebhookEvent,
   envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
   getRestaurantSupportRecipients,
   restaurantHasReachedOrderCapacity,
+  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
+  DEFAULT_DEVICE_SESSION_LIMIT_PER_DAY,
+  DEFAULT_DEVICE_WINDOW_HOURS,
+  deviceFingerprint,
   formatMoney,
+  ipFromHeaders,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
   parseCurrencyCode,
+  preCheckQrLocation,
+  resolvePrimaryStationId,
   validateModifierSelection,
 } from '@menukaze/shared';
 import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
@@ -170,6 +179,44 @@ async function moveSessionToNeedsReview(
   await notifyNeedsReviewByEmail(session, at);
 }
 
+/**
+ * Cheap anomaly heuristics on a new round. Returns the reason string when an
+ * order should be flagged, or null when it looks normal. Called inline by
+ * `placeRoundAction` — keep it fast (a single Mongo query).
+ */
+async function detectSessionAnomaly(
+  orderModel: ReturnType<typeof getModels>['Order'],
+  tableModel: ReturnType<typeof getModels>['Table'],
+  restaurantId: Types.ObjectId,
+  session: { _id: Types.ObjectId; tableId: Types.ObjectId },
+  newOrderTotalMinor: number,
+  now: Date,
+): Promise<string | null> {
+  const previous = await orderModel
+    .findOne(
+      { restaurantId, sessionId: session._id },
+      { createdAt: 1, totalMinor: 1 },
+      { sort: { createdAt: -1 } },
+    )
+    .exec();
+  if (previous) {
+    const elapsedMs = now.getTime() - previous.createdAt.getTime();
+    if (elapsedMs < 90_000) {
+      return 'Two rounds placed within 90 seconds.';
+    }
+  }
+  const table = await tableModel.findOne({ restaurantId, _id: session.tableId }).exec();
+  if (table) {
+    // 50,000 minor units (~₹500/$5) per seat is the rough upper bound for a
+    // single round in mainstream cuisines. Cheap signal, never the only one.
+    const plausibleCap = table.capacity * 50_000;
+    if (newOrderTotalMinor > plausibleCap * 4) {
+      return `Round total exceeds 4x plausible cap for ${table.capacity}-seat table.`;
+    }
+  }
+  return null;
+}
+
 async function expireSessionIfTimedOut(
   models: SessionTimeoutModels,
   session: {
@@ -208,6 +255,8 @@ interface SessionRecord {
   customer: { name: string; email: string; phone?: string };
   participants: Array<{ label: string; joinedAt: Date }>;
   lastActivityAt: Date;
+  firstOrderAllowedAt?: Date | null;
+  deviceFingerprint?: string | null;
 }
 
 interface SessionRestaurantRecord {
@@ -255,6 +304,7 @@ async function loadSessionRestaurant(
 
 async function buildRoundSnapshot(
   itemModel: ReturnType<typeof getModels>['Item'],
+  categoryModel: ReturnType<typeof getModels>['Category'],
   restaurantId: Types.ObjectId,
   lines: z.infer<typeof lineInput>[],
   participantLabel?: string,
@@ -268,6 +318,15 @@ async function buildRoundSnapshot(
 
   const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
   const itemsById = new Map(items.map((item) => [String(item._id), item]));
+  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
+  const categories =
+    categoryIds.length > 0
+      ? await categoryModel
+          .find({ restaurantId, _id: { $in: categoryIds } }, { stationIds: 1 })
+          .lean()
+          .exec()
+      : [];
+  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
 
   const snapshotLines: SessionRoundLineSnapshot[] = [];
   let subtotalMinor = 0;
@@ -288,6 +347,11 @@ async function buildRoundSnapshot(
     const lineTotalMinor = unitMinor * line.quantity;
     subtotalMinor += lineTotalMinor;
 
+    const stationId = resolvePrimaryStationId(
+      item.stationIds ?? null,
+      categoryStationsById.get(String(item.categoryId)) ?? null,
+    );
+
     snapshotLines.push({
       itemId: item._id,
       name: participantLabel ? `${item.name} (for ${participantLabel})` : item.name,
@@ -296,6 +360,7 @@ async function buildRoundSnapshot(
       modifiers: resolvedModifiers,
       ...(line.notes ? { notes: line.notes } : {}),
       lineTotalMinor,
+      ...(stationId ? { stationId } : {}),
     });
   }
 
@@ -466,17 +531,43 @@ async function sendSessionReceiptEmail(
   }
 }
 
+const startSessionContextSchema = z
+  .object({
+    coords: z
+      .object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+      })
+      .optional(),
+    clientHint: z.string().max(64).optional(),
+  })
+  .optional();
+
 export type StartOrJoinResult =
-  | { ok: true; sessionId: string; joined: boolean }
-  | { ok: false; error: string };
+  | {
+      ok: true;
+      sessionId: string;
+      joined: boolean;
+      firstOrderAllowedAt?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+      code?: 'outside_geofence' | 'no_location' | 'wifi_required' | 'rate_limited';
+    };
 
 export async function startOrJoinSessionAction(
   qrToken: string,
   customerRaw: unknown,
+  contextRaw?: unknown,
 ): Promise<StartOrJoinResult> {
   const parsed = customerSchema.safeParse(customerRaw);
   if (!parsed.success) {
     return { ok: false, error: getZodErrorMessage(parsed.error, 'Please fill in every field.') };
+  }
+  const contextParsed = startSessionContextSchema.safeParse(contextRaw ?? undefined);
+  if (!contextParsed.success) {
+    return { ok: false, error: 'Invalid location data.' };
   }
   if (!qrToken || qrToken.length < 10) return { ok: false, error: 'Invalid QR token.' };
 
@@ -494,6 +585,32 @@ export async function startOrJoinSessionAction(
       ok: false,
       error: restaurant.holidayMode.message ?? 'The restaurant is currently closed.',
     };
+  }
+
+  const requestHeaders = await headers();
+  const ip = ipFromHeaders(requestHeaders);
+  const fingerprint = deviceFingerprint({
+    ip,
+    userAgent: requestHeaders.get('user-agent'),
+    acceptLanguage: requestHeaders.get('accept-language'),
+    clientHint: contextParsed.data?.clientHint ?? null,
+  });
+
+  const locationCheck = preCheckQrLocation({
+    restaurant: {
+      coordinates: restaurant.geo.coordinates,
+      geofenceRadiusM: restaurant.hardening?.geofenceRadiusM ?? restaurant.geofenceRadiusM,
+      wifiPublicIps: restaurant.wifiPublicIps,
+      hardening: {
+        strictMode: restaurant.hardening?.strictMode,
+        wifiGate: restaurant.hardening?.wifiGate,
+      },
+    },
+    coords: contextParsed.data?.coords ?? null,
+    ip,
+  });
+  if (!locationCheck.ok) {
+    return { ok: false, error: locationCheck.error, code: locationCheck.code };
   }
 
   const now = new Date();
@@ -533,8 +650,51 @@ export async function startOrJoinSessionAction(
       'participant_joined',
       now,
     );
-    return { ok: true, sessionId: String(existing._id), joined: true };
+    return {
+      ok: true,
+      sessionId: String(existing._id),
+      joined: true,
+      ...(existing.firstOrderAllowedAt
+        ? { firstOrderAllowedAt: existing.firstOrderAllowedAt.toISOString() }
+        : {}),
+    };
   }
+
+  // Per-table cap (default 1 active session). Belt-and-braces: the active-
+  // session lookup above already serializes scans, but a configurable cap
+  // makes large-table split-bill workflows possible.
+  const maxSessionsPerTable = restaurant.hardening?.maxSessionsPerTable ?? 1;
+  const activeSessionsForTable = await TableSession.countDocuments({
+    restaurantId,
+    tableId: table._id,
+    status: { $in: ['active', 'bill_requested'] },
+  }).exec();
+  if (activeSessionsForTable >= maxSessionsPerTable) {
+    return {
+      ok: false,
+      error: 'This table already has the maximum number of active sessions.',
+      code: 'rate_limited',
+    };
+  }
+
+  // Per-device 24h cap across the whole restaurant.
+  const since = new Date(now.getTime() - DEFAULT_DEVICE_WINDOW_HOURS * 60 * 60 * 1000);
+  const deviceCount = await TableSession.countDocuments({
+    restaurantId,
+    deviceFingerprint: fingerprint,
+    startedAt: { $gte: since },
+  }).exec();
+  if (deviceCount >= DEFAULT_DEVICE_SESSION_LIMIT_PER_DAY) {
+    return {
+      ok: false,
+      error: 'Too many sessions started from this device today. Please ask your server.',
+      code: 'rate_limited',
+    };
+  }
+
+  const firstOrderDelaySeconds = restaurant.hardening?.firstOrderDelayS ?? 0;
+  const firstOrderAllowedAt =
+    firstOrderDelaySeconds > 0 ? new Date(now.getTime() + firstOrderDelaySeconds * 1000) : null;
 
   const session = await TableSession.create({
     restaurantId,
@@ -542,6 +702,8 @@ export async function startOrJoinSessionAction(
     status: 'active',
     customer: parsed.data,
     participants: [{ label: parsed.data.name, joinedAt: now }],
+    deviceFingerprint: fingerprint,
+    ...(firstOrderAllowedAt ? { firstOrderAllowedAt } : {}),
     startedAt: now,
     lastActivityAt: now,
   });
@@ -555,7 +717,12 @@ export async function startOrJoinSessionAction(
     now,
   );
 
-  return { ok: true, sessionId: String(session._id), joined: false };
+  return {
+    ok: true,
+    sessionId: String(session._id),
+    joined: false,
+    ...(firstOrderAllowedAt ? { firstOrderAllowedAt: firstOrderAllowedAt.toISOString() } : {}),
+  };
 }
 
 const modifierInput = z.object({
@@ -591,7 +758,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const conn = await getMongoConnection('live');
-  const { TableSession, Item, Order, Restaurant, Table } = getModels(conn);
+  const { TableSession, Item, Order, Restaurant, Table, Category } = getModels(conn);
 
   const session = await loadSessionById(TableSession, sessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
@@ -607,6 +774,16 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
       ok: false,
       error:
         'This session timed out and now needs staff assistance before more items can be added.',
+    };
+  }
+  const placedAt = new Date();
+  if (session.firstOrderAllowedAt && placedAt < session.firstOrderAllowedAt) {
+    const waitSeconds = Math.ceil(
+      (session.firstOrderAllowedAt.getTime() - placedAt.getTime()) / 1000,
+    );
+    return {
+      ok: false,
+      error: `Please wait ${waitSeconds}s before placing your first order.`,
     };
   }
   if (restaurant.throttling?.enabled) {
@@ -625,6 +802,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
 
   const roundSnapshot = await buildRoundSnapshot(
     Item,
+    Category,
     restaurantId,
     parsed.data.lines,
     parsed.data.participantLabel,
@@ -634,13 +812,19 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const publicOrderId = generatePublicOrderId();
-  const now = new Date();
+  const now = placedAt;
 
   const { taxMinor, surchargeMinor } = computeTax(
     roundSnapshot.subtotalMinor,
     restaurant.taxRules ?? [],
   );
   const totalMinor = roundSnapshot.subtotalMinor + surchargeMinor;
+
+  // Anomaly detection: flag rounds placed within 90s of the previous round
+  // when the running session total is well above what the table seats can
+  // plausibly consume. Suspicious rounds still flow to the KDS but surface
+  // a banner to staff.
+  const anomaly = await detectSessionAnomaly(Order, Table, restaurantId, session, totalMinor, now);
 
   const order = await Order.create({
     restaurantId,
@@ -664,6 +848,32 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     },
     tableId: session.tableId,
     sessionId: session._id,
+    ...(anomaly ? { suspicious: true, suspiciousReason: anomaly } : {}),
+  });
+
+  await upsertCustomerFromOrder(conn, {
+    restaurantId,
+    email: session.customer.email,
+    name: session.customer.name,
+    ...(session.customer.phone ? { phone: session.customer.phone } : {}),
+    channel: 'qr_dinein',
+    totalMinor,
+    currency: restaurant.currency,
+  });
+
+  await enqueueWebhookEvent(conn, {
+    restaurantId,
+    eventType: 'order.created',
+    data: {
+      id: String(order._id),
+      public_order_id: publicOrderId,
+      channel: { id: 'qr_dinein', type: 'built_in' },
+      type: 'dine_in',
+      table_session_id: String(session._id),
+      total_minor: totalMinor,
+      currency: restaurant.currency,
+      status: 'confirmed',
+    },
   });
 
   await touchSession(TableSession, session, now);

@@ -32,13 +32,31 @@ export default async function DashboardAdminPage() {
   const canViewStaff = hasPermission('staff.view');
   const canEditMenu = hasPermission('menu.edit');
   const canPrintQr = hasPermission('tables.qr_print');
+  const canManageData = hasPermission('customers.export') || hasPermission('customers.delete');
   const navLinks = [
     { href: '/admin/orders', label: 'Orders', visible: hasPermission('orders.view_all') },
     { href: '/admin/kds', label: 'KDS', visible: hasPermission('kds.view') },
+    { href: '/admin/stations', label: 'Stations', visible: hasPermission('kds.configure') },
     { href: '/admin/menu', label: 'Menu', visible: hasPermission('menu.view') },
     { href: '/admin/tables', label: 'Tables', visible: hasPermission('tables.view') },
+    {
+      href: '/admin/reservations',
+      label: 'Reservations',
+      visible: hasPermission('reservations.view'),
+    },
     { href: '/admin/settings', label: 'Settings', visible: canViewSettings },
     { href: '/admin/staff', label: 'Staff', visible: canViewStaff },
+    { href: '/admin/analytics', label: 'Analytics', visible: hasPermission('analytics.view') },
+    { href: '/admin/customers', label: 'Customers', visible: hasPermission('customers.view') },
+    { href: '/admin/data-requests', label: 'Data requests', visible: canManageData },
+    {
+      href: '/admin/audit',
+      label: 'Audit log',
+      visible: hasPermission('audit.view_self') || hasPermission('audit.view_all'),
+    },
+    { href: '/admin/feedback', label: 'Feedback', visible: hasPermission('analytics.view') },
+    { href: '/admin/api-keys', label: 'API keys', visible: hasPermission('api_keys.manage') },
+    { href: '/admin/webhooks', label: 'Webhooks', visible: hasPermission('webhooks.manage') },
   ];
 
   const showChecklist = restaurant && !restaurant.checklistDismissed && canViewSettings;

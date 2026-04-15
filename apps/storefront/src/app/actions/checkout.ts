@@ -4,11 +4,13 @@ import { createHmac } from 'node:crypto';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  enqueueWebhookEvent,
   envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
   restaurantHasReachedOrderCapacity,
+  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
@@ -17,6 +19,7 @@ import {
   computeTax,
   formatMoney,
   parseCurrencyCode,
+  resolvePrimaryStationId,
   validateModifierSelection,
 } from '@menukaze/shared';
 import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
@@ -79,6 +82,7 @@ interface CheckoutLineSnapshot {
   modifiers: { groupName: string; optionName: string; priceMinor: number }[];
   notes?: string;
   lineTotalMinor: number;
+  stationId?: Types.ObjectId;
 }
 
 interface CheckoutRestaurant {
@@ -179,9 +183,25 @@ async function buildCheckoutPricing(
   itemIds: Types.ObjectId[],
   restaurant: CheckoutRestaurant,
   lines: CheckoutInput['lines'],
+  categoryModel: ReturnType<typeof getModels>['Category'],
 ): Promise<CheckoutPricing | { error: string }> {
   const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
   const itemsById = new Map(items.map((item) => [String(item._id), item]));
+  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
+  const categories =
+    categoryIds.length > 0
+      ? await categoryModel
+          .find(
+            {
+              restaurantId,
+              _id: { $in: categoryIds },
+            },
+            { stationIds: 1 },
+          )
+          .lean()
+          .exec()
+      : [];
+  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
 
   const snapshotLines: CheckoutLineSnapshot[] = [];
   let subtotalMinor = 0;
@@ -205,6 +225,11 @@ async function buildCheckoutPricing(
     const lineTotalMinor = unitMinor * line.quantity;
     subtotalMinor += lineTotalMinor;
 
+    const stationId = resolvePrimaryStationId(
+      item.stationIds ?? null,
+      categoryStationsById.get(String(item.categoryId)) ?? null,
+    );
+
     snapshotLines.push({
       itemId: item._id,
       name: item.name,
@@ -213,6 +238,7 @@ async function buildCheckoutPricing(
       modifiers: resolvedModifiers,
       ...(line.notes ? { notes: line.notes } : {}),
       lineTotalMinor,
+      ...(stationId ? { stationId } : {}),
     });
   }
 
@@ -350,7 +376,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   }
 
   const conn = await getMongoConnection('live');
-  const { Item, Order } = getModels(conn);
+  const { Item, Order, Category } = getModels(conn);
   const restaurantResult = await ensureRestaurantCanCheckout(conn, checkoutIds.restaurantId);
   if ('error' in restaurantResult) {
     return { ok: false, error: restaurantResult.error };
@@ -363,6 +389,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     checkoutIds.itemIds,
     restaurant,
     input.lines,
+    Category,
   );
   if ('error' in pricing) {
     return { ok: false, error: pricing.error };
@@ -420,6 +447,31 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
       amountMinor: totalMinor,
       currency: restaurant.currency,
       razorpayOrderId,
+    },
+  });
+
+  await upsertCustomerFromOrder(conn, {
+    restaurantId: checkoutIds.restaurantId,
+    email: input.customer.email,
+    name: input.customer.name,
+    ...(input.customer.phone ? { phone: input.customer.phone } : {}),
+    channel: 'storefront',
+    totalMinor,
+    currency: restaurant.currency,
+  });
+
+  await enqueueWebhookEvent(conn, {
+    restaurantId: checkoutIds.restaurantId,
+    eventType: 'order.created',
+    data: {
+      id: String(order._id),
+      public_order_id: publicOrderId,
+      channel: { id: 'storefront', type: 'built_in' },
+      type: input.type === 'pickup' ? 'pickup' : 'delivery',
+      total_minor: totalMinor,
+      currency: restaurant.currency,
+      status: 'received',
+      customer: { email: input.customer.email, name: input.customer.name },
     },
   });
 

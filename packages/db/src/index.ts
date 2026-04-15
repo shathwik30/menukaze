@@ -90,6 +90,42 @@ export {
   type PromoCodeDoc,
   type PromoCodeModel,
   type PromoCodeType,
+  reservationModel,
+  type ReservationDoc,
+  type ReservationModel,
+  type ReservationStatus,
+  stationModel,
+  type StationDoc,
+  type StationModel,
+  auditLogModel,
+  computeAuditHash,
+  ZERO_HASH,
+  type AuditLogDoc,
+  type AuditLogModel,
+  feedbackModel,
+  type FeedbackDoc,
+  type FeedbackModel,
+  customerModel,
+  type CustomerDoc,
+  type CustomerModel,
+  type CustomerChannel,
+  apiKeyModel,
+  generateApiKey,
+  hashApiKey,
+  type ApiKeyDoc,
+  type ApiKeyModel,
+  type ApiKeyScope,
+  type ApiKeyEnv,
+  webhookSubscriptionModel,
+  generateWebhookSecret,
+  type WebhookSubscriptionDoc,
+  type WebhookSubscriptionModel,
+  webhookDeliveryModel,
+  WEBHOOK_RETRY_DELAYS_MS,
+  WEBHOOK_MAX_ATTEMPTS,
+  type WebhookDeliveryDoc,
+  type WebhookDeliveryModel,
+  type WebhookDeliveryStatus,
 } from './models/index';
 export { tenantScopedPlugin, TenantContextMissingError } from './plugins/tenant-scoped';
 export { createTenantRepo, type TenantRepo } from './repos/create-tenant-repo';
@@ -97,3 +133,5 @@ export { envelopeEncrypt, envelopeDecrypt } from './crypto';
 export { isObjectIdString, parseObjectId, parseObjectIds } from './object-id';
 export { CAPACITY_ORDER_STATUSES, restaurantHasReachedOrderCapacity } from './order-capacity';
 export { getRestaurantSupportRecipients, type SupportRecipientsResult } from './support-recipients';
+export { upsertCustomerFromOrder, type CustomerUpsertInput } from './customers';
+export { enqueueWebhookEvent, type EnqueueEventInput } from './webhooks';

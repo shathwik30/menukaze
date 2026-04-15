@@ -37,6 +37,15 @@ export interface TableSessionDoc {
   /** Optional participant labels for group ordering. */
   participants: TableSessionParticipant[];
 
+  /**
+   * Stable hash of the originating device (IP + UA + lang). Used to rate-limit
+   * how many sessions a single device can open across all tables in a 24h
+   * window. Set on session start by the QR misuse-prevention checks.
+   */
+  deviceFingerprint?: string;
+  /** Earliest time the first round may be placed when first-order delay is on. */
+  firstOrderAllowedAt?: Date;
+
   startedAt: Date;
   closedAt?: Date;
   billRequestedAt?: Date;
@@ -72,6 +81,8 @@ const tableSessionSchema = new Schema<TableSessionDoc>(
       phone: { type: String, maxlength: 40 },
     },
     participants: { type: [participantSchema], default: [] },
+    deviceFingerprint: { type: String, maxlength: 64, index: true },
+    firstOrderAllowedAt: Date,
     startedAt: { type: Date, required: true },
     closedAt: Date,
     billRequestedAt: Date,
@@ -84,6 +95,7 @@ const tableSessionSchema = new Schema<TableSessionDoc>(
 tableSessionSchema.plugin(tenantScopedPlugin);
 tableSessionSchema.index({ restaurantId: 1, tableId: 1, status: 1 });
 tableSessionSchema.index({ restaurantId: 1, status: 1, lastActivityAt: 1 });
+tableSessionSchema.index({ restaurantId: 1, deviceFingerprint: 1, startedAt: -1 });
 
 export type TableSessionHydratedDoc = HydratedDocument<TableSessionDoc>;
 export type TableSessionModel = Model<TableSessionDoc>;
