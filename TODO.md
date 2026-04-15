@@ -28,10 +28,6 @@ CI uses `actions/checkout@v4`, `pnpm/action-setup@v4`, `dorny/paths-filter@v3`, 
 
 ## Deferred by the 2026-04-15 refactor
 
-### Retrofit dashboard actions to `withRestaurantAction` wrappers
-
-`apps/dashboard/src/lib/action-helpers.ts` exports `withRestaurantAction` and `withRestaurantAnyFlagAction`, but the majority of dashboard server actions still inline `requireFlags([...])` + try/catch. Audit of `menu-admin.ts`, `orders.ts`, `settings.ts`, `staff.ts`, `tables-admin.ts`, `reservations.ts`, `stations.ts`, `webhooks.ts`, `api-keys.ts`, `dsar.ts` turned up ~25 candidates. Non-breaking change, but touches ~25 files — do as a dedicated follow-up PR so it's reviewable in isolation.
-
 ### Type-safe env with `@t3-oss/env-nextjs`
 
 Not installed. `process.env['X']` is used throughout the apps and the worker. Adding `@t3-oss/env-nextjs` per app + `@t3-oss/env-core` in `@menukaze/db` and `apps/worker` would catch missing env vars at process boot instead of the first code path that reads them. Rollout plan:
@@ -39,15 +35,6 @@ Not installed. `process.env['X']` is used throughout the apps and the worker. Ad
 1. Add `@t3-oss/env-nextjs` to `@menukaze/dashboard`; create `apps/dashboard/src/env.ts` that declares the (~8) vars the dashboard reads.
 2. Replace `process.env['X']` in dashboard with `env.X`.
 3. Repeat for the other 4 apps and the worker/db packages.
-
-### Replace remaining `console.error` calls
-
-`@menukaze/monitoring` now exists. Error boundaries use `captureException`. But several catch blocks across server actions still use `console.error`/`console.warn` directly. Swap them in:
-- `apps/*/src/app/actions/*` (server actions)
-- `apps/worker/src/*` (worker jobs)
-- `apps/storefront/src/app/api/v1/*` (public API)
-
-Mechanical refactor; one PR per app.
 
 ### Named exports in `packages/shared/src/index.ts` (declined)
 
