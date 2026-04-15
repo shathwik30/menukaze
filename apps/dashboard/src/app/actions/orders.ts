@@ -13,6 +13,7 @@ import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { env } from '@/env';
+import { recordAudit } from '@/lib/audit';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import {
@@ -177,101 +178,122 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
   if (!orderId) return invalidEntityError('order');
 
   try {
-    return await withRestaurantAnyFlagAction([requiredFlag], async ({ restaurantId, session }) => {
-      const actorUserId = parseObjectId(session.user.id);
-      if (!actorUserId) {
-        throw new Error('Unknown user.');
-      }
+    return await withRestaurantAnyFlagAction(
+      [requiredFlag],
+      async ({ restaurantId, session, role }) => {
+        const actorUserId = parseObjectId(session.user.id);
+        if (!actorUserId) {
+          throw new Error('Unknown user.');
+        }
 
-      const conn = await getMongoConnection('live');
-      const { Order } = getModels(conn);
+        const conn = await getMongoConnection('live');
+        const { Order } = getModels(conn);
 
-      const order = await Order.findOne({ restaurantId, _id: orderId }).exec();
-      if (!order) return { ok: false, error: 'Order not found.' };
+        const order = await Order.findOne({ restaurantId, _id: orderId }).exec();
+        if (!order) return { ok: false, error: 'Order not found.' };
 
-      const allowed = NEXT_STATUSES[order.status];
-      if (!allowed.includes(parsed.data.nextStatus)) {
-        return {
-          ok: false,
-          error: `Cannot transition from ${order.status} to ${parsed.data.nextStatus}.`,
+        const allowed = NEXT_STATUSES[order.status];
+        if (!allowed.includes(parsed.data.nextStatus)) {
+          return {
+            ok: false,
+            error: `Cannot transition from ${order.status} to ${parsed.data.nextStatus}.`,
+          };
+        }
+
+        const now = new Date();
+        const isTerminal =
+          parsed.data.nextStatus === 'completed' || parsed.data.nextStatus === 'cancelled';
+        const isCancel = parsed.data.nextStatus === 'cancelled';
+
+        if (isCancel && !parsed.data.cancelReason) {
+          return { ok: false, error: 'Please provide a reason for cancelling.' };
+        }
+
+        await Order.updateOne(
+          { restaurantId, _id: orderId },
+          {
+            $set: {
+              status: parsed.data.nextStatus,
+              ...(isTerminal ? { completedAt: now } : {}),
+              ...(isCancel && parsed.data.cancelReason
+                ? { cancelReason: parsed.data.cancelReason }
+                : {}),
+            },
+            $push: {
+              statusHistory: {
+                status: parsed.data.nextStatus,
+                at: now,
+                byUserId: actorUserId,
+              },
+            },
+          },
+        ).exec();
+
+        const restaurantIdStr = String(restaurantId);
+        const orderIdStr = String(orderId);
+        await publishOrderStatusUpdate({
+          restaurantId: restaurantIdStr,
+          orderId: orderIdStr,
+          sessionId: order.sessionId,
+          status: parsed.data.nextStatus,
+          changedAt: now,
+        });
+        await sendCustomerStatusEmail({
+          conn,
+          restaurantId,
+          orderId: orderIdStr,
+          order,
+          status: parsed.data.nextStatus,
+        });
+
+        // Map status transitions to the public webhook event catalogue.
+        const eventByStatus: Partial<Record<OrderStatus, string>> = {
+          confirmed: 'order.confirmed',
+          preparing: 'order.preparing',
+          ready: 'order.ready',
+          completed: 'order.completed',
+          cancelled: 'order.cancelled',
         };
-      }
+        const eventType = eventByStatus[parsed.data.nextStatus];
+        if (eventType) {
+          await enqueueWebhookEvent(conn, {
+            restaurantId,
+            eventType,
+            data: {
+              id: orderIdStr,
+              public_order_id: order.publicOrderId,
+              channel: { id: order.channel, type: 'built_in' },
+              status: parsed.data.nextStatus,
+              total_minor: order.totalMinor,
+              currency: order.currency,
+              ...(isCancel && parsed.data.cancelReason
+                ? { cancel_reason: parsed.data.cancelReason }
+                : {}),
+            },
+          });
+        }
 
-      const now = new Date();
-      const isTerminal =
-        parsed.data.nextStatus === 'completed' || parsed.data.nextStatus === 'cancelled';
-      const isCancel = parsed.data.nextStatus === 'cancelled';
-
-      if (isCancel && !parsed.data.cancelReason) {
-        return { ok: false, error: 'Please provide a reason for cancelling.' };
-      }
-
-      await Order.updateOne(
-        { restaurantId, _id: orderId },
-        {
-          $set: {
-            status: parsed.data.nextStatus,
-            ...(isTerminal ? { completedAt: now } : {}),
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'order.status_changed',
+          resourceType: 'order',
+          resourceId: orderIdStr,
+          metadata: {
+            publicOrderId: order.publicOrderId,
+            from: order.status,
+            to: parsed.data.nextStatus,
             ...(isCancel && parsed.data.cancelReason
               ? { cancelReason: parsed.data.cancelReason }
               : {}),
           },
-          $push: {
-            statusHistory: {
-              status: parsed.data.nextStatus,
-              at: now,
-              byUserId: actorUserId,
-            },
-          },
-        },
-      ).exec();
-
-      const restaurantIdStr = String(restaurantId);
-      const orderIdStr = String(orderId);
-      await publishOrderStatusUpdate({
-        restaurantId: restaurantIdStr,
-        orderId: orderIdStr,
-        sessionId: order.sessionId,
-        status: parsed.data.nextStatus,
-        changedAt: now,
-      });
-      await sendCustomerStatusEmail({
-        conn,
-        restaurantId,
-        orderId: orderIdStr,
-        order,
-        status: parsed.data.nextStatus,
-      });
-
-      // Map status transitions to the public webhook event catalogue.
-      const eventByStatus: Partial<Record<OrderStatus, string>> = {
-        confirmed: 'order.confirmed',
-        preparing: 'order.preparing',
-        ready: 'order.ready',
-        completed: 'order.completed',
-        cancelled: 'order.cancelled',
-      };
-      const eventType = eventByStatus[parsed.data.nextStatus];
-      if (eventType) {
-        await enqueueWebhookEvent(conn, {
-          restaurantId,
-          eventType,
-          data: {
-            id: orderIdStr,
-            public_order_id: order.publicOrderId,
-            channel: { id: order.channel, type: 'built_in' },
-            status: parsed.data.nextStatus,
-            total_minor: order.totalMinor,
-            currency: order.currency,
-            ...(isCancel && parsed.data.cancelReason
-              ? { cancel_reason: parsed.data.cancelReason }
-              : {}),
-          },
         });
-      }
 
-      return { ok: true, status: parsed.data.nextStatus };
-    });
+        return { ok: true, status: parsed.data.nextStatus };
+      },
+    );
   } catch (error) {
     return actionError(
       error,

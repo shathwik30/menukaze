@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { envelopeEncrypt, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+import { recordAudit } from '@/lib/audit';
 import { verifyRazorpayKeys } from '@/lib/razorpay';
 
 const RAZORPAY_PERMISSION_ERROR = 'You do not have permission to configure payments.';
@@ -31,39 +32,53 @@ export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorp
   const { keyId, keySecret } = parsed.data;
 
   try {
-    return await withRestaurantAction(['payments.configure'], async ({ restaurantId }) => {
-      const verify = await verifyRazorpayKeys(keyId, keySecret);
-      if (!verify.ok) {
-        return { ok: false, error: verify.error };
-      }
+    return await withRestaurantAction(
+      ['payments.configure'],
+      async ({ restaurantId, session, role }) => {
+        const verify = await verifyRazorpayKeys(keyId, keySecret);
+        if (!verify.ok) {
+          return { ok: false, error: verify.error };
+        }
 
-      const conn = await getMongoConnection('live');
-      const { Restaurant } = getModels(conn);
+        const conn = await getMongoConnection('live');
+        const { Restaurant } = getModels(conn);
 
-      const restaurant = await Restaurant.findById(restaurantId).exec();
-      if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+        const restaurant = await Restaurant.findById(restaurantId).exec();
+        if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
-      if (restaurant.onboardingStep !== 'razorpay') {
-        return { ok: false, error: 'This restaurant has already completed the Razorpay step.' };
-      }
+        if (restaurant.onboardingStep !== 'razorpay') {
+          return { ok: false, error: 'This restaurant has already completed the Razorpay step.' };
+        }
 
-      const encKeyId = envelopeEncrypt(keyId);
-      const encSecret = envelopeEncrypt(keySecret);
+        const encKeyId = envelopeEncrypt(keyId);
+        const encSecret = envelopeEncrypt(keySecret);
 
-      const result = await Restaurant.updateOne(
-        { _id: restaurantId },
-        {
-          $set: {
-            razorpayKeyIdEnc: encKeyId,
-            razorpayKeySecretEnc: encSecret,
-            onboardingStep: 'staff',
+        const result = await Restaurant.updateOne(
+          { _id: restaurantId },
+          {
+            $set: {
+              razorpayKeyIdEnc: encKeyId,
+              razorpayKeySecretEnc: encSecret,
+              onboardingStep: 'staff',
+            },
           },
-        },
-      ).exec();
-      if (result.matchedCount !== 1) throw new APIError('internal_error');
+        ).exec();
+        if (result.matchedCount !== 1) throw new APIError('internal_error');
 
-      return { ok: true };
-    });
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'payments.razorpay.connected',
+          resourceType: 'restaurant',
+          resourceId: String(restaurantId),
+          metadata: { keyIdMasked: `${keyId.slice(0, 12)}…` },
+        });
+
+        return { ok: true };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Could not save Razorpay credentials.', RAZORPAY_PERMISSION_ERROR);
   }

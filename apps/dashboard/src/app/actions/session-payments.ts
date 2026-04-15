@@ -7,6 +7,7 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
+import { recordAudit } from '@/lib/audit';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
@@ -273,7 +274,7 @@ export async function settleSessionAtCounterAction(raw: unknown): Promise<Action
   try {
     return await withRestaurantAnyFlagAction(
       ['payments.process'],
-      async ({ restaurantId, session }) => {
+      async ({ restaurantId, session, role }) => {
         const actorUserId = parseObjectId(session.user.id);
         if (!actorUserId) {
           throw new Error('Unknown user.');
@@ -351,6 +352,21 @@ export async function settleSessionAtCounterAction(raw: unknown): Promise<Action
           rounds,
           methodLabel,
           paidAt: now,
+        });
+
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'session.settled_at_counter',
+          resourceType: 'table_session',
+          resourceId: sessionIdStr,
+          metadata: {
+            method: parsed.data.method,
+            orderCount: rounds.length,
+            totalMinor: rounds.reduce((sum, r) => sum + r.totalMinor, 0),
+          },
         });
 
         revalidatePath('/admin/tables');

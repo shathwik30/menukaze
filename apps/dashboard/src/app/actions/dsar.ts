@@ -8,6 +8,7 @@ import {
   withRestaurantAction,
   type ActionResult,
 } from '@/lib/action-helpers';
+import { recordAudit } from '@/lib/audit';
 
 const PERMISSION_ERROR = 'You do not have permission to export customer data.';
 
@@ -73,77 +74,94 @@ export async function exportCustomerDataAction(raw: unknown): Promise<ActionResu
   if (!parsed.success) return validationError(parsed.error);
 
   try {
-    return await withRestaurantAction(['customers.export'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { Order, TableSession } = getModels(conn);
-      const email = parsed.data.email;
+    return await withRestaurantAction(
+      ['customers.export'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { Order, TableSession } = getModels(conn);
+        const email = parsed.data.email;
 
-      const [orders, sessions] = await Promise.all([
-        Order.find({ 'customer.email': email }).sort({ createdAt: -1 }).lean().exec(),
-        TableSession.find({ 'customer.email': email }).sort({ startedAt: -1 }).lean().exec(),
-      ]);
+        const [orders, sessions] = await Promise.all([
+          Order.find({ 'customer.email': email }).sort({ createdAt: -1 }).lean().exec(),
+          TableSession.find({ 'customer.email': email }).sort({ startedAt: -1 }).lean().exec(),
+        ]);
 
-      const profileSource = orders[0]?.customer ?? sessions[0]?.customer ?? null;
+        const profileSource = orders[0]?.customer ?? sessions[0]?.customer ?? null;
 
-      const bundle: DsarBundle = {
-        generatedAt: new Date().toISOString(),
-        restaurantId: String(restaurantId),
-        customerEmail: email,
-        profile: profileSource
-          ? {
-              name: profileSource.name,
-              email: profileSource.email,
-              ...(profileSource.phone ? { phone: profileSource.phone } : {}),
-            }
-          : null,
-        orders: orders.map((o) => ({
-          id: String(o._id),
-          publicOrderId: o.publicOrderId,
-          channel: o.channel,
-          type: o.type,
-          status: o.status,
-          createdAt: o.createdAt.toISOString(),
-          completedAt: o.completedAt ? o.completedAt.toISOString() : null,
-          currency: o.currency,
-          subtotalMinor: o.subtotalMinor,
-          taxMinor: o.taxMinor,
-          tipMinor: o.tipMinor,
-          totalMinor: o.totalMinor,
-          items: o.items.map((line) => ({
-            name: line.name,
-            quantity: line.quantity,
-            priceMinor: line.priceMinor,
-            lineTotalMinor: line.lineTotalMinor,
-            modifiers: (line.modifiers ?? []).map((m) => ({
-              groupName: m.groupName,
-              optionName: m.optionName,
-              priceMinor: m.priceMinor,
+        const bundle: DsarBundle = {
+          generatedAt: new Date().toISOString(),
+          restaurantId: String(restaurantId),
+          customerEmail: email,
+          profile: profileSource
+            ? {
+                name: profileSource.name,
+                email: profileSource.email,
+                ...(profileSource.phone ? { phone: profileSource.phone } : {}),
+              }
+            : null,
+          orders: orders.map((o) => ({
+            id: String(o._id),
+            publicOrderId: o.publicOrderId,
+            channel: o.channel,
+            type: o.type,
+            status: o.status,
+            createdAt: o.createdAt.toISOString(),
+            completedAt: o.completedAt ? o.completedAt.toISOString() : null,
+            currency: o.currency,
+            subtotalMinor: o.subtotalMinor,
+            taxMinor: o.taxMinor,
+            tipMinor: o.tipMinor,
+            totalMinor: o.totalMinor,
+            items: o.items.map((line) => ({
+              name: line.name,
+              quantity: line.quantity,
+              priceMinor: line.priceMinor,
+              lineTotalMinor: line.lineTotalMinor,
+              modifiers: (line.modifiers ?? []).map((m) => ({
+                groupName: m.groupName,
+                optionName: m.optionName,
+                priceMinor: m.priceMinor,
+              })),
+              ...(line.notes ? { notes: line.notes } : {}),
             })),
-            ...(line.notes ? { notes: line.notes } : {}),
+            payment: {
+              gateway: o.payment.gateway,
+              status: o.payment.status,
+              ...(o.payment.methodLabel ? { methodLabel: o.payment.methodLabel } : {}),
+              paidAt: o.payment.paidAt ? o.payment.paidAt.toISOString() : null,
+            },
           })),
-          payment: {
-            gateway: o.payment.gateway,
-            status: o.payment.status,
-            ...(o.payment.methodLabel ? { methodLabel: o.payment.methodLabel } : {}),
-            paidAt: o.payment.paidAt ? o.payment.paidAt.toISOString() : null,
-          },
-        })),
-        tableSessions: sessions.map((s) => ({
-          id: String(s._id),
-          status: s.status,
-          startedAt: s.startedAt.toISOString(),
-          closedAt: s.closedAt ? s.closedAt.toISOString() : null,
-          paidAt: s.paidAt ? s.paidAt.toISOString() : null,
-          customer: {
-            name: s.customer.name,
-            email: s.customer.email,
-            ...(s.customer.phone ? { phone: s.customer.phone } : {}),
-          },
-        })),
-      };
+          tableSessions: sessions.map((s) => ({
+            id: String(s._id),
+            status: s.status,
+            startedAt: s.startedAt.toISOString(),
+            closedAt: s.closedAt ? s.closedAt.toISOString() : null,
+            paidAt: s.paidAt ? s.paidAt.toISOString() : null,
+            customer: {
+              name: s.customer.name,
+              email: s.customer.email,
+              ...(s.customer.phone ? { phone: s.customer.phone } : {}),
+            },
+          })),
+        };
 
-      return { ok: true, data: bundle };
-    });
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'customer.data.exported',
+          resourceType: 'customer',
+          metadata: {
+            email,
+            orderCount: orders.length,
+            sessionCount: sessions.length,
+          },
+        });
+
+        return { ok: true, data: bundle };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to export customer data.', PERMISSION_ERROR);
   }
@@ -175,39 +193,56 @@ export async function deleteCustomerDataAction(
   if (!parsed.success) return validationError(parsed.error);
 
   try {
-    return await withRestaurantAction(['customers.delete'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { Order, TableSession } = getModels(conn);
-      const email = parsed.data.email;
-      const anonName = 'Redacted Customer';
-      const anonEmail = `redacted+${String(restaurantId).slice(-6)}@menukaze.invalid`;
+    return await withRestaurantAction(
+      ['customers.delete'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { Order, TableSession } = getModels(conn);
+        const email = parsed.data.email;
+        const anonName = 'Redacted Customer';
+        const anonEmail = `redacted+${String(restaurantId).slice(-6)}@menukaze.invalid`;
 
-      const [orderResult, sessionResult] = await Promise.all([
-        Order.updateMany(
-          { 'customer.email': email },
-          {
-            $set: { 'customer.name': anonName, 'customer.email': anonEmail },
-            $unset: { 'customer.phone': 1 },
-          },
-        ).exec(),
-        TableSession.updateMany(
-          { 'customer.email': email },
-          {
-            $set: { 'customer.name': anonName, 'customer.email': anonEmail },
-            $unset: { 'customer.phone': 1 },
-          },
-        ).exec(),
-      ]);
+        const [orderResult, sessionResult] = await Promise.all([
+          Order.updateMany(
+            { 'customer.email': email },
+            {
+              $set: { 'customer.name': anonName, 'customer.email': anonEmail },
+              $unset: { 'customer.phone': 1 },
+            },
+          ).exec(),
+          TableSession.updateMany(
+            { 'customer.email': email },
+            {
+              $set: { 'customer.name': anonName, 'customer.email': anonEmail },
+              $unset: { 'customer.phone': 1 },
+            },
+          ).exec(),
+        ]);
 
-      return {
-        ok: true,
-        data: {
-          email,
-          ordersAnonymised: orderResult.modifiedCount,
-          sessionsAnonymised: sessionResult.modifiedCount,
-        },
-      };
-    });
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'customer.data.deleted',
+          resourceType: 'customer',
+          metadata: {
+            email,
+            ordersAnonymised: orderResult.modifiedCount,
+            sessionsAnonymised: sessionResult.modifiedCount,
+          },
+        });
+
+        return {
+          ok: true,
+          data: {
+            email,
+            ordersAnonymised: orderResult.modifiedCount,
+            sessionsAnonymised: sessionResult.modifiedCount,
+          },
+        };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to delete customer data.', PERMISSION_ERROR);
   }
