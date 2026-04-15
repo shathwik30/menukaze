@@ -1,24 +1,13 @@
 import { headers } from 'next/headers';
-import { getZodErrorMessage } from '@menukaze/shared/validation';
+import {
+  type ActionFailure,
+  type ActionResult,
+  invalidEntityError,
+  validationError,
+} from '@menukaze/shared';
 import { requireSuperAdmin, type SuperAdminSession } from '@/lib/session';
-import type { ZodError } from 'zod';
 
-export interface ActionFailure {
-  ok: false;
-  error: string;
-}
-
-export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true } : { ok: true; data: T })
-  | ActionFailure;
-
-export function validationError(error: ZodError, fallback = 'Invalid input.'): ActionFailure {
-  return { ok: false, error: getZodErrorMessage(error, fallback) };
-}
-
-export function invalidEntityError(entity: string): ActionFailure {
-  return { ok: false, error: `Unknown ${entity}.` };
-}
+export { type ActionFailure, type ActionResult, invalidEntityError, validationError };
 
 export function actionError(error: unknown, fallback: string): ActionFailure {
   return { ok: false, error: error instanceof Error ? error.message : fallback };

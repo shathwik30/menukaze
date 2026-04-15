@@ -6,6 +6,7 @@
  * and `@menukaze/shared/transactional-email`.
  */
 
+export * from './action-result';
 export * from './cart';
 export * from './errors';
 export * from './currency';

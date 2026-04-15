@@ -1,25 +1,14 @@
 import type { Flag } from '@menukaze/rbac';
-import { getZodErrorMessage } from '@menukaze/shared/validation';
+import {
+  type ActionFailure,
+  type ActionResult,
+  invalidEntityError,
+  validationError,
+} from '@menukaze/shared';
 import { PermissionDeniedError, requireAnyFlag, requireFlags } from '@/lib/session';
 import type { RestaurantSessionContext } from '@/lib/session';
-import type { ZodError } from 'zod';
 
-export interface ActionFailure {
-  ok: false;
-  error: string;
-}
-
-export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true } : { ok: true; data: T })
-  | ActionFailure;
-
-export function validationError(error: ZodError, fallback = 'Invalid input.'): ActionFailure {
-  return { ok: false, error: getZodErrorMessage(error, fallback) };
-}
-
-export function invalidEntityError(entity: string): ActionFailure {
-  return { ok: false, error: `Unknown ${entity}.` };
-}
+export { type ActionFailure, type ActionResult, invalidEntityError, validationError };
 
 export function actionError(
   error: unknown,
