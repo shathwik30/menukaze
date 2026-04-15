@@ -3,8 +3,9 @@
 import { z } from 'zod';
 import { generateQrToken, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { PermissionDeniedError, requireFlags } from '@/lib/session';
-import { validationError } from '@/lib/action-helpers';
+import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+
+const TABLES_PERMISSION_ERROR = 'You do not have permission to set up tables.';
 
 const inputSchema = z
   .object({
@@ -27,63 +28,56 @@ export type CreateTablesStarterResult =
  * Creates the initial table set during onboarding and advances the wizard.
  */
 export async function createTablesStarterAction(raw: unknown): Promise<CreateTablesStarterResult> {
-  let restaurantId;
-  try {
-    ({ restaurantId } = await requireFlags(['tables.edit']));
-  } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to set up tables.' };
-    }
-    throw error;
-  }
-
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
-  const conn = await getMongoConnection('live');
-  const { Restaurant, Table } = getModels(conn);
-
-  const restaurant = await Restaurant.findById(restaurantId).exec();
-  if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-
-  if (restaurant.onboardingStep !== 'tables') {
-    return { ok: false, error: 'This restaurant has already completed the tables step.' };
-  }
-
-  const dbSession = await conn.startSession();
   try {
-    let created = 0;
-    await dbSession.withTransaction(async () => {
-      if (input.hasTables === 'yes' && input.tableCount) {
-        const tables = Array.from({ length: input.tableCount }, (_, index) => {
-          const number = index + 1;
-          return {
-            restaurantId,
-            number,
-            name: `Table ${number}`,
-            capacity: 4,
-            qrToken: generateQrToken(),
-            status: 'available' as const,
-          };
-        });
-        const result = await Table.create(tables, { session: dbSession, ordered: true });
-        created = result.length;
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant, Table } = getModels(conn);
+
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+
+      if (restaurant.onboardingStep !== 'tables') {
+        return { ok: false, error: 'This restaurant has already completed the tables step.' };
       }
 
-      const updateResult = await Restaurant.updateOne(
-        { _id: restaurantId },
-        { $set: { onboardingStep: 'razorpay' } },
-        { session: dbSession },
-      ).exec();
-      if (updateResult.matchedCount !== 1) throw new APIError('internal_error');
-    });
+      const dbSession = await conn.startSession();
+      try {
+        let created = 0;
+        await dbSession.withTransaction(async () => {
+          if (input.hasTables === 'yes' && input.tableCount) {
+            const tables = Array.from({ length: input.tableCount }, (_, index) => {
+              const number = index + 1;
+              return {
+                restaurantId,
+                number,
+                name: `Table ${number}`,
+                capacity: 4,
+                qrToken: generateQrToken(),
+                status: 'available' as const,
+              };
+            });
+            const result = await Table.create(tables, { session: dbSession, ordered: true });
+            created = result.length;
+          }
 
-    return { ok: true, created };
+          const updateResult = await Restaurant.updateOne(
+            { _id: restaurantId },
+            { $set: { onboardingStep: 'razorpay' } },
+            { session: dbSession },
+          ).exec();
+          if (updateResult.matchedCount !== 1) throw new APIError('internal_error');
+        });
+
+        return { ok: true, created };
+      } finally {
+        await dbSession.endSession();
+      }
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error.';
-    return { ok: false, error: `Could not save tables: ${message}` };
-  } finally {
-    await dbSession.endSession();
+    return actionError(error, 'Could not save tables.', TABLES_PERMISSION_ERROR);
   }
 }

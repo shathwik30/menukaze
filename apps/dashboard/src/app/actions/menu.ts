@@ -4,9 +4,10 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { PermissionDeniedError, requireFlags } from '@/lib/session';
-import { validationError } from '@/lib/action-helpers';
+import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
 import { parseMenuCsvImport } from '@/lib/menu-import';
+
+const MENU_PERMISSION_ERROR = 'You do not have permission to set up the menu.';
 
 const itemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -48,112 +49,105 @@ function majorToMinor(major: number, currency: string): number {
  * Creates the first menu tree during onboarding and advances the wizard.
  */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
-  let restaurantId;
-  try {
-    ({ restaurantId } = await requireFlags(['menu.edit']));
-  } catch (error) {
-    if (error instanceof PermissionDeniedError) {
-      return { ok: false, error: 'You do not have permission to set up the menu.' };
-    }
-    throw error;
-  }
-
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
-  const conn = await getMongoConnection('live');
-  const { Restaurant, Menu, Category, Item } = getModels(conn);
-
-  const restaurant = await Restaurant.findById(restaurantId).exec();
-  if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-  const currency = restaurant.currency;
-
-  let categoriesToCreate: Array<{
-    name: string;
-    items: Array<{ name: string; priceMajor: number; description?: string }>;
-  }> | null = null;
-
   try {
-    categoriesToCreate =
-      input.mode === 'manual'
-        ? [{ name: input.categoryName.trim(), items: input.items }]
-        : parseMenuCsvImport(input.csvText, input.defaultCategoryName);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid CSV input.';
-    return { ok: false, error: message };
-  }
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant, Menu, Category, Item } = getModels(conn);
 
-  const existingCount = await Item.countDocuments({ restaurantId }).exec();
-  if (existingCount > 0) {
-    return { ok: false, error: 'This restaurant already has menu items.' };
-  }
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+      const currency = restaurant.currency;
 
-  const dbSession = await conn.startSession();
-  try {
-    let menuId: Types.ObjectId | null = null;
-    let firstCategoryId: Types.ObjectId | null = null;
-    let itemCount = 0;
+      let categoriesToCreate: Array<{
+        name: string;
+        items: Array<{ name: string; priceMajor: number; description?: string }>;
+      }> | null = null;
 
-    await dbSession.withTransaction(async () => {
-      const [menu] = await Menu.create([{ restaurantId, name: input.menuName, order: 0 }], {
-        session: dbSession,
-      });
-      if (!menu) throw new APIError('internal_error');
-      const menuIdLocal = menu._id;
-      menuId = menuIdLocal;
-
-      for (const [categoryOrder, categoryInput] of categoriesToCreate.entries()) {
-        const [category] = await Category.create(
-          [
-            {
-              restaurantId,
-              menuId: menuIdLocal,
-              name: categoryInput.name,
-              order: categoryOrder,
-            },
-          ],
-          { session: dbSession },
-        );
-        if (!category) throw new APIError('internal_error');
-        const categoryIdLocal = category._id;
-        if (!firstCategoryId) firstCategoryId = categoryIdLocal;
-
-        const itemDocs = categoryInput.items.map((it) => ({
-          restaurantId,
-          categoryId: categoryIdLocal,
-          name: it.name,
-          description: it.description,
-          priceMinor: majorToMinor(it.priceMajor, currency),
-          currency,
-          dietaryTags: [],
-          modifiers: [],
-          soldOut: false,
-        }));
-        await Item.create(itemDocs, { session: dbSession, ordered: true });
-        itemCount += itemDocs.length;
+      try {
+        categoriesToCreate =
+          input.mode === 'manual'
+            ? [{ name: input.categoryName.trim(), items: input.items }]
+            : parseMenuCsvImport(input.csvText, input.defaultCategoryName);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid CSV input.';
+        return { ok: false, error: message };
       }
 
-      await Restaurant.updateOne(
-        { _id: restaurantId },
-        { $set: { onboardingStep: 'tables' } },
-        { session: dbSession },
-      ).exec();
-    });
+      const existingCount = await Item.countDocuments({ restaurantId }).exec();
+      if (existingCount > 0) {
+        return { ok: false, error: 'This restaurant already has menu items.' };
+      }
 
-    if (!menuId || !firstCategoryId) {
-      return { ok: false, error: 'Could not create the menu. Please try again.' };
-    }
-    return {
-      ok: true,
-      menuId: String(menuId),
-      categoryId: String(firstCategoryId),
-      itemCount,
-    };
+      const dbSession = await conn.startSession();
+      try {
+        let menuId: Types.ObjectId | null = null;
+        let firstCategoryId: Types.ObjectId | null = null;
+        let itemCount = 0;
+
+        await dbSession.withTransaction(async () => {
+          const [menu] = await Menu.create([{ restaurantId, name: input.menuName, order: 0 }], {
+            session: dbSession,
+          });
+          if (!menu) throw new APIError('internal_error');
+          const menuIdLocal = menu._id;
+          menuId = menuIdLocal;
+
+          for (const [categoryOrder, categoryInput] of categoriesToCreate.entries()) {
+            const [category] = await Category.create(
+              [
+                {
+                  restaurantId,
+                  menuId: menuIdLocal,
+                  name: categoryInput.name,
+                  order: categoryOrder,
+                },
+              ],
+              { session: dbSession },
+            );
+            if (!category) throw new APIError('internal_error');
+            const categoryIdLocal = category._id;
+            if (!firstCategoryId) firstCategoryId = categoryIdLocal;
+
+            const itemDocs = categoryInput.items.map((it) => ({
+              restaurantId,
+              categoryId: categoryIdLocal,
+              name: it.name,
+              description: it.description,
+              priceMinor: majorToMinor(it.priceMajor, currency),
+              currency,
+              dietaryTags: [],
+              modifiers: [],
+              soldOut: false,
+            }));
+            await Item.create(itemDocs, { session: dbSession, ordered: true });
+            itemCount += itemDocs.length;
+          }
+
+          await Restaurant.updateOne(
+            { _id: restaurantId },
+            { $set: { onboardingStep: 'tables' } },
+            { session: dbSession },
+          ).exec();
+        });
+
+        if (!menuId || !firstCategoryId) {
+          return { ok: false, error: 'Could not create the menu. Please try again.' };
+        }
+        return {
+          ok: true,
+          menuId: String(menuId),
+          categoryId: String(firstCategoryId),
+          itemCount,
+        };
+      } finally {
+        await dbSession.endSession();
+      }
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error.';
-    return { ok: false, error: `Could not create the menu: ${message}` };
-  } finally {
-    await dbSession.endSession();
+    return actionError(error, 'Could not create the menu.', MENU_PERMISSION_ERROR);
   }
 }
