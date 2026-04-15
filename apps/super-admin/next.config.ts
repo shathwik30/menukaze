@@ -8,6 +8,7 @@ const config: NextConfig = {
     '@menukaze/db',
     '@menukaze/rbac',
     '@menukaze/shared',
+    '@menukaze/tenant',
     '@menukaze/ui',
   ],
   serverExternalPackages: ['mongoose'],

@@ -16,6 +16,7 @@
     "@menukaze/db": "workspace:*",
     "@menukaze/rbac": "workspace:*",
     "@menukaze/shared": "workspace:*",
+    "@menukaze/tenant": "workspace:*",
     "@menukaze/ui": "workspace:*",
     "next": "16.2.3",
     "better-auth": "1.5.6",
