@@ -11,7 +11,6 @@ export default [
   ...base,
   {
     ignores: [
-      '.code-review-graph/**',
       '.claude/**',
       '.github/**',
       '**/*.css',

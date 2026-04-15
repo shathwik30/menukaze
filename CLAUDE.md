@@ -2,18 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## MCP Tools: code-review-graph
-
-**ALWAYS use the code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore the codebase.** The graph is faster, cheaper, and gives structural context (callers, dependents, test coverage) that file scanning cannot.
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-
-Fall back to Grep/Glob/Read only when the graph doesn't cover what you need.
-
 ## Commands
+
+Runtime: Node 22.x, pnpm 10.x (enforced by `engines` + `packageManager`).
 
 ```bash
 pnpm dev              # all apps in parallel (Turborepo)
@@ -39,7 +30,19 @@ pnpm --filter @menukaze/dashboard dev
 
 **Environment**: copy `.env.example` → `.env.local`. Remote MongoDB Atlas and Redis (Upstash or compatible) are required — no local Docker services.
 
+## Tests
+
+- Unit: Vitest, colocated as `*.test.ts(x)` next to source.
+- E2E: Playwright in `apps/<app>/e2e/*.spec.ts` — requires `pnpm db:seed` first.
+- Both run via Turborepo, so add `--filter` to scope to one app or package.
+
+## CI
+
+`.github/workflows/ci.yml` runs `lint`, `format:check`, `typecheck`, `test`, `build` in parallel jobs. E2E and per-app Vercel previews run only on changed paths (via `dorny/paths-filter`). `gitleaks` scans for committed secrets. `pnpm verify` mirrors the gate locally. Lint is `--max-warnings=0`.
+
 ## Architecture
+
+Deeper specs live in `docs/`: `product.md` (PRD), `engineering.md` (system design), `progress.md` (phased build log), `pre-launch-checklist.md`.
 
 ### Monorepo layout
 
@@ -100,3 +103,9 @@ Several packages expose server-only code on explicit subpaths to avoid bundling 
 - `@menukaze/db/object-id` — ObjectId parse/validate helpers
 - `@menukaze/tenant/host` — `parseHost` (edge-safe, no DB)
 - `@menukaze/tenant/request` — request-level tenant loading
+
+## Conventions
+
+- TypeScript, 2-space indent, single quotes, semicolons, kebab-case filenames.
+- Commits follow Conventional Commits (`feat:`, `fix(scope):`, `chore(audit):`); reference phase/step where applicable (e.g. `feat: phase 4 step 21 multi-round ordering`).
+- Server-only modules must live on a subpath export (see list above) — never re-export from a package root that client code consumes.

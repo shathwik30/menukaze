@@ -50,9 +50,8 @@ yarn-error.log*
 .fly/
 fly.toml.local
 
-# Claude Code / graph tools
+# Claude Code
 .claude/
-.code-review-graph/
 
 # local notes / testing checklists (never commit)
 *.local.md
