@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { readEncryptionEnv } from './env';
 
 /**
  * Envelope encryption for per-tenant secrets (Razorpay keys, webhook
@@ -23,7 +24,7 @@ const KEY_BYTES = 32;
 const IV_BYTES = 12;
 
 function getKey(): Buffer {
-  const b64 = process.env['ENCRYPTION_KEY'];
+  const b64 = readEncryptionEnv().ENCRYPTION_KEY;
   if (!b64) {
     throw new Error('envelope-crypto: missing ENCRYPTION_KEY env var');
   }

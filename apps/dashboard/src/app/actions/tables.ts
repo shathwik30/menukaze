@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { generateQrToken, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+import { recordAudit } from '@/lib/audit';
 
 const TABLES_PERMISSION_ERROR = 'You do not have permission to set up tables.';
 
@@ -33,7 +34,7 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
   const input = parsed.data;
 
   try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Table } = getModels(conn);
 
@@ -72,6 +73,16 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
           if (updateResult.matchedCount !== 1) throw new APIError('internal_error');
         });
 
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'onboarding.tables.completed',
+          resourceType: 'restaurant',
+          resourceId: String(restaurantId),
+          metadata: { hasTables: input.hasTables, created },
+        });
         return { ok: true, created };
       } finally {
         await dbSession.endSession();

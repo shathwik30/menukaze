@@ -142,10 +142,20 @@ export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id:
   const parsed = menuInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const menu = await Menu.create({ restaurantId, ...parsed.data });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.created',
+        resourceType: 'menu',
+        resourceId: String(menu._id),
+        metadata: { name: parsed.data.name, order: parsed.data.order },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(menu._id) } };
     });
@@ -162,7 +172,7 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
   if (!menuId) return invalidEntityError('menu');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const { id: _ignoredMenuId, ...patch } = parsed.data;
@@ -181,6 +191,16 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
           : { $set: patch };
       const result = await Menu.updateOne({ restaurantId, _id: menuId }, update).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.updated',
+        resourceType: 'menu',
+        resourceId: String(menuId),
+        metadata: { fields: Object.keys(patch) },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
@@ -194,7 +214,7 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
   if (!menuId) return invalidEntityError('menu');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu, Category, Item } = getModels(conn);
       const categories = await Category.find({ restaurantId, menuId }).exec();
@@ -204,6 +224,16 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
       }
       await Category.deleteMany({ restaurantId, menuId }).exec();
       await Menu.deleteOne({ restaurantId, _id: menuId }).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.deleted',
+        resourceType: 'menu',
+        resourceId: String(menuId),
+        metadata: { categoryCount: categoryIds.length },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
@@ -222,7 +252,7 @@ export async function createCategoryAction(raw: unknown): Promise<ActionResult<{
   if (!menuId) return invalidEntityError('menu');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category, Menu } = getModels(conn);
       const menu = await Menu.findOne({ restaurantId, _id: menuId }).exec();
@@ -232,6 +262,16 @@ export async function createCategoryAction(raw: unknown): Promise<ActionResult<{
         menuId,
         name: parsed.data.name,
         order: parsed.data.order,
+      });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.category.created',
+        resourceType: 'category',
+        resourceId: String(category._id),
+        metadata: { menuId: String(menuId), name: parsed.data.name, order: parsed.data.order },
       });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(category._id) } };
@@ -249,7 +289,7 @@ export async function updateCategoryAction(raw: unknown): Promise<ActionResult> 
   if (!categoryId) return invalidEntityError('category');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category } = getModels(conn);
       const { id: _ignoredCategoryId, menuId, ...patch } = parsed.data;
@@ -264,6 +304,16 @@ export async function updateCategoryAction(raw: unknown): Promise<ActionResult> 
         { $set: set },
       ).exec();
       if (result.matchedCount !== 1) throw new APIError('not_found');
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.category.updated',
+        resourceType: 'category',
+        resourceId: String(categoryId),
+        metadata: { fields: Object.keys(set) },
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });
@@ -277,11 +327,20 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   if (!categoryId) return invalidEntityError('category');
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category, Item } = getModels(conn);
       await Item.deleteMany({ restaurantId, categoryId }).exec();
       await Category.deleteOne({ restaurantId, _id: categoryId }).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'menu.category.deleted',
+        resourceType: 'category',
+        resourceId: String(categoryId),
+      });
       revalidatePath('/admin/menu');
       return { ok: true as const };
     });

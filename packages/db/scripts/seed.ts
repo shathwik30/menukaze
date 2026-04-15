@@ -14,6 +14,7 @@ import {
   createConnectionFromUri,
   generateQrToken,
   getModels,
+  readSeedMongoEnv,
 } from '@menukaze/db';
 
 const DEFAULT_URI = 'mongodb://127.0.0.1:27017/?replicaSet=rs0';
@@ -22,8 +23,9 @@ const DEMO_OWNER_EMAIL = 'owner@demo.menukaze.dev';
 const DEMO_ORDER_ID = 'MK-DEMO1';
 
 async function main(): Promise<void> {
-  const uri = process.env['MONGODB_URI'] ?? DEFAULT_URI;
-  const dbName = process.env['MONGODB_DB_LIVE'] ?? 'menukaze_live';
+  const env = readSeedMongoEnv(DEFAULT_URI);
+  const uri = env.MONGODB_URI;
+  const dbName = env.MONGODB_DB_LIVE;
 
   const conn = await createConnectionFromUri(uri, dbName);
   const { Restaurant, User, StaffMembership, Menu, Category, Item, Table, Order } = getModels(conn);

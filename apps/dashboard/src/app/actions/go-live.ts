@@ -62,12 +62,21 @@ export async function goLiveAction(): Promise<GoLiveResult> {
  * Hide the post-onboarding checklist card on /admin.
  */
 export async function dismissChecklistAction(): Promise<void> {
-  await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
+  await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId, session, role }) => {
     const conn = await getMongoConnection('live');
     const { Restaurant } = getModels(conn);
     await Restaurant.updateOne(
       { _id: restaurantId },
       { $set: { checklistDismissed: true } },
     ).exec();
+    await recordAudit({
+      restaurantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      role,
+      action: 'checklist.dismissed',
+      resourceType: 'restaurant',
+      resourceId: String(restaurantId),
+    });
   });
 }

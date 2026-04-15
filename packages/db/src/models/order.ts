@@ -285,6 +285,9 @@ orderSchema.index({ restaurantId: 1, publicOrderId: 1 }, { unique: true });
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, sessionId: 1 });
+orderSchema.index({ restaurantId: 1, 'customer.email': 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ 'customer.email': 1, createdAt: -1 });
 
 export type OrderHydratedDoc = HydratedDocument<OrderDoc>;
 export type OrderModel = Model<OrderDoc>;

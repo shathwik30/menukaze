@@ -39,6 +39,7 @@ const webhookSubscriptionSchema = new Schema<WebhookSubscriptionDoc>(
 webhookSubscriptionSchema.plugin(tenantScopedPlugin);
 webhookSubscriptionSchema.index({ restaurantId: 1, enabled: 1 });
 webhookSubscriptionSchema.index({ restaurantId: 1, events: 1 });
+webhookSubscriptionSchema.index({ restaurantId: 1, createdAt: -1 });
 
 export function generateWebhookSecret(): string {
   return `whsec_${randomBytes(24).toString('base64url')}`;

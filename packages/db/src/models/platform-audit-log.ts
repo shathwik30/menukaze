@@ -37,6 +37,7 @@ const platformAuditLogSchema = new Schema<PlatformAuditLogDoc>(
 );
 
 platformAuditLogSchema.index({ createdAt: -1 });
+platformAuditLogSchema.index({ action: 1, createdAt: -1 });
 platformAuditLogSchema.index({ actorUserId: 1, createdAt: -1 });
 platformAuditLogSchema.index({ targetRestaurantId: 1, createdAt: -1 });
 

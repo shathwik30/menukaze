@@ -22,7 +22,9 @@
   "dependencies": {
     "@menukaze/monitoring": "workspace:*",
     "@menukaze/shared": "workspace:*",
-    "mongoose": "9.4.1"
+    "@t3-oss/env-core": "0.13.11",
+    "mongoose": "9.4.1",
+    "zod": "4.2.0"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",

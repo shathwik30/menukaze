@@ -96,6 +96,9 @@ tableSessionSchema.plugin(tenantScopedPlugin);
 tableSessionSchema.index({ restaurantId: 1, tableId: 1, status: 1 });
 tableSessionSchema.index({ restaurantId: 1, status: 1, lastActivityAt: 1 });
 tableSessionSchema.index({ restaurantId: 1, deviceFingerprint: 1, startedAt: -1 });
+tableSessionSchema.index({ status: 1, lastActivityAt: 1 });
+tableSessionSchema.index({ restaurantId: 1, 'customer.email': 1, startedAt: -1 });
+tableSessionSchema.index({ 'customer.email': 1, startedAt: -1 });
 
 export type TableSessionHydratedDoc = HydratedDocument<TableSessionDoc>;
 export type TableSessionModel = Model<TableSessionDoc>;

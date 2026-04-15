@@ -77,6 +77,8 @@ const invoiceSchema = new Schema<InvoiceDoc>(
 
 invoiceSchema.index({ restaurantId: 1, periodStart: -1 });
 invoiceSchema.index({ status: 1, dueAt: 1 });
+invoiceSchema.index({ status: 1, createdAt: -1 });
+invoiceSchema.index({ createdAt: -1 });
 
 export type InvoiceHydratedDoc = HydratedDocument<InvoiceDoc>;
 export type InvoiceModel = Model<InvoiceDoc>;

@@ -43,6 +43,7 @@ staffMembershipSchema.plugin(tenantScopedPlugin);
 
 // A user can only have one membership per restaurant.
 staffMembershipSchema.index({ restaurantId: 1, userId: 1 }, { unique: true });
+staffMembershipSchema.index({ restaurantId: 1, role: 1, status: 1 });
 // Used by login flow to enumerate a user's memberships across tenants.
 staffMembershipSchema.index({ userId: 1 });
 

@@ -50,6 +50,7 @@ const staffInviteSchema = new Schema<StaffInviteDoc>(
 staffInviteSchema.plugin(tenantScopedPlugin);
 staffInviteSchema.index({ restaurantId: 1, email: 1 });
 staffInviteSchema.index({ restaurantId: 1, usedAt: 1, revokedAt: 1 });
+staffInviteSchema.index({ restaurantId: 1, usedAt: 1, revokedAt: 1, createdAt: -1 });
 staffInviteSchema.index({ expiresAt: 1 });
 
 staffInviteSchema.pre('validate', function () {

@@ -11,6 +11,7 @@ import {
   withRestaurantAction,
   type ActionResult,
 } from '@/lib/action-helpers';
+import { recordAudit } from '@/lib/audit';
 
 const TABLE_PERMISSION_ERROR = 'You do not have permission to manage tables.';
 
@@ -37,7 +38,7 @@ export async function createTableAction(raw: unknown): Promise<ActionResult<{ id
   if (!parsed.success) return validationError(parsed.error);
 
   try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
 
@@ -53,6 +54,16 @@ export async function createTableAction(raw: unknown): Promise<ActionResult<{ id
         ...(parsed.data.zone ? { zone: parsed.data.zone } : {}),
         qrToken: generateQrToken(),
         status: 'available',
+      });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'table.created',
+        resourceType: 'table',
+        resourceId: String(table._id),
+        metadata: { number, capacity: parsed.data.capacity },
       });
       revalidatePath('/admin/tables');
       return { ok: true, data: { id: String(table._id) } };
@@ -70,13 +81,23 @@ export async function updateTableAction(raw: unknown): Promise<ActionResult> {
   if (!tableId) return invalidEntityError('table');
 
   try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
       const { id: _ignoredId, ...patch } = parsed.data;
 
       const result = await Table.updateOne({ restaurantId, _id: tableId }, { $set: patch }).exec();
       if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'table.updated',
+        resourceType: 'table',
+        resourceId: String(tableId),
+        metadata: { fields: Object.keys(patch) },
+      });
 
       revalidatePath('/admin/tables');
       return { ok: true };
@@ -91,11 +112,20 @@ export async function deleteTableAction(id: string): Promise<ActionResult> {
   if (!tableId) return invalidEntityError('table');
 
   try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
 
       await Table.deleteOne({ restaurantId, _id: tableId }).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'table.deleted',
+        resourceType: 'table',
+        resourceId: String(tableId),
+      });
       revalidatePath('/admin/tables');
       return { ok: true };
     });
@@ -109,7 +139,7 @@ export async function regenerateQrTokenAction(id: string): Promise<ActionResult>
   if (!tableId) return invalidEntityError('table');
 
   try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
       const result = await Table.updateOne(
@@ -117,6 +147,15 @@ export async function regenerateQrTokenAction(id: string): Promise<ActionResult>
         { $set: { qrToken: generateQrToken() } },
       ).exec();
       if (result.matchedCount !== 1) return { ok: false, error: 'Table not found.' };
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'table.qr_regenerated',
+        resourceType: 'table',
+        resourceId: String(tableId),
+      });
 
       revalidatePath('/admin/tables');
       return { ok: true };

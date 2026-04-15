@@ -6,6 +6,7 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
 import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
 import { parseMenuCsvImport } from '@/lib/menu-import';
+import { recordAudit } from '@/lib/audit';
 
 const MENU_PERMISSION_ERROR = 'You do not have permission to set up the menu.';
 
@@ -54,7 +55,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
   const input = parsed.data;
 
   try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId }) => {
+    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Menu, Category, Item } = getModels(conn);
 
@@ -137,6 +138,20 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
         if (!menuId || !firstCategoryId) {
           return { ok: false, error: 'Could not create the menu. Please try again.' };
         }
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'onboarding.menu.completed',
+          resourceType: 'menu',
+          resourceId: String(menuId),
+          metadata: {
+            mode: input.mode,
+            itemCount,
+            categoryCount: categoriesToCreate.length,
+          },
+        });
         return {
           ok: true,
           menuId: String(menuId),

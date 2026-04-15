@@ -11,6 +11,7 @@ import {
   type ActionResult,
 } from '@/lib/action-helpers';
 import { requireSession } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 const inputSchema = z.object({
   name: z.string().min(1).max(120),
@@ -110,6 +111,16 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
     if (!restaurantId) {
       return { ok: false, error: 'Could not create the restaurant. Please try again.' };
     }
+    await recordAudit({
+      restaurantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      role: 'owner',
+      action: 'restaurant.created',
+      resourceType: 'restaurant',
+      resourceId: restaurantId,
+      metadata: { slug: input.slug, country: input.country, currency: input.currency },
+    });
     return { ok: true, restaurantId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error.';
@@ -129,20 +140,32 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
  */
 export async function completeStaffStepAction(): Promise<ActionResult> {
   try {
-    return await withRestaurantAction(['settings.edit_profile'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { Restaurant } = getModels(conn);
-      const restaurant = await Restaurant.findById(restaurantId).exec();
-      if (!restaurant) throw new Error('Restaurant not found.');
-      if (restaurant.onboardingStep !== 'staff') {
-        throw new Error('This restaurant has already moved past the staff step.');
-      }
-      await Restaurant.updateOne(
-        { _id: restaurantId },
-        { $set: { onboardingStep: 'go-live' } },
-      ).exec();
-      return { ok: true };
-    });
+    return await withRestaurantAction(
+      ['settings.edit_profile'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { Restaurant } = getModels(conn);
+        const restaurant = await Restaurant.findById(restaurantId).exec();
+        if (!restaurant) throw new Error('Restaurant not found.');
+        if (restaurant.onboardingStep !== 'staff') {
+          throw new Error('This restaurant has already moved past the staff step.');
+        }
+        await Restaurant.updateOne(
+          { _id: restaurantId },
+          { $set: { onboardingStep: 'go-live' } },
+        ).exec();
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'onboarding.staff.skipped',
+          resourceType: 'restaurant',
+          resourceId: String(restaurantId),
+        });
+        return { ok: true };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to advance onboarding.');
   }

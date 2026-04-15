@@ -31,6 +31,7 @@ const categorySchema = new Schema<CategoryDoc>(
 
 categorySchema.plugin(tenantScopedPlugin);
 categorySchema.index({ restaurantId: 1, menuId: 1, order: 1 });
+categorySchema.index({ restaurantId: 1, order: 1 });
 
 export type CategoryHydratedDoc = HydratedDocument<CategoryDoc>;
 export type CategoryModel = Model<CategoryDoc>;

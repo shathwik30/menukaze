@@ -461,5 +461,16 @@ export async function acceptInviteAction(
     await dbSession.endSession();
   }
 
+  await recordAudit({
+    restaurantId,
+    userId: current.user.id,
+    userEmail: current.user.email,
+    role: invite.role,
+    action: 'staff.invite.accepted',
+    resourceType: 'invite',
+    resourceId: String(invite._id),
+    metadata: { invitedRole: invite.role },
+  });
+
   return { ok: true, data: { restaurantId: String(restaurantId) } };
 }

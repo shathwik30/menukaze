@@ -5,6 +5,7 @@
  */
 
 import mongoose, { type Connection } from 'mongoose';
+import { readMongoEnv } from './env';
 
 export type DbName = 'live' | 'sandbox';
 
@@ -15,16 +16,11 @@ interface ConnectionConfig {
 
 const cache = new Map<DbName, Connection>();
 
-function readEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env var: ${name}`);
-  return value;
-}
-
 export function getMongoConfig(db: DbName): ConnectionConfig {
+  const env = readMongoEnv();
   return {
-    uri: readEnv('MONGODB_URI'),
-    dbName: readEnv(db === 'live' ? 'MONGODB_DB_LIVE' : 'MONGODB_DB_SANDBOX'),
+    uri: env.MONGODB_URI,
+    dbName: db === 'live' ? env.MONGODB_DB_LIVE : env.MONGODB_DB_SANDBOX,
   };
 }
 

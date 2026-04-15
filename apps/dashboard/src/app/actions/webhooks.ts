@@ -161,37 +161,51 @@ export async function sendTestWebhookAction(raw: unknown): Promise<ActionResult>
   if (!subObjectId) return invalidEntityError('subscription');
 
   try {
-    return await withRestaurantAction(['webhooks.manage'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { WebhookSubscription, WebhookDelivery } = getModels(conn);
-      const subscription = await WebhookSubscription.findOne({
-        restaurantId,
-        _id: subObjectId,
-      }).exec();
-      if (!subscription) throw new Error('Subscription not found.');
-      if (!subscription.enabled) throw new Error('This subscription is disabled.');
+    return await withRestaurantAction(
+      ['webhooks.manage'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { WebhookSubscription, WebhookDelivery } = getModels(conn);
+        const subscription = await WebhookSubscription.findOne({
+          restaurantId,
+          _id: subObjectId,
+        }).exec();
+        if (!subscription) throw new Error('Subscription not found.');
+        if (!subscription.enabled) throw new Error('This subscription is disabled.');
 
-      const now = new Date();
-      await WebhookDelivery.create({
-        restaurantId,
-        subscriptionId: subscription._id,
-        eventId: `evt_test_${Date.now().toString(16)}`,
-        eventType: 'webhook.test',
-        payload: {
-          id: `evt_test_${Date.now().toString(16)}`,
-          type: 'webhook.test',
-          created_at: now.toISOString(),
-          restaurant_id: String(restaurantId),
-          api_version: 'v1',
-          data: { message: 'This is a test webhook from Menukaze.' },
-        },
-        status: 'pending',
-        attempts: 0,
-        nextAttemptAt: now,
-      });
-      revalidatePath('/admin/webhooks');
-      return { ok: true };
-    });
+        const now = new Date();
+        const eventId = `evt_test_${Date.now().toString(16)}`;
+        await WebhookDelivery.create({
+          restaurantId,
+          subscriptionId: subscription._id,
+          eventId,
+          eventType: 'webhook.test',
+          payload: {
+            id: eventId,
+            type: 'webhook.test',
+            created_at: now.toISOString(),
+            restaurant_id: String(restaurantId),
+            api_version: 'v1',
+            data: { message: 'This is a test webhook from Menukaze.' },
+          },
+          status: 'pending',
+          attempts: 0,
+          nextAttemptAt: now,
+        });
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'webhook.test.enqueued',
+          resourceType: 'webhook_subscription',
+          resourceId: String(subscription._id),
+          metadata: { eventId },
+        });
+        revalidatePath('/admin/webhooks');
+        return { ok: true };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to enqueue test webhook.', PERMISSION_ERROR);
   }
@@ -201,17 +215,29 @@ export async function retryWebhookDeliveryAction(deliveryId: string): Promise<Ac
   const deliveryObjectId = parseObjectId(deliveryId);
   if (!deliveryObjectId) return invalidEntityError('delivery');
   try {
-    return await withRestaurantAction(['webhooks.manage'], async ({ restaurantId }) => {
-      const conn = await getMongoConnection('live');
-      const { WebhookDelivery } = getModels(conn);
-      const result = await WebhookDelivery.updateOne(
-        { restaurantId, _id: deliveryObjectId, status: { $in: ['failed', 'pending'] } },
-        { $set: { status: 'pending', nextAttemptAt: new Date(), attempts: 0 } },
-      ).exec();
-      if (result.matchedCount !== 1) throw new Error('Delivery not found.');
-      revalidatePath('/admin/webhooks');
-      return { ok: true };
-    });
+    return await withRestaurantAction(
+      ['webhooks.manage'],
+      async ({ restaurantId, session, role }) => {
+        const conn = await getMongoConnection('live');
+        const { WebhookDelivery } = getModels(conn);
+        const result = await WebhookDelivery.updateOne(
+          { restaurantId, _id: deliveryObjectId, status: { $in: ['failed', 'pending'] } },
+          { $set: { status: 'pending', nextAttemptAt: new Date(), attempts: 0 } },
+        ).exec();
+        if (result.matchedCount !== 1) throw new Error('Delivery not found.');
+        await recordAudit({
+          restaurantId,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          role,
+          action: 'webhook.delivery.retried',
+          resourceType: 'webhook_delivery',
+          resourceId: String(deliveryObjectId),
+        });
+        revalidatePath('/admin/webhooks');
+        return { ok: true };
+      },
+    );
   } catch (error) {
     return actionError(error, 'Failed to retry delivery.', PERMISSION_ERROR);
   }

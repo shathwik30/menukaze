@@ -278,6 +278,10 @@ const restaurantSchema = new Schema<RestaurantDoc>(
 
 // Indexes (slug + customDomain are declared at field level above)
 restaurantSchema.index({ subscriptionStatus: 1 });
+restaurantSchema.index({ createdAt: -1 });
+restaurantSchema.index({ subscriptionStatus: 1, createdAt: -1 });
+restaurantSchema.index({ onboardingStep: 1, createdAt: -1 });
+restaurantSchema.index({ liveAt: 1, createdAt: -1 });
 restaurantSchema.index({ geo: '2dsphere' });
 
 export type RestaurantHydratedDoc = HydratedDocument<RestaurantDoc>;

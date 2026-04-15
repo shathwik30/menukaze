@@ -85,6 +85,7 @@ const itemSchema = new Schema<ItemDoc>(
 
 itemSchema.plugin(tenantScopedPlugin);
 itemSchema.index({ restaurantId: 1, categoryId: 1, soldOut: 1 });
+itemSchema.index({ restaurantId: 1, createdAt: 1 });
 itemSchema.index({ restaurantId: 1, name: 'text', description: 'text' });
 
 export type ItemHydratedDoc = HydratedDocument<ItemDoc>;

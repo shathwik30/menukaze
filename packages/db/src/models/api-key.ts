@@ -75,6 +75,7 @@ const apiKeySchema = new Schema<ApiKeyDoc>(
 
 apiKeySchema.plugin(tenantScopedPlugin);
 apiKeySchema.index({ restaurantId: 1, revokedAt: 1, createdAt: -1 });
+apiKeySchema.index({ restaurantId: 1, createdAt: -1 });
 
 /**
  * Generate a new key pair. Returns the raw key (only callers see it once)
