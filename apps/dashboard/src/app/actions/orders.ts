@@ -12,6 +12,7 @@ import {
 import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
+import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import {
@@ -143,8 +144,7 @@ async function sendCustomerStatusEmail({
     const restaurant = await Restaurant.findById(restaurantId).exec();
     const restaurantName = restaurant?.name ?? 'your order';
     const baseHost =
-      process.env['NEXT_PUBLIC_STOREFRONT_HOST'] ??
-      (restaurant ? `${restaurant.slug}.menukaze.dev` : '');
+      env.NEXT_PUBLIC_STOREFRONT_HOST ?? (restaurant ? `${restaurant.slug}.menukaze.dev` : '');
     const scheme = baseHost.includes('localhost') ? 'http' : 'https';
     const trackingUrl = baseHost ? `${scheme}://${baseHost}/order/${orderId}` : undefined;
 

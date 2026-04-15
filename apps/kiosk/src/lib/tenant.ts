@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { loadTenantRestaurantFromHeaders, type LoadedRestaurant } from '@menukaze/tenant/request';
+import { env } from '@/env';
 
 export type { LoadedRestaurant };
 
@@ -14,7 +15,7 @@ export async function resolveTenantOrNotFound(): Promise<LoadedRestaurant> {
 }
 
 async function loadLocalKioskRestaurant(): Promise<LoadedRestaurant | null> {
-  const slug = process.env['KIOSK_RESTAURANT_SLUG']?.trim();
+  const slug = env.KIOSK_RESTAURANT_SLUG?.trim();
   if (!slug) return null;
 
   const conn = await getMongoConnection('live');

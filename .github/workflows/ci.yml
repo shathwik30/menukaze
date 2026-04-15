@@ -17,6 +17,10 @@ env:
   # warnings and keeps CI green after the default flips.
   # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # Skip @t3-oss/env validation in CI jobs that don't need production secrets
+  # (lint, typecheck, format, test, build). E2E still goes through real env
+  # via .env.local which the workflow is expected to write in its own step.
+  SKIP_ENV_VALIDATION: 'true'
 
 jobs:
   changes:

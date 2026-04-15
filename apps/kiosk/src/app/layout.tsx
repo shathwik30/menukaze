@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { PinOverlay } from '@/components/pin-overlay';
+import '@/env';
 import './globals.css';
 
 export const metadata: Metadata = {

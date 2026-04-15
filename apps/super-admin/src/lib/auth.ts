@@ -6,6 +6,8 @@ import { nextCookies } from 'better-auth/next-js';
  * Memoised BetterAuth instance for the super-admin process. Same pattern as
  * the dashboard — lazy singleton that opens the Mongo connection on first use.
  */
+import { env } from '@/env';
+
 let cached: Promise<AuthInstance> | null = null;
 
 const LOCAL_SUPER_ADMIN_ORIGINS = [
@@ -14,12 +16,8 @@ const LOCAL_SUPER_ADMIN_ORIGINS = [
   'http://admin.localhost.menukaze.dev:3004',
 ];
 
-function getSuperAdminAuthUrl(): string {
-  return process.env['SUPER_ADMIN_BETTER_AUTH_URL'] ?? 'http://localhost:3004';
-}
-
 export function getAuth(): Promise<AuthInstance> {
-  const baseURL = getSuperAdminAuthUrl();
+  const baseURL = env.SUPER_ADMIN_BETTER_AUTH_URL;
 
   cached ??= createAuth({
     baseURL,

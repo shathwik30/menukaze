@@ -14,6 +14,7 @@ import {
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
+import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
@@ -362,6 +363,6 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
 // ---------------------------------------------------------------------------
 
 export async function verifyKioskPinAction(pin: string): Promise<{ ok: boolean }> {
-  const expected = process.env['KIOSK_EXIT_PIN'] ?? '1234';
+  const expected = env.KIOSK_EXIT_PIN ?? '1234';
   return { ok: pin === expected };
 }

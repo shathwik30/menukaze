@@ -1,6 +1,7 @@
 import { getMongoConnection, getModels, getRestaurantSupportRecipients } from '@menukaze/db';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
+import { env } from './env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   formatMoney,
@@ -25,17 +26,17 @@ async function sendNeedsReviewEmail(input: {
   totalLabel: string;
   happenedAt: string;
 }): Promise<void> {
-  if (process.env['MENUKAZE_SKIP_EMAIL'] === 'true') {
+  if (env.MENUKAZE_SKIP_EMAIL) {
     console.info(`[email:skip] to=${input.to} subject="Payment review needed"`);
     return;
   }
 
-  const apiKey = process.env['RESEND_API_KEY'];
+  const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
     throw new Error('Missing RESEND_API_KEY');
   }
 
-  const from = process.env['RESEND_FROM_ADDRESS'] ?? 'Menukaze <onboarding@resend.dev>';
+  const from = env.RESEND_FROM_ADDRESS;
   const subject = `Payment review needed · ${input.restaurantName} · ${input.tableName}`;
   const html = `
     <div style="font-family:Arial,sans-serif;color:#18181b">

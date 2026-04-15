@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { CookieConsent } from './_components/cookie-consent';
+import '@/env';
 import './globals.css';
 
 export const metadata: Metadata = {

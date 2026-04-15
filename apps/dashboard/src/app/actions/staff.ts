@@ -8,6 +8,7 @@ import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { assertCustomRoleFlags, resolveFlags, type Flag, type StaffRole } from '@menukaze/rbac';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
+import { env } from '@/env';
 import {
   actionError,
   invalidEntityError,
@@ -183,7 +184,7 @@ export async function inviteStaffAction(raw: unknown): Promise<ActionResult<{ id
       expiresAt,
     });
 
-    const baseUrl = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000';
+    const baseUrl = env.BETTER_AUTH_URL;
     const acceptUrl = `${baseUrl}/invite/${encodeURIComponent(token)}`;
 
     try {

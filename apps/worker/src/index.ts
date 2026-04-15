@@ -1,13 +1,11 @@
 import { closeAllConnections } from '@menukaze/db';
+import { env } from './env';
 import { sweepTimedOutSessions } from './session-sweeper';
 import { drainWebhookOutbox } from './webhook-drainer';
 
 const startedAt = new Date();
-const sweepIntervalMs = Number.parseInt(
-  process.env['WORKER_SESSION_SWEEP_INTERVAL_MS'] ?? '60000',
-  10,
-);
-const webhookIntervalMs = Number.parseInt(process.env['WORKER_WEBHOOK_INTERVAL_MS'] ?? '5000', 10);
+const sweepIntervalMs = env.WORKER_SESSION_SWEEP_INTERVAL_MS;
+const webhookIntervalMs = env.WORKER_WEBHOOK_INTERVAL_MS;
 let shuttingDown = false;
 let sweepInFlight = false;
 let webhookInFlight = false;
@@ -77,7 +75,7 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 log('worker ready', {
   pid: process.pid,
   node: process.version,
-  env: process.env['NODE_ENV'] ?? 'development',
+  env: env.NODE_ENV,
   sweepIntervalMs,
   webhookIntervalMs,
 });

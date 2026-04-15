@@ -1,5 +1,6 @@
 import 'server-only';
 import Razorpay from 'razorpay';
+import { env } from '@/env';
 
 /**
  * Verify a pair of Razorpay credentials by making the cheapest possible
@@ -25,7 +26,7 @@ export async function verifyRazorpayKeys(
     };
   }
 
-  if (process.env['MENUKAZE_SKIP_RAZORPAY_VERIFICATION'] === 'true') {
+  if (env.MENUKAZE_SKIP_RAZORPAY_VERIFICATION) {
     // Test-helper path: validate the key format without calling Razorpay.
     return { ok: true };
   }

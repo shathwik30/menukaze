@@ -14,7 +14,9 @@
     "@menukaze/db": "workspace:*",
     "@menukaze/monitoring": "workspace:*",
     "@menukaze/realtime": "workspace:*",
-    "@menukaze/shared": "workspace:*"
+    "@menukaze/shared": "workspace:*",
+    "@t3-oss/env-core": "0.13.11",
+    "zod": "4.2.0"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",

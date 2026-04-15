@@ -19,6 +19,7 @@
     "@menukaze/tenant": "workspace:*",
     "@menukaze/ui": "workspace:*",
     "@react-email/render": "1.0.3",
+    "@t3-oss/env-nextjs": "0.13.11",
     "ably": "2.7.0",
     "mongoose": "9.4.1",
     "next": "16.2.3",
