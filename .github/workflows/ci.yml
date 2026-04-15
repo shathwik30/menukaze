@@ -12,6 +12,11 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
+  # Opt JavaScript-based actions into Node.js 24 ahead of the 2026-06-02 Node 20
+  # deprecation. This silences the per-step "Node.js 20 actions are deprecated"
+  # warnings and keeps CI green after the default flips.
+  # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   changes:
