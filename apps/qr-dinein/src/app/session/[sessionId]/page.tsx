@@ -7,6 +7,7 @@ import {
   normalizeDineInSessionTimeoutMinutes,
   parseCurrencyCode,
 } from '@menukaze/shared';
+import { Avatar, Badge, Eyebrow } from '@menukaze/ui';
 import { SessionClient, type SessionItem, type SessionRound } from './session-client';
 
 export const dynamic = 'force-dynamic';
@@ -98,33 +99,45 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const totalMinor = orders.reduce((s, o) => s + o.totalMinor, 0);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 p-4 sm:p-6">
-      <header>
-        <h1 className="text-2xl font-bold">{restaurant.name}</h1>
-        <p className="text-muted-foreground text-sm">
-          {table.name} · {session.customer.name}
-        </p>
+    <div className="bg-canvas-100 dark:bg-ink-950 min-h-screen">
+      <header className="border-ink-100 bg-surface/80 dark:border-ink-900 dark:bg-ink-900/70 sticky top-0 z-20 border-b backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <Eyebrow tone="accent">Dine-in</Eyebrow>
+            <p className="text-foreground truncate font-serif text-lg font-medium leading-tight tracking-tight">
+              {restaurant.name}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="subtle" size="md" shape="pill">
+              {table.name}
+            </Badge>
+            <Avatar fallback={session.customer.name} size="sm" />
+          </div>
+        </div>
       </header>
 
-      <SessionClient
-        restaurantId={String(restaurantId)}
-        sessionId={String(session._id)}
-        status={session.status}
-        customerName={session.customer.name}
-        participants={session.participants.map((participant) => participant.label)}
-        menus={menuTabs}
-        categories={categoryList}
-        items={sessionItems}
-        rounds={rounds}
-        totalLabel={formatMoney(totalMinor, currency, locale)}
-        currency={currency}
-        locale={locale}
-        lastActivityAt={session.lastActivityAt.toISOString()}
-        sessionTimeoutMinutes={normalizeDineInSessionTimeoutMinutes(
-          restaurant.dineInSessionTimeoutMinutes,
-        )}
-        paymentModeRequested={session.paymentModeRequested}
-      />
-    </main>
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 pb-10 pt-5 sm:px-6">
+        <SessionClient
+          restaurantId={String(restaurantId)}
+          sessionId={String(session._id)}
+          status={session.status}
+          customerName={session.customer.name}
+          participants={session.participants.map((participant) => participant.label)}
+          menus={menuTabs}
+          categories={categoryList}
+          items={sessionItems}
+          rounds={rounds}
+          totalLabel={formatMoney(totalMinor, currency, locale)}
+          currency={currency}
+          locale={locale}
+          lastActivityAt={session.lastActivityAt.toISOString()}
+          sessionTimeoutMinutes={normalizeDineInSessionTimeoutMinutes(
+            restaurant.dineInSessionTimeoutMinutes,
+          )}
+          paymentModeRequested={session.paymentModeRequested}
+        />
+      </main>
+    </div>
   );
 }

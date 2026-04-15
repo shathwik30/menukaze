@@ -19,13 +19,6 @@ build/
 .env.staging
 !.env.example
 
-# test + coverage
-coverage/
-.nyc_output/
-playwright-report/
-test-results/
-*.snap.new
-
 # IDE / OS
 .vscode/*
 !.vscode/settings.json

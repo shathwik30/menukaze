@@ -16,6 +16,8 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM_ADDRESS: z.string().default('Menukaze <noreply@menukaze.com>'),
     MENUKAZE_SKIP_EMAIL: booleanFromString,
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   },
   client: {},
   runtimeEnv: {
@@ -26,6 +28,8 @@ export const env = createEnv({
     RESEND_API_KEY: process.env['RESEND_API_KEY'],
     RESEND_FROM_ADDRESS: process.env['RESEND_FROM_ADDRESS'],
     MENUKAZE_SKIP_EMAIL: process.env['MENUKAZE_SKIP_EMAIL'],
+    UPSTASH_REDIS_REST_URL: process.env['UPSTASH_REDIS_REST_URL'],
+    UPSTASH_REDIS_REST_TOKEN: process.env['UPSTASH_REDIS_REST_TOKEN'],
   },
   skipValidation: process.env['SKIP_ENV_VALIDATION'] === 'true',
   emptyStringAsUndefined: true,

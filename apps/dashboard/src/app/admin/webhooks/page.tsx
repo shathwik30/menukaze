@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { WebhooksManager } from './webhooks-manager';
 
@@ -21,18 +21,22 @@ export default async function WebhooksPage() {
     .exec();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Webhooks</h1>
-          <p className="text-muted-foreground text-sm">
-            HTTPS endpoints that receive event notifications. Each delivery is signed with HMAC
-            SHA-256 in the <code className="font-mono">X-Menukaze-Signature</code> header.
-          </p>
-        </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
+      <header>
+        <Eyebrow withBar tone="accent">
+          Developers
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+          Webhooks
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-2xl text-sm">
+          HTTPS endpoints that receive event notifications. Each delivery is signed with HMAC
+          SHA-256 in the{' '}
+          <code className="bg-canvas-100 text-ink-700 dark:bg-ink-800 dark:text-ink-300 rounded px-1.5 py-0.5 font-mono text-[12px]">
+            X-Menukaze-Signature
+          </code>{' '}
+          header.
+        </p>
       </header>
 
       <WebhooksManager
@@ -56,6 +60,6 @@ export default async function WebhooksPage() {
           lastError: d.lastError ?? null,
         }))}
       />
-    </main>
+    </div>
   );
 }

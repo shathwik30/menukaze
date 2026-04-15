@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { render } from '@react-email/render';
+import { captureMessage } from '@menukaze/monitoring';
 import { Resend } from 'resend';
 
 let resendClient: Resend | null = null;
@@ -23,7 +24,11 @@ export interface TransactionalEmailInput {
 
 export async function sendTransactionalEmail(input: TransactionalEmailInput): Promise<void> {
   if (process.env['MENUKAZE_SKIP_EMAIL'] === 'true') {
-    console.info(`[email:skip] to=${input.to} subject="${input.subject}"`);
+    captureMessage('email send skipped (MENUKAZE_SKIP_EMAIL=true)', 'info', {
+      surface: 'shared:email',
+      to: input.to,
+      subject: input.subject,
+    });
     return;
   }
 

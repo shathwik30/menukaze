@@ -1,4 +1,10 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
+import {
+  STAFF_MEMBERSHIP_STATUSES,
+  STAFF_ROLES,
+  type StaffMembershipStatus,
+  type StaffRole,
+} from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -9,10 +15,10 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 export interface StaffMembershipDoc {
   restaurantId: Types.ObjectId;
   userId: Types.ObjectId;
-  role: 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
+  role: StaffRole;
   customPermissions?: string[];
   assignedTableIds?: Types.ObjectId[];
-  status: 'active' | 'deactivated';
+  status: StaffMembershipStatus;
   invitedBy?: Types.ObjectId;
   lastLoginAt?: Date;
   lastLoginIp?: string;
@@ -26,12 +32,12 @@ const staffMembershipSchema = new Schema<StaffMembershipDoc>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     role: {
       type: String,
-      enum: ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'],
+      enum: STAFF_ROLES,
       required: true,
     },
     customPermissions: { type: [String], default: undefined },
     assignedTableIds: { type: [Schema.Types.ObjectId], default: undefined },
-    status: { type: String, enum: ['active', 'deactivated'], default: 'active' },
+    status: { type: String, enum: STAFF_MEMBERSHIP_STATUSES, default: 'active' },
     invitedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     lastLoginAt: Date,
     lastLoginIp: String,

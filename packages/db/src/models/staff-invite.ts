@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { STAFF_ROLES, type StaffRole } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -12,7 +13,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * collection so the dashboard can show history.
  */
 
-export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
+export type { StaffRole };
 
 export interface StaffInviteDoc {
   restaurantId: Types.ObjectId;
@@ -34,7 +35,7 @@ const staffInviteSchema = new Schema<StaffInviteDoc>(
     email: { type: String, required: true, maxlength: 320 },
     role: {
       type: String,
-      enum: ['owner', 'manager', 'waiter', 'kitchen', 'cashier', 'custom'],
+      enum: STAFF_ROLES,
       required: true,
     },
     customPermissions: { type: [String], default: undefined },

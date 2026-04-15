@@ -1,4 +1,5 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { ORDER_CHANNELS, type OrderChannel } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -14,7 +15,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * phone-based identity once SMS is live).
  */
 
-export type CustomerChannel = 'storefront' | 'qr_dinein' | 'kiosk' | 'walk_in' | 'api';
+export type CustomerChannel = OrderChannel;
 
 export interface CustomerDoc {
   restaurantId: Types.ObjectId;
@@ -44,7 +45,7 @@ const customerSchema = new Schema<CustomerDoc>(
     phone: { type: String, maxlength: 40 },
     firstChannel: {
       type: String,
-      enum: ['storefront', 'qr_dinein', 'kiosk', 'walk_in', 'api'],
+      enum: ORDER_CHANNELS,
       required: true,
     },
     channelCounts: {

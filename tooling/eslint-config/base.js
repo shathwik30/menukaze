@@ -66,8 +66,8 @@ export default tseslint.config(
     },
   },
   {
-    // Relax rules for config files, scripts, and tests
-    files: ['**/*.config.{js,ts,mjs,cjs}', 'scripts/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
+    // Relax rules for config files and scripts
+    files: ['**/*.config.{js,ts,mjs,cjs}', 'scripts/**/*.ts'],
     rules: {
       'unicorn/filename-case': 'off',
     },

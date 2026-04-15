@@ -1,85 +1,153 @@
 import Link from 'next/link';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  cn,
+} from '@menukaze/ui';
 import type { ChecklistSummary } from '@/lib/onboarding-checklist';
-import { dismissChecklistAction } from '@/app/actions/go-live';
+import { dismissChecklistFormAction } from '@/app/actions/go-live';
 
 interface Props {
   checklist: ChecklistSummary;
 }
 
-/**
- * Post-onboarding checklist card shown on /admin until the user dismisses
- * it. Dismissal is only allowed once every *critical* item is done.
- *
- * Server component. The Dismiss button posts directly to a server action.
- */
 export function OnboardingChecklistCard({ checklist }: Props) {
   return (
-    <section className="border-border rounded-lg border p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold">Setup checklist</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {checklist.doneCount} of {checklist.totalCount} complete
-          </p>
+    <Card variant="surface" radius="lg" className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-60"
+        style={{
+          background:
+            'radial-gradient(ellipse 40% 80% at 0% 0%, oklch(0.885 0.100 68 / 0.12), transparent 60%)',
+        }}
+      />
+      <CardHeader className="relative">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Badge variant="accent" size="sm" shape="pill">
+                Setup
+              </Badge>
+              <span className="text-ink-500 dark:text-ink-400 text-xs">
+                {checklist.doneCount} of {checklist.totalCount} complete
+              </span>
+            </div>
+            <CardTitle className="mt-2 font-serif text-2xl">
+              Finish setting up{' '}
+              {checklist.doneCount === checklist.totalCount
+                ? '— you\u2019re done!'
+                : 'your restaurant'}
+            </CardTitle>
+            <CardDescription>
+              A few quick steps to unlock everything Menukaze can do.
+            </CardDescription>
+          </div>
+          {checklist.allCriticalDone ? (
+            <form action={dismissChecklistFormAction}>
+              <Button type="submit" variant="ghost" size="sm">
+                Dismiss
+              </Button>
+            </form>
+          ) : null}
         </div>
-        {checklist.allCriticalDone ? (
-          <form action={dismissChecklistAction}>
-            <button
-              type="submit"
-              className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-8 items-center rounded-md border px-3 text-xs"
-            >
-              Dismiss
-            </button>
-          </form>
-        ) : null}
-      </div>
 
-      <div className="bg-muted mt-4 h-2 overflow-hidden rounded-full">
-        <div
-          className="bg-primary h-full transition-all"
-          style={{ width: `${checklist.percent}%` }}
-          aria-label={`${checklist.percent}% complete`}
-        />
-      </div>
+        <div className="bg-ink-100 dark:bg-ink-800 mt-5 h-1.5 w-full overflow-hidden rounded-full">
+          <div
+            className="from-saffron-400 to-saffron-600 h-full rounded-full bg-gradient-to-r transition-all duration-700 ease-out"
+            style={{ width: `${checklist.percent}%` }}
+            aria-label={`${checklist.percent}% complete`}
+          />
+        </div>
+      </CardHeader>
 
-      <ul className="mt-4 space-y-2 text-sm">
-        {checklist.items.map((item) => (
-          <li key={item.id} className="flex items-start gap-3">
-            <span
-              aria-hidden
-              className={
+      <CardContent className="relative">
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {checklist.items.map((item) => (
+            <li
+              key={item.id}
+              className={cn(
+                'flex items-start gap-3 rounded-xl border p-3 transition-colors',
                 item.done
-                  ? 'border-primary bg-primary text-primary-foreground mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px]'
-                  : 'border-input text-muted-foreground mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px]'
-              }
+                  ? 'border-jade-200 bg-jade-50/50 dark:border-jade-500/20 dark:bg-jade-500/10'
+                  : 'border-ink-100 bg-canvas-50 hover:bg-canvas-100 dark:border-ink-800 dark:bg-ink-900/60 dark:hover:bg-ink-900',
+              )}
             >
-              {item.done ? '✓' : ''}
-            </span>
-            <div className="flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  className={
-                    item.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium'
-                  }
-                >
-                  {item.label}
+              <span
+                aria-hidden
+                className={cn(
+                  'mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors',
+                  item.done
+                    ? 'bg-jade-500 text-white'
+                    : 'border-ink-300 text-ink-400 dark:border-ink-600 dark:text-ink-500 border border-dashed',
+                )}
+              >
+                {item.done ? (
+                  <svg
+                    viewBox="0 0 12 12"
+                    className="size-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <polyline points="2 6 5 9 10 3" />
+                  </svg>
+                ) : null}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p
+                    className={cn(
+                      'text-sm font-medium',
+                      item.done ? 'text-ink-500 dark:text-ink-400 line-through' : 'text-foreground',
+                    )}
+                  >
+                    {item.label}
+                  </p>
                   {item.critical ? (
-                    <span className="text-muted-foreground ml-1 text-[10px] uppercase tracking-wide">
-                      required
-                    </span>
+                    <Badge variant="outline" size="xs" shape="pill">
+                      Required
+                    </Badge>
                   ) : null}
-                </span>
+                </div>
+                {item.detail ? (
+                  <p className="text-ink-500 dark:text-ink-400 mt-0.5 text-[11.5px] leading-relaxed">
+                    {item.detail}
+                  </p>
+                ) : null}
                 {item.href && !item.done ? (
-                  <Link href={item.href} className="text-foreground text-xs underline">
-                    Finish
+                  <Link
+                    href={item.href}
+                    className="text-saffron-700 dark:text-saffron-400 mt-1 inline-flex items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
+                  >
+                    Finish this step
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-3"
+                      aria-hidden
+                    >
+                      <path d="M5 12h14M13 5l7 7-7 7" />
+                    </svg>
                   </Link>
                 ) : null}
               </div>
-              {item.detail ? <p className="text-muted-foreground text-xs">{item.detail}</p> : null}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

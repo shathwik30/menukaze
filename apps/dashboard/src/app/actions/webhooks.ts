@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { generateWebhookSecret, getModels, getMongoConnection } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { WEBHOOK_EVENT_TYPES } from '@menukaze/shared';
 import {
   actionError,
   invalidEntityError,
@@ -15,26 +16,9 @@ import { recordAudit } from '@/lib/audit';
 
 const PERMISSION_ERROR = 'You do not have permission to manage webhooks.';
 
-const KNOWN_EVENTS = [
-  'order.created',
-  'order.confirmed',
-  'order.preparing',
-  'order.ready',
-  'order.completed',
-  'order.cancelled',
-  'payment.completed',
-  'payment.failed',
-  'payment.refunded',
-  'reservation.created',
-  'reservation.cancelled',
-  'table_session.started',
-  'table_session.bill_requested',
-  'table_session.closed',
-] as const;
-
 const createInput = z.object({
   url: z.string().url().max(2048),
-  events: z.array(z.enum(KNOWN_EVENTS)).min(1).max(KNOWN_EVENTS.length),
+  events: z.array(z.enum(WEBHOOK_EVENT_TYPES)).min(1).max(WEBHOOK_EVENT_TYPES.length),
   description: z.string().max(200).optional(),
 });
 

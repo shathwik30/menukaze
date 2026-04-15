@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { TABLE_STATUSES, type TableStatus } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -10,7 +11,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * Status flow: available -> occupied -> bill_requested -> paid -> available.
  * Timeout or unpaid edge cases move to needs_review.
  */
-export type TableStatus = 'available' | 'occupied' | 'bill_requested' | 'paid' | 'needs_review';
+export type { TableStatus };
 
 export interface TableDoc {
   restaurantId: Types.ObjectId;
@@ -48,7 +49,7 @@ const tableSchema = new Schema<TableDoc>(
     qrToken: { type: String, required: true, unique: true },
     status: {
       type: String,
-      enum: ['available', 'occupied', 'bill_requested', 'paid', 'needs_review'],
+      enum: TABLE_STATUSES,
       default: 'available',
     },
     lastReleasedAt: Date,

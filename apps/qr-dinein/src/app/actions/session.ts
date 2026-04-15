@@ -27,10 +27,18 @@ import {
   ipFromHeaders,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
+  orderWebhookChannel,
   parseCurrencyCode,
   preCheckQrLocation,
   resolvePrimaryStationId,
+  SESSION_FAST_FOLLOW_MS,
+  SESSION_PLAUSIBLE_CAP_MULTIPLIER,
+  SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR,
   validateModifierSelection,
+  type SessionUpdateReason,
+  type TableStatus,
+  type TableStatusReason,
+  type WaiterAlertReason,
 } from '@menukaze/shared';
 import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
@@ -66,13 +74,8 @@ function readRazorpayOrderId(order: { id?: unknown }): string {
 async function publishTableStatus(
   restaurantId: string,
   tableId: string,
-  status: 'available' | 'occupied' | 'bill_requested' | 'paid' | 'needs_review',
-  reason?:
-    | 'session_started'
-    | 'bill_requested'
-    | 'payment_succeeded'
-    | 'table_released'
-    | 'timeout_unpaid',
+  status: TableStatus,
+  reason?: TableStatusReason,
   changedAt: Date = new Date(),
 ): Promise<void> {
   try {
@@ -91,13 +94,7 @@ async function publishTableStatus(
 async function publishSessionUpdate(
   restaurantId: string,
   sessionId: string,
-  reason:
-    | 'participant_joined'
-    | 'round_added'
-    | 'bill_requested'
-    | 'payment_succeeded'
-    | 'closed'
-    | 'needs_review',
+  reason: SessionUpdateReason,
   updatedAt: Date = new Date(),
 ): Promise<void> {
   try {
@@ -207,17 +204,16 @@ async function detectSessionAnomaly(
     .exec();
   if (previous) {
     const elapsedMs = now.getTime() - previous.createdAt.getTime();
-    if (elapsedMs < 90_000) {
-      return 'Two rounds placed within 90 seconds.';
+    if (elapsedMs < SESSION_FAST_FOLLOW_MS) {
+      const seconds = Math.round(SESSION_FAST_FOLLOW_MS / 1000);
+      return `Two rounds placed within ${seconds} seconds.`;
     }
   }
   const table = await tableModel.findOne({ restaurantId, _id: session.tableId }).exec();
   if (table) {
-    // 50,000 minor units (~₹500/$5) per seat is the rough upper bound for a
-    // single round in mainstream cuisines. Cheap signal, never the only one.
-    const plausibleCap = table.capacity * 50_000;
-    if (newOrderTotalMinor > plausibleCap * 4) {
-      return `Round total exceeds 4x plausible cap for ${table.capacity}-seat table.`;
+    const plausibleCap = table.capacity * SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR;
+    if (newOrderTotalMinor > plausibleCap * SESSION_PLAUSIBLE_CAP_MULTIPLIER) {
+      return `Round total exceeds ${SESSION_PLAUSIBLE_CAP_MULTIPLIER}x plausible cap for ${table.capacity}-seat table.`;
     }
   }
   return null;
@@ -388,7 +384,7 @@ async function touchSession(
 
 async function publishWaiterCall(
   session: Pick<SessionRecord, '_id' | 'restaurantId' | 'tableId'>,
-  reason: 'call_waiter' | 'payment_help',
+  reason: WaiterAlertReason,
   calledAt: Date,
 ): Promise<void> {
   try {
@@ -876,7 +872,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     data: {
       id: String(order._id),
       public_order_id: publicOrderId,
-      channel: { id: 'qr_dinein', type: 'built_in' },
+      channel: orderWebhookChannel('qr_dinein'),
       type: 'dine_in',
       table_session_id: String(session._id),
       total_minor: totalMinor,
@@ -908,7 +904,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
 
 export async function callWaiterAction(
   sessionId: string,
-  reason: 'call_waiter' | 'payment_help' = 'call_waiter',
+  reason: WaiterAlertReason = 'call_waiter',
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const tableSessionId = parseObjectId(sessionId);
   if (!tableSessionId) return { ok: false, error: 'Unknown session.' };

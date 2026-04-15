@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeTax, type TaxRule } from '@menukaze/shared';
+import { Badge, Eyebrow, cn } from '@menukaze/ui';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 import { ItemConfigurator } from './item-configurator';
@@ -64,7 +65,6 @@ export function MenuClient({
   const router = useRouter();
   useIdleReset();
 
-  // Cart
   const setRestaurant = useKioskCart((s) => s.setRestaurant);
   const lines = useKioskCart((s) => s.lines);
   const orderMode = useKioskCart((s) => s.orderMode);
@@ -78,12 +78,10 @@ export function MenuClient({
   const [configuring, setConfiguring] = useState<ConfiguringItem | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
 
-  // Bind cart to this restaurant
   useEffect(() => {
     setRestaurant(restaurantId, currency, locale);
   }, [restaurantId, currency, locale, setRestaurant]);
 
-  // If no mode was chosen, bounce back
   useEffect(() => {
     if (!orderMode) router.replace('/kiosk/mode');
   }, [orderMode, router]);
@@ -100,7 +98,6 @@ export function MenuClient({
     [categories, activeMenuId],
   );
 
-  // Default to first category when menu changes
   useEffect(() => {
     setActiveCategoryId(visibleCategories[0]?.id ?? '');
   }, [visibleCategories]);
@@ -143,95 +140,129 @@ export function MenuClient({
   }
 
   return (
-    <div className="grid h-screen grid-rows-[88px_minmax(0,1fr)] bg-zinc-50 text-zinc-950">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6">
+    <div className="bg-canvas-50 text-ink-950 grid h-screen grid-rows-[96px_minmax(0,1fr)]">
+      <header className="border-ink-100 bg-surface flex items-center justify-between border-b px-8">
         <button
           type="button"
           onClick={() => router.push('/kiosk/mode')}
-          className="h-14 rounded-lg border border-zinc-300 px-5 text-lg font-bold text-zinc-700 active:bg-zinc-100"
+          className="border-ink-200 bg-surface text-ink-700 active:bg-canvas-200 flex h-16 items-center gap-2 rounded-2xl border px-6 text-base font-medium transition-colors"
         >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-5"
+            aria-hidden
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
           Back
         </button>
         <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.26em] text-emerald-700">
-            Step 2 of 3
-          </p>
-          <h1 className="text-2xl font-black">{restaurantName}</h1>
+          <Eyebrow tone="accent">Step 2 of 3 · {restaurantName}</Eyebrow>
+          <p className="mt-1 font-serif text-2xl font-medium tracking-tight">Choose your dishes</p>
         </div>
-        <div className="rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white">
+        <Badge
+          variant="solid"
+          size="lg"
+          shape="pill"
+          className="px-5 py-2 text-sm uppercase tracking-[0.18em]"
+        >
           {orderMode === 'dine_in' ? 'Dine in' : 'Takeaway'}
-        </div>
+        </Badge>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[228px_minmax(0,1fr)_360px]">
-        <aside className="flex min-h-0 flex-col border-r border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Menu</p>
-            <p className="mt-1 text-lg font-black">Pick a category</p>
+      <div className="grid min-h-0 grid-cols-[260px_minmax(0,1fr)_380px]">
+        {/* Categories sidebar */}
+        <aside className="border-ink-100 bg-surface flex min-h-0 flex-col border-r">
+          <div className="border-ink-100 border-b p-5">
+            <Eyebrow tone="accent">Menu</Eyebrow>
+            <p className="text-ink-950 mt-2 font-serif text-xl font-medium tracking-tight">
+              Pick a category
+            </p>
           </div>
 
           {menus.length > 1 ? (
-            <div className="border-b border-zinc-200 p-3">
-              <div className="flex flex-col gap-2">
-                {menus.map((menu) => (
-                  <button
-                    key={menu.id}
-                    type="button"
-                    onClick={() => setActiveMenuId(menu.id)}
-                    className={`min-h-12 rounded-lg px-3 text-left text-sm font-bold ${
-                      menu.id === activeMenuId
-                        ? 'bg-zinc-950 text-white'
-                        : 'bg-zinc-100 text-zinc-700 active:bg-zinc-200'
-                    }`}
-                  >
-                    {menu.name}
-                  </button>
-                ))}
+            <div className="border-ink-100 border-b p-3">
+              <div className="flex flex-col gap-1.5">
+                {menus.map((menu) => {
+                  const active = menu.id === activeMenuId;
+                  return (
+                    <button
+                      key={menu.id}
+                      type="button"
+                      onClick={() => setActiveMenuId(menu.id)}
+                      className={cn(
+                        'min-h-11 rounded-xl px-4 text-left text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-ink-950 text-canvas-50'
+                          : 'bg-canvas-100 text-ink-700 active:bg-canvas-200',
+                      )}
+                    >
+                      {menu.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : null}
 
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-            {visibleCategories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setActiveCategoryId(cat.id)}
-                className={`min-h-16 rounded-lg px-4 text-left text-base font-bold ${
-                  cat.id === activeCategoryId
-                    ? 'bg-emerald-500 text-zinc-950'
-                    : 'bg-zinc-100 text-zinc-700 active:bg-zinc-200'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {visibleCategories.map((cat) => {
+              const active = cat.id === activeCategoryId;
+              const count = items.filter((i) => i.categoryId === cat.id && !i.soldOut).length;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategoryId(cat.id)}
+                  className={cn(
+                    'group flex min-h-16 items-center justify-between rounded-2xl px-4 text-left transition-all duration-200 active:scale-[0.99]',
+                    active
+                      ? 'bg-saffron-500 text-ink-950 shadow-[0_8px_24px_-8px_oklch(0.615_0.180_44/0.5)]'
+                      : 'bg-canvas-100 text-ink-800 hover:bg-canvas-200',
+                  )}
+                >
+                  <span className="font-serif text-lg font-medium tracking-tight">{cat.name}</span>
+                  <span
+                    className={cn(
+                      'mk-nums rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums transition-colors',
+                      active ? 'bg-ink-950/10 text-ink-950' : 'bg-surface text-ink-500',
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </aside>
 
-        <main className="min-h-0 overflow-y-auto p-6">
-          <div className="mb-5 flex items-end justify-between gap-4">
+        {/* Items grid */}
+        <main className="min-h-0 overflow-y-auto p-8">
+          <div className="mb-6 flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.22em] text-zinc-500">
-                {activeCategoryName ?? 'Items'}
-              </p>
-              <h2 className="mt-1 text-4xl font-black tracking-tight">
-                {visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''}
+              <Eyebrow tone="accent">{activeCategoryName ?? 'Items'}</Eyebrow>
+              <h2 className="text-ink-950 mt-2 font-serif text-5xl font-medium tracking-tight">
+                {visibleItems.length} {visibleItems.length === 1 ? 'dish' : 'dishes'}
               </h2>
             </div>
-            <p className="max-w-sm text-right text-sm font-medium text-zinc-500">
-              Tap an item to add it. Items with choices open a quick customize screen.
+            <p className="text-ink-500 max-w-sm text-right text-sm">
+              Tap an item to add it. Dishes with choices open a quick customise screen.
             </p>
           </div>
 
           {visibleItems.length === 0 ? (
-            <div className="flex h-[60vh] items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white">
-              <p className="text-center text-xl font-bold text-zinc-500">
+            <div className="border-ink-200 bg-surface flex h-[60vh] items-center justify-center rounded-3xl border border-dashed">
+              <p className="text-ink-500 text-center font-serif text-2xl font-medium">
                 No items in this category right now.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5">
               {visibleItems.map((item) => {
                 const inCart = lines.reduce(
                   (sum, l) => (l.itemId === item.id ? sum + l.quantity : sum),
@@ -241,81 +272,106 @@ export function MenuClient({
                 return (
                   <article
                     key={item.id}
-                    className={`flex min-h-[390px] flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm ${
-                      item.soldOut ? 'opacity-60' : ''
-                    }`}
+                    className={cn(
+                      'border-ink-100 bg-surface group flex min-h-[400px] flex-col overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl',
+                      item.soldOut && 'opacity-60',
+                    )}
                   >
-                    <div className="relative aspect-[4/3] bg-zinc-100">
+                    <div className="bg-canvas-100 relative aspect-[4/3] overflow-hidden">
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                        <img
+                          src={item.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <span className="rounded-lg bg-zinc-950 px-4 py-3 text-2xl font-black text-white">
-                            MK
+                        <div className="from-canvas-100 to-canvas-300 flex h-full w-full items-center justify-center bg-gradient-to-br">
+                          <span className="text-ink-300 font-serif text-5xl font-medium">
+                            {item.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
-                      {inCart > 0 ? (
-                        <span className="absolute right-3 top-3 rounded-md bg-emerald-500 px-3 py-1 text-sm font-black text-zinc-950">
-                          {inCart} in order
+                      {inCart > 0 && !item.soldOut ? (
+                        <span className="bg-saffron-500 absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+                          <span className="mk-nums font-mono tabular-nums">{inCart}</span> in order
                         </span>
                       ) : null}
                       {item.soldOut ? (
-                        <span className="absolute inset-x-3 bottom-3 rounded-md bg-white px-3 py-2 text-center text-sm font-black uppercase tracking-[0.16em] text-rose-700">
+                        <span className="bg-surface/95 text-mkrose-700 absolute inset-x-4 bottom-4 rounded-xl px-3 py-2 text-center text-sm font-semibold uppercase tracking-[0.16em] shadow-md backdrop-blur">
                           Sold out
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="flex flex-1 flex-col p-4">
+                    <div className="flex flex-1 flex-col p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-xl font-black leading-tight">{item.name}</h3>
-                        <p className="shrink-0 font-mono text-base font-black">{item.priceLabel}</p>
+                        <h3 className="text-ink-950 font-serif text-xl font-medium leading-tight tracking-tight">
+                          {item.name}
+                        </h3>
+                        <p className="mk-nums text-ink-950 shrink-0 font-mono text-base font-semibold tabular-nums">
+                          {item.priceLabel}
+                        </p>
                       </div>
 
                       {item.description ? (
-                        <p className="mt-2 line-clamp-2 text-sm leading-snug text-zinc-600">
+                        <p className="text-ink-500 mt-2 line-clamp-2 text-[13px] leading-relaxed">
                           {item.description}
                         </p>
                       ) : null}
                       {item.comboItemNames.length > 0 ? (
-                        <p className="mt-2 line-clamp-2 text-xs font-medium text-zinc-500">
-                          Includes {item.comboItemNames.join(', ')}
+                        <p className="text-ink-500 mt-2 line-clamp-2 text-[11px] italic">
+                          Includes {item.comboItemNames.join(' · ')}
                         </p>
                       ) : null}
 
                       <div className="mt-auto pt-4">
                         {item.soldOut ? (
-                          <span className="flex h-14 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-base font-black text-rose-700">
+                          <span className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 flex h-14 items-center justify-center rounded-xl border text-sm font-semibold uppercase tracking-[0.14em]">
                             Unavailable
                           </span>
                         ) : item.modifiers.length > 0 ? (
                           <button
                             type="button"
                             onClick={() => handleOpenConfigurator(item)}
-                            className={`h-14 w-full rounded-lg text-lg font-black ${
+                            className={cn(
+                              'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
-                                ? 'bg-emerald-500 text-zinc-950'
-                                : 'bg-zinc-950 text-white active:bg-emerald-600'
-                            }`}
+                                ? 'bg-jade-500 text-white'
+                                : 'bg-ink-950 text-canvas-50 hover:bg-ink-900',
+                            )}
                           >
-                            {isJustAdded
-                              ? 'Added'
-                              : inCart > 0
-                                ? `Add more (${inCart})`
-                                : 'Customize'}
+                            {isJustAdded ? (
+                              <span className="inline-flex items-center gap-2 font-serif text-lg">
+                                <CheckIcon /> Added
+                              </span>
+                            ) : inCart > 0 ? (
+                              <span className="font-serif text-lg">Add more</span>
+                            ) : (
+                              <span className="font-serif text-lg">Customise</span>
+                            )}
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleAddSimple(item)}
-                            className={`h-14 w-full rounded-lg text-lg font-black ${
+                            className={cn(
+                              'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
-                                ? 'bg-emerald-500 text-zinc-950'
-                                : 'bg-zinc-950 text-white active:bg-emerald-600'
-                            }`}
+                                ? 'bg-jade-500 text-white'
+                                : 'bg-saffron-500 hover:bg-saffron-600 text-white shadow-[0_6px_16px_-4px_oklch(0.615_0.180_44/0.4)]',
+                            )}
                           >
-                            {isJustAdded ? 'Added' : inCart > 0 ? `Add more (${inCart})` : 'Add'}
+                            {isJustAdded ? (
+                              <span className="inline-flex items-center gap-2 font-serif text-lg">
+                                <CheckIcon /> Added
+                              </span>
+                            ) : inCart > 0 ? (
+                              <span className="font-serif text-lg">Add another</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-2 font-serif text-lg">
+                                <PlusIcon /> Add to order
+                              </span>
+                            )}
                           </button>
                         )}
                       </div>
@@ -327,14 +383,15 @@ export function MenuClient({
           )}
         </main>
 
-        <aside className="flex min-h-0 flex-col border-l border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
-              Current order
-            </p>
+        {/* Cart sidebar */}
+        <aside className="border-ink-100 bg-surface flex min-h-0 flex-col border-l">
+          <div className="border-ink-100 border-b p-5">
+            <Eyebrow tone="accent">Current order</Eyebrow>
             <div className="mt-2 flex items-end justify-between">
-              <h2 className="text-3xl font-black">{itemCount}</h2>
-              <p className="pb-1 text-sm font-bold text-zinc-500">
+              <p className="text-ink-950 font-serif text-5xl font-medium leading-none tracking-tight">
+                {itemCount}
+              </p>
+              <p className="text-ink-500 pb-1.5 text-sm font-medium">
                 item{itemCount !== 1 ? 's' : ''}
               </p>
             </div>
@@ -342,47 +399,57 @@ export function MenuClient({
 
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             {lines.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
-                <p className="text-2xl font-black">Your order is empty</p>
-                <p className="mt-2 text-base text-zinc-500">Add an item to review and pay.</p>
+              <div className="border-ink-200 bg-canvas-50/50 flex h-full flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center">
+                <div className="bg-canvas-100 text-ink-400 mb-4 flex size-14 items-center justify-center rounded-2xl">
+                  <CartIcon />
+                </div>
+                <p className="text-ink-600 font-serif text-xl font-medium">Your order is empty</p>
+                <p className="text-ink-500 mt-2 text-sm">Add a dish to review and pay.</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 {lines.map((line) => {
                   const key = cartLineKey(line);
                   const unitMinor =
                     line.priceMinor + line.modifiers.reduce((s, m) => s + m.priceMinor, 0);
                   return (
-                    <div key={key} className="border-b border-zinc-200 pb-4 last:border-0">
+                    <div
+                      key={key}
+                      className="border-ink-100 bg-canvas-50/70 rounded-2xl border p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-base font-black leading-tight">{line.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-ink-950 font-serif text-[15px] font-medium leading-tight">
+                            {line.name}
+                          </p>
                           {line.modifiers.length > 0 ? (
-                            <p className="mt-1 line-clamp-2 text-xs font-medium text-zinc-500">
-                              {line.modifiers.map((m) => m.optionName).join(', ')}
+                            <p className="text-ink-500 mt-1 line-clamp-2 text-[11px]">
+                              {line.modifiers.map((m) => m.optionName).join(' · ')}
                             </p>
                           ) : null}
                         </div>
-                        <span className="shrink-0 font-mono text-sm font-black">
+                        <span className="mk-nums text-ink-950 shrink-0 font-mono text-sm font-semibold tabular-nums">
                           {fmt(unitMinor * line.quantity)}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="border-ink-200 bg-surface inline-flex items-center gap-1 rounded-full border p-1">
                           <button
                             type="button"
                             onClick={() => decrementLine(key)}
-                            className="h-11 w-11 rounded-lg border border-zinc-300 text-xl font-black active:bg-zinc-100"
+                            className="text-ink-700 active:bg-canvas-100 flex size-10 items-center justify-center rounded-full font-mono text-xl transition-colors"
+                            aria-label="Decrease"
                           >
-                            -
+                            −
                           </button>
-                          <span className="w-8 text-center text-lg font-black">
+                          <span className="mk-nums w-8 text-center font-mono text-base font-semibold tabular-nums">
                             {line.quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => incrementLine(key)}
-                            className="h-11 w-11 rounded-lg border border-zinc-300 text-xl font-black active:bg-zinc-100"
+                            className="text-ink-700 active:bg-canvas-100 flex size-10 items-center justify-center rounded-full font-mono text-xl transition-colors"
+                            aria-label="Increase"
                           >
                             +
                           </button>
@@ -390,7 +457,7 @@ export function MenuClient({
                         <button
                           type="button"
                           onClick={() => removeLine(key)}
-                          className="h-11 rounded-lg px-3 text-sm font-bold text-rose-700 active:bg-rose-50"
+                          className="text-mkrose-700 active:bg-mkrose-50 h-10 rounded-lg px-3 text-xs font-medium transition-colors"
                         >
                           Remove
                         </button>
@@ -402,35 +469,58 @@ export function MenuClient({
             )}
           </div>
 
-          <div className="border-t border-zinc-200 p-5">
+          <div className="border-ink-100 border-t p-5">
             {belowMinimum ? (
-              <p className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-bold text-amber-900">
-                Minimum order is {fmt(minimumOrderMinor)}. Add more items to continue.
-              </p>
+              <div className="border-saffron-200 bg-saffron-50 text-saffron-900 mb-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium">
+                Minimum order is{' '}
+                <span className="mk-nums font-mono font-semibold tabular-nums">
+                  {fmt(minimumOrderMinor)}
+                </span>
+                . Add more to continue.
+              </div>
             ) : null}
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-zinc-600">
+            <div className="space-y-1.5 text-sm">
+              <div className="text-ink-600 flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-mono">{fmt(subtotal)}</span>
+                <span className="mk-nums font-mono tabular-nums">{fmt(subtotal)}</span>
               </div>
               {taxMinor > 0 ? (
-                <div className="flex justify-between text-zinc-600">
+                <div className="text-ink-600 flex justify-between">
                   <span>Tax</span>
-                  <span className="font-mono">{fmt(taxMinor)}</span>
+                  <span className="mk-nums font-mono tabular-nums">{fmt(taxMinor)}</span>
                 </div>
               ) : null}
-              <div className="flex items-end justify-between pt-2 text-2xl font-black">
-                <span>Total</span>
-                <span className="font-mono">{fmt(total)}</span>
+              <div className="border-ink-200 flex items-end justify-between border-t pt-3 text-lg font-medium">
+                <span className="font-serif">Total</span>
+                <span className="mk-nums font-serif text-3xl font-medium tabular-nums tracking-tight">
+                  {fmt(total)}
+                </span>
               </div>
             </div>
             <button
               type="button"
               disabled={itemCount === 0 || belowMinimum}
               onClick={() => router.push('/kiosk/checkout')}
-              className="mt-5 h-16 w-full rounded-lg bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400 disabled:bg-zinc-200 disabled:text-zinc-500"
+              className={cn(
+                'mt-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl font-serif text-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.99]',
+                itemCount === 0 || belowMinimum
+                  ? 'bg-canvas-200 text-ink-400'
+                  : 'bg-ink-950 text-canvas-50 hover:bg-ink-900 shadow-[0_16px_40px_-12px_oklch(0.14_0.016_90/0.45)]',
+              )}
             >
-              Review and pay
+              Review &amp; pay
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-6"
+                aria-hidden
+              >
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
             </button>
           </div>
         </aside>
@@ -450,5 +540,56 @@ export function MenuClient({
         />
       ) : null}
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function CartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-6"
+      aria-hidden
+    >
+      <circle cx="8" cy="21" r="1" />
+      <circle cx="19" cy="21" r="1" />
+      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+    </svg>
   );
 }

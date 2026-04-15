@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { filterActiveMenus, formatMoney, parseCurrencyCode } from '@menukaze/shared';
+import { BrandRow, Eyebrow, MeshBackdrop } from '@menukaze/ui';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { computeOpenStatus, formatTodayHours } from '@/lib/hours';
 import { StorefrontHeader } from './_components/storefront-header';
@@ -11,11 +12,6 @@ import { CookiePreferencesLink } from './_components/cookie-consent';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Dynamic metadata per tenant. Search crawlers hit the subdomain and need
- * restaurant-specific title / description / og image. Failing to resolve a
- * tenant here returns the default shell metadata from layout.tsx.
- */
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const restaurant = await resolveTenantOrNotFound();
@@ -40,7 +36,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function StorefrontHomePage() {
   const restaurant = await resolveTenantOrNotFound();
 
-  // A restaurant can exist before it is live, but it should not accept orders.
   if (!restaurant.liveAt) {
     return <ComingSoonView name={restaurant.name} />;
   }
@@ -68,7 +63,6 @@ export default async function StorefrontHomePage() {
   const openStatus = computeOpenStatus(restaurant);
   const todayHours = formatTodayHours(restaurant);
 
-  // Schema.org Restaurant JSON-LD helps search engines render rich results.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Restaurant',
@@ -112,11 +106,16 @@ export default async function StorefrontHomePage() {
         phone={restaurant.phone}
       />
 
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-8 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 pb-40 pt-12 sm:px-6 sm:pt-16 lg:px-8">
         {activeItems.length === 0 ? (
-          <p className="text-muted-foreground py-12 text-center text-sm">
-            No menu is active right now. Check back during service hours.
-          </p>
+          <div className="border-ink-200 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/40 rounded-2xl border border-dashed px-6 py-20 text-center">
+            <p className="text-ink-600 dark:text-ink-300 font-serif text-xl">
+              No menu is active right now.
+            </p>
+            <p className="text-ink-500 dark:text-ink-400 mt-1 text-sm">
+              Check back during service hours.
+            </p>
+          </div>
         ) : (
           <MenuBrowser
             menus={activeMenus.map((m) => ({ id: String(m._id), name: m.name }))}
@@ -155,24 +154,37 @@ export default async function StorefrontHomePage() {
         )}
       </main>
 
-      <footer className="border-border text-muted-foreground border-t py-8 text-center text-xs">
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-          {restaurant.reservationSettings?.enabled ? (
+      <footer className="border-ink-100 bg-canvas-100 dark:border-ink-900 dark:bg-ink-950/70 relative border-t">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-10 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-2 sm:items-start">
+            <BrandRow size="sm" />
+            <span className="text-ink-400 dark:text-ink-500 text-[11px] uppercase tracking-[0.18em]">
+              Craft for restaurants
+            </span>
+          </div>
+          <div className="text-ink-500 dark:text-ink-400 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+            {restaurant.reservationSettings?.enabled ? (
+              <a
+                href="/reservations"
+                className="hover:text-foreground underline-offset-4 transition-colors hover:underline"
+              >
+                Reservations
+              </a>
+            ) : null}
             <a
-              href="/reservations"
-              className="hover:text-foreground underline-offset-2 hover:underline"
+              href="/privacy"
+              className="hover:text-foreground underline-offset-4 transition-colors hover:underline"
             >
-              Reservations
+              Privacy
             </a>
-          ) : null}
-          <a href="/privacy" className="hover:text-foreground underline-offset-2 hover:underline">
-            Privacy
-          </a>
-          <a href="/terms" className="hover:text-foreground underline-offset-2 hover:underline">
-            Terms
-          </a>
-          <CookiePreferencesLink />
-          <span>Powered by Menukaze</span>
+            <a
+              href="/terms"
+              className="hover:text-foreground underline-offset-4 transition-colors hover:underline"
+            >
+              Terms
+            </a>
+            <CookiePreferencesLink />
+          </div>
         </div>
       </footer>
 
@@ -184,11 +196,23 @@ export default async function StorefrontHomePage() {
 
 function ComingSoonView({ name }: { name: string }) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 p-8 text-center">
-      <h1 className="text-3xl font-bold">{name}</h1>
-      <p className="text-muted-foreground">
-        Coming soon — this restaurant is still setting up its Menukaze storefront.
-      </p>
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-12 text-center">
+      <MeshBackdrop />
+      <div className="relative z-10 flex flex-col items-center gap-6">
+        <Eyebrow withBar tone="accent">
+          Coming soon
+        </Eyebrow>
+        <h1 className="text-foreground font-serif text-5xl font-medium tracking-tight sm:text-6xl md:text-7xl">
+          {name}
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 max-w-sm text-base">
+          This restaurant is just putting the finishing touches on its Menukaze storefront. Check
+          back soon.
+        </p>
+        <div className="mt-4">
+          <BrandRow size="sm" />
+        </div>
+      </div>
     </main>
   );
 }

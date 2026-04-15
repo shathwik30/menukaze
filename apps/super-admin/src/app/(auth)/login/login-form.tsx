@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuroraBackdrop, BrandRow, Button, Eyebrow, FieldError, Input, Label } from '@menukaze/ui';
 import { authClient } from '@/lib/auth-client';
 
 export function LoginForm() {
@@ -23,55 +24,72 @@ export function LoginForm() {
       return;
     }
 
-    // Verify this user is a super admin by hitting the root page which
-    // checks the super_admins collection and redirects accordingly.
     router.push('/');
     router.refresh();
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-3xl font-bold">Super Admin</h1>
-        <p className="text-muted-foreground mb-8 text-sm">
-          Sign in to the Menukaze platform console.
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      <AuroraBackdrop intensity="soft" />
+      <div className="relative z-10 w-full max-w-sm px-6">
+        <div className="mb-10 flex items-center justify-between">
+          <BrandRow size="sm" />
+          <span className="border-ink-200 bg-canvas-50 text-ink-600 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-400 rounded-full border px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em]">
+            Restricted
+          </span>
+        </div>
+
+        <Eyebrow withBar tone="accent">
+          Platform console
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight">
+          Super admin sign&#8209;in.
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+          Access to the Menukaze operator console is limited to approved platform staff.
         </p>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Email</span>
-            <input
+        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="sa-email" required>
+              Email
+            </Label>
+            <Input
+              id="sa-email"
               type="email"
               required
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              placeholder="ops@menukaze.com"
             />
-          </label>
+          </div>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Password</span>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="sa-pwd" required>
+              Password
+            </Label>
+            <Input
+              id="sa-pwd"
               type="password"
               required
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              placeholder="••••••••"
             />
-          </label>
+          </div>
 
-          {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          {error ? <FieldError>{error}</FieldError> : null}
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-          >
-            {busy ? 'Signing in...' : 'Sign in'}
-          </button>
+          <Button type="submit" size="lg" full loading={busy} disabled={busy}>
+            {busy ? 'Signing in' : 'Sign in'}
+          </Button>
         </form>
+
+        <p className="text-ink-400 dark:text-ink-500 mt-6 text-center text-[11px] uppercase tracking-[0.14em]">
+          Monitored · All actions logged
+        </p>
       </div>
     </main>
   );

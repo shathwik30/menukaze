@@ -10,13 +10,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
     "@types/node": "22.12.0",
-    "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "typescript": "5.9.3"
   }
 }

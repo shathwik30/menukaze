@@ -1,4 +1,5 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { RESERVATION_STATUSES, type ReservationStatus } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -10,13 +11,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * timezone — not a UTC instant — so day-grouping in the dashboard is trivial.
  * `slotStart` and `slotEnd` are 24h `HH:mm` strings in the same timezone.
  */
-export type ReservationStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'cancelled'
-  | 'seated'
-  | 'no_show'
-  | 'completed';
+export type { ReservationStatus };
 
 export interface ReservationDoc {
   restaurantId: Types.ObjectId;
@@ -55,7 +50,7 @@ const reservationSchema = new Schema<ReservationDoc>(
     notes: { type: String, maxlength: 500 },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'cancelled', 'seated', 'no_show', 'completed'],
+      enum: RESERVATION_STATUSES,
       required: true,
       default: 'pending',
     },

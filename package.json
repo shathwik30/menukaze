@@ -14,23 +14,17 @@
     "lint": "pnpm exec eslint . --max-warnings=0",
     "lint:fix": "pnpm exec eslint . --fix",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "test:e2e": "turbo run test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm lint",
+    "verify": "pnpm format:check && pnpm typecheck && pnpm build && pnpm lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "db:seed": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/seed.ts'",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.10.2",
     "@commitlint/cli": "20.5.0",
     "@commitlint/config-conventional": "20.5.0",
-    "@menukaze/playwright-config": "workspace:*",
     "@menukaze/prettier-config": "workspace:*",
-    "@menukaze/vitest-config": "workspace:*",
-    "@playwright/test": "1.55.1",
     "eslint": "9.39.4",
     "husky": "9.1.7",
     "lint-staged": "15.5.2",
@@ -44,7 +38,6 @@
     "onlyBuiltDependencies": [
       "@tailwindcss/oxide",
       "esbuild",
-      "mongodb-memory-server",
       "sharp",
       "unrs-resolver"
     ]

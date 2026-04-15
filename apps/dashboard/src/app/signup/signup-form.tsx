@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  AuroraBackdrop,
+  BrandRow,
+  Button,
+  Eyebrow,
+  FieldError,
+  FieldHint,
+  Input,
+  Label,
+} from '@menukaze/ui';
 import { authClient } from '@/lib/auth-client';
 
 export function SignupForm({ inviteToken }: { inviteToken: string }) {
@@ -30,20 +40,32 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-3xl font-bold">
-          {inviteToken ? 'Create your staff account' : 'Create an owner account'}
+    <main className="relative flex min-h-screen overflow-hidden">
+      <AuroraBackdrop intensity="soft" />
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col justify-center px-6 py-14 sm:px-10">
+        <div className="mb-10">
+          <BrandRow size="md" />
+        </div>
+
+        <Eyebrow withBar tone="accent">
+          {inviteToken ? 'Staff invite' : 'Create an account'}
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-[2.75rem]">
+          {inviteToken ? 'Join your team.' : 'Open your restaurant.'}
         </h1>
-        <p className="text-muted-foreground mb-8 text-sm">
+        <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
           {inviteToken
-            ? 'Use the email that received the invite. After signup, you can accept the team invite.'
-            : 'Use this only if you own or manage a restaurant that is starting on Menukaze.'}
+            ? 'Use the email address that received the invite so we can match you to your restaurant.'
+            : 'Menukaze is built for restaurants that take their presentation seriously. Create an owner account to get started.'}
         </p>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="Name">
-            <input
+        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="su-name" required>
+              Your name
+            </Label>
+            <Input
+              id="su-name"
               type="text"
               required
               minLength={1}
@@ -51,61 +73,71 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
               autoComplete="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              placeholder="Jane Doe"
             />
-          </Field>
+          </div>
 
-          <Field label="Email">
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="su-email" required>
+              Work email
+            </Label>
+            <Input
+              id="su-email"
               type="email"
               required
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              placeholder="jane@restaurant.com"
             />
-          </Field>
+          </div>
 
-          <Field label="Password">
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="su-pwd" required>
+              Password
+            </Label>
+            <Input
+              id="su-pwd"
               type="password"
               required
               minLength={8}
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              placeholder="Minimum 8 characters"
             />
-            <p className="text-muted-foreground mt-1 text-xs">Minimum 8 characters.</p>
-          </Field>
+            <FieldHint>Use 8+ characters with a mix of letters and numbers.</FieldHint>
+          </div>
 
-          {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          {error ? <FieldError>{error}</FieldError> : null}
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-          >
-            {busy ? 'Creating account...' : 'Create account'}
-          </button>
+          <Button type="submit" size="lg" full loading={busy} disabled={busy}>
+            {busy ? 'Creating account' : 'Create account'}
+          </Button>
+
+          <p className="text-ink-500 dark:text-ink-400 text-[11px] leading-relaxed">
+            By creating an account you agree to our{' '}
+            <Link href="/terms" className="underline underline-offset-4">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="underline underline-offset-4">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
 
-        <p className="text-muted-foreground mt-6 text-center text-sm">
+        <p className="text-ink-500 dark:text-ink-400 mt-6 text-center text-sm">
           Already have an account?{' '}
-          <Link href={loginHref} className="text-foreground font-medium hover:underline">
-            Log in
+          <Link
+            href={loginHref}
+            className="text-saffron-700 dark:text-saffron-400 font-medium underline-offset-4 hover:underline"
+          >
+            Sign in
           </Link>
         </p>
       </div>
     </main>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
-      {children}
-    </label>
   );
 }

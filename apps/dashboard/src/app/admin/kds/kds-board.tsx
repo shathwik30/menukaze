@@ -10,6 +10,7 @@ import {
   type OrderStatus,
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
+import { Badge, Button, EmptyState, cn, type BadgeProps } from '@menukaze/ui';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { advanceOrderLinesAction } from '@/app/actions/stations';
 
@@ -56,32 +57,23 @@ interface Props {
   stationFilter?: string | null;
 }
 
-const CHANNEL_BADGE: Record<string, string> = {
-  storefront: 'bg-blue-100 text-blue-800 border-blue-200',
-  qr_dinein: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  kiosk: 'bg-orange-100 text-orange-800 border-orange-200',
-  walk_in: 'bg-zinc-100 text-zinc-800 border-zinc-200',
-  api: 'bg-violet-100 text-violet-800 border-violet-200',
+const CHANNEL_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
+  storefront: 'info',
+  qr_dinein: 'success',
+  kiosk: 'warning',
+  walk_in: 'subtle',
+  api: 'accent',
 };
 
 const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
   received: { next: 'confirmed', label: 'Confirm' },
-  confirmed: { next: 'preparing', label: 'Start' },
-  preparing: { next: 'ready', label: 'Ready' },
+  confirmed: { next: 'preparing', label: 'Start prepping' },
+  preparing: { next: 'ready', label: 'Mark ready' },
   ready: { next: 'completed', label: 'Complete' },
 };
 
-/**
- * Play a short beep via the Web Audio API when a new order arrives. No
- * external audio file: keeps the KDS self-contained and avoids licensing.
- *
- * Returns a *stable* function reference (via useCallback + enabledRef) so
- * callers can safely put it in useEffect dependency arrays without triggering
- * reconnects on every render.
- */
 function useNewOrderChime(enabled: boolean): () => void {
   const ctxRef = useRef<AudioContext | null>(null);
-  // Track enabled via ref so the stable callback always reads the latest value.
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
@@ -102,7 +94,7 @@ function useNewOrderChime(enabled: boolean): () => void {
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.3);
-  }, []); // Stable because it reads enabled from ref.
+  }, []);
 }
 
 const CHANNEL_FILTERS: Array<{
@@ -111,7 +103,7 @@ const CHANNEL_FILTERS: Array<{
 }> = [
   { id: 'all', label: 'All' },
   { id: 'storefront', label: 'Storefront' },
-  { id: 'qr_dinein', label: 'QR' },
+  { id: 'qr_dinein', label: 'QR dine-in' },
   { id: 'kiosk', label: 'Kiosk' },
   { id: 'walk_in', label: 'Walk-in' },
   { id: 'api', label: 'API' },
@@ -139,14 +131,12 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
 
     const handler = (msg: Ably.Message) => {
       if (msg.name === 'order.created' && isOrderCreatedEvent(msg.data)) {
-        // Full card isn't on the event; re-fetch the server component.
         chime();
         router.refresh();
       } else if (msg.name === 'order.status_changed' && isOrderStatusChangedEvent(msg.data)) {
         const data = msg.data;
         const status = data.status;
         setCards((prev) => {
-          // If the new status is terminal, drop the card from the KDS.
           if (status === 'completed' || status === 'cancelled' || status === 'served') {
             return prev.filter((c) => c.id !== data.orderId);
           }
@@ -180,67 +170,6 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
     return buckets;
   }, [cards, channelFilter]);
 
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={soundEnabled}
-            onChange={(e) => setSoundEnabled(e.target.checked)}
-          />
-          Sound alerts
-        </label>
-        <div className="flex flex-wrap items-center gap-1">
-          {CHANNEL_FILTERS.map((f) => {
-            const active = channelFilter === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setChannelFilter(f.id)}
-                className={
-                  active
-                    ? 'border-foreground bg-foreground text-background rounded-full border px-3 py-1'
-                    : 'border-input text-muted-foreground rounded-full border px-3 py-1'
-                }
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
-        <Column
-          title="New"
-          cards={grouped.received}
-          onAdvance={advance}
-          onAdvanceLines={advanceLines}
-          pending={isPending}
-          stationFilter={stationFilter ?? null}
-        />
-        <Column
-          title="Preparing"
-          cards={grouped.preparing}
-          onAdvance={advance}
-          onAdvanceLines={advanceLines}
-          pending={isPending}
-          stationFilter={stationFilter ?? null}
-        />
-        <Column
-          title="Ready"
-          cards={grouped.ready}
-          onAdvance={advance}
-          onAdvanceLines={advanceLines}
-          pending={isPending}
-          stationFilter={stationFilter ?? null}
-        />
-      </div>
-    </>
-  );
-
   function advance(card: KdsCard): void {
     const action = STAGE_ACTIONS[card.status];
     if (!action) return;
@@ -250,7 +179,6 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
         nextStatus: action.next,
       });
       if (!result.ok) return;
-      // Optimistic local update; Ably event will reconcile.
       setCards((prev) => {
         if (result.status === 'completed') {
           return prev.filter((c) => c.id !== card.id);
@@ -269,9 +197,89 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
       router.refresh();
     });
   }
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="border-ink-100 bg-surface dark:border-ink-800 dark:bg-ink-900 flex flex-wrap items-center gap-4 rounded-2xl border px-4 py-3">
+        <label className="text-ink-700 dark:text-ink-300 inline-flex cursor-pointer items-center gap-2 text-xs font-medium">
+          <span
+            className={cn(
+              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+              soundEnabled ? 'bg-saffron-500' : 'bg-ink-200 dark:bg-ink-700',
+            )}
+          >
+            <span
+              className={cn(
+                'inline-block size-4 translate-x-0.5 rounded-full bg-white shadow transition-transform',
+                soundEnabled && 'translate-x-4',
+              )}
+            />
+            <input
+              type="checkbox"
+              checked={soundEnabled}
+              onChange={(e) => setSoundEnabled(e.target.checked)}
+              className="sr-only"
+            />
+          </span>
+          Sound alerts
+        </label>
+        <div className="flex flex-wrap items-center gap-1">
+          {CHANNEL_FILTERS.map((f) => {
+            const active = channelFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setChannelFilter(f.id)}
+                className={cn(
+                  'inline-flex h-8 items-center rounded-full px-3 text-[12px] font-medium transition-colors',
+                  active
+                    ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
+                    : 'bg-canvas-100 text-ink-600 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
+                )}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
+        <Column
+          tone="new"
+          title="Incoming"
+          cards={grouped.received}
+          onAdvance={advance}
+          onAdvanceLines={advanceLines}
+          pending={isPending}
+          stationFilter={stationFilter ?? null}
+        />
+        <Column
+          tone="preparing"
+          title="Preparing"
+          cards={grouped.preparing}
+          onAdvance={advance}
+          onAdvanceLines={advanceLines}
+          pending={isPending}
+          stationFilter={stationFilter ?? null}
+        />
+        <Column
+          tone="ready"
+          title="Ready"
+          cards={grouped.ready}
+          onAdvance={advance}
+          onAdvanceLines={advanceLines}
+          pending={isPending}
+          stationFilter={stationFilter ?? null}
+        />
+      </div>
+    </div>
+  );
 }
 
 function Column({
+  tone,
   title,
   cards,
   onAdvance,
@@ -279,6 +287,7 @@ function Column({
   pending,
   stationFilter,
 }: {
+  tone: 'new' | 'preparing' | 'ready';
   title: string;
   cards: KdsCard[];
   onAdvance: (card: KdsCard) => void;
@@ -286,30 +295,74 @@ function Column({
   pending: boolean;
   stationFilter: string | null;
 }) {
+  const toneStyles = {
+    new: {
+      accent: 'bg-lapis-500',
+      border: 'border-lapis-100 dark:border-lapis-500/30',
+      heading: 'text-lapis-800 dark:text-lapis-300',
+    },
+    preparing: {
+      accent: 'bg-saffron-500',
+      border: 'border-saffron-100 dark:border-saffron-500/30',
+      heading: 'text-saffron-800 dark:text-saffron-300',
+    },
+    ready: {
+      accent: 'bg-jade-500',
+      border: 'border-jade-100 dark:border-jade-500/30',
+      heading: 'text-jade-800 dark:text-jade-300',
+    },
+  }[tone];
+
   return (
-    <section className="bg-muted flex flex-col gap-3 rounded-lg p-3">
-      <h2 className="text-foreground text-sm font-semibold uppercase tracking-wide">
-        {title} ({cards.length})
-      </h2>
-      {cards.length === 0 ? (
-        <p className="text-muted-foreground text-xs">Nothing here yet.</p>
-      ) : (
-        cards.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            onAdvance={onAdvance}
-            onAdvanceLines={onAdvanceLines}
-            pending={pending}
-            stationFilter={stationFilter}
-          />
-        ))
+    <section
+      className={cn(
+        'bg-canvas-50 dark:bg-ink-900/60 flex min-h-0 flex-col gap-3 rounded-2xl border p-4',
+        toneStyles.border,
       )}
+    >
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className={cn('size-2 rounded-full', toneStyles.accent)} />
+          <h2
+            className={cn(
+              'text-[11px] font-semibold uppercase tracking-[0.18em]',
+              toneStyles.heading,
+            )}
+          >
+            {title}
+          </h2>
+        </div>
+        <Badge variant="subtle" size="sm" shape="pill">
+          {cards.length}
+        </Badge>
+      </header>
+
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+        {cards.length === 0 ? (
+          <EmptyState
+            compact
+            title="All clear"
+            description="No tickets in this lane."
+            className="border-ink-200/70 bg-surface/50 dark:border-ink-800 dark:bg-ink-900/40 my-4"
+          />
+        ) : (
+          cards.map((card) => (
+            <Ticket
+              key={card.id}
+              card={card}
+              onAdvance={onAdvance}
+              onAdvanceLines={onAdvanceLines}
+              pending={pending}
+              stationFilter={stationFilter}
+            />
+          ))
+        )}
+      </div>
     </section>
   );
 }
 
-function Card({
+function Ticket({
   card,
   onAdvance,
   onAdvanceLines,
@@ -329,84 +382,136 @@ function Card({
   }, []);
 
   const ageMinutes = Math.floor((Date.now() - new Date(card.createdAt).getTime()) / 60_000);
-  const ageClass =
-    ageMinutes < 5 ? 'text-muted-foreground' : ageMinutes < 10 ? 'text-amber-600' : 'text-red-600';
-
+  const ageSeverity = ageMinutes < 5 ? 'ok' : ageMinutes < 10 ? 'warn' : 'danger';
   const action = STAGE_ACTIONS[card.status];
   const pickupNumber = formatPickupNumber(card.publicOrderId);
 
   return (
     <article
-      className={`bg-background rounded-md border p-3 shadow-sm ${
-        card.suspicious ? 'border-amber-400 ring-1 ring-amber-200' : 'border-border'
-      }`}
+      className={cn(
+        'bg-surface dark:bg-ink-900 overflow-hidden rounded-xl border shadow-sm transition-shadow',
+        card.suspicious
+          ? 'border-saffron-400 ring-saffron-200 dark:ring-saffron-500/30 ring-2'
+          : 'border-ink-100 dark:border-ink-800',
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-foreground font-mono text-2xl font-bold">#{pickupNumber}</p>
-          <p className="text-muted-foreground font-mono text-xs font-semibold">
-            {card.publicOrderId}
+      <header className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/70 flex items-start justify-between gap-2 border-b px-4 py-3">
+        <div className="min-w-0">
+          <p className="mk-nums text-foreground font-mono text-3xl font-semibold leading-none tracking-tight">
+            #{pickupNumber}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span className="text-ink-500 dark:text-ink-400 font-mono">{card.publicOrderId}</span>
             {card.tableNumber !== undefined ? (
-              <span className="ml-2 font-sans text-xs font-semibold">
-                · Table {card.tableNumber}
-              </span>
+              <Badge variant="outline" size="xs" shape="pill">
+                Table {card.tableNumber}
+              </Badge>
             ) : null}
-          </p>
-          <p className="text-muted-foreground text-[11px]">
-            <span
-              className={`rounded-sm border px-1 py-0.5 ${CHANNEL_BADGE[card.channel] ?? 'border-border bg-muted'}`}
-            >
-              {card.channel}
-            </span>{' '}
-            {card.type}
-          </p>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <Badge variant={CHANNEL_VARIANT[card.channel] ?? 'subtle'} size="xs" shape="pill">
+              {card.channel.replace('_', ' ')}
+            </Badge>
+            <span className="text-ink-500 dark:text-ink-400">{card.type.replace('_', ' ')}</span>
+          </div>
         </div>
-        <span className={`font-mono text-xs ${ageClass}`}>{ageMinutes}m</span>
-      </div>
-      {card.suspicious ? (
-        <p className="mt-2 rounded-sm bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900">
-          ⚠ Flagged for review{card.suspiciousReason ? ` · ${card.suspiciousReason}` : ''}
-        </p>
-      ) : null}
-      <ul className="mt-2 space-y-1 text-sm">
-        {card.items.map((item) => (
-          <li key={item.id}>
-            <span className="text-foreground font-medium">
-              {item.quantity}× {item.name}
-            </span>
-            {item.modifiers.length > 0 ? (
-              <span className="text-muted-foreground ml-2 text-xs">
-                {item.modifiers.join(', ')}
-              </span>
-            ) : null}
-            {item.notes ? (
-              <span className="text-muted-foreground ml-2 text-xs italic">“{item.notes}”</span>
-            ) : null}
-            {!stationFilter && item.stationName ? (
-              <span className="text-muted-foreground ml-2 text-[10px] uppercase tracking-wide">
-                @ {item.stationName}
-              </span>
-            ) : null}
-            {stationFilter && item.lineStatus !== 'ready' ? null : stationFilter ? (
-              <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                ✓ Done
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {stationFilter ? (
-        <StationActions card={card} pending={pending} onAdvanceLines={onAdvanceLines} />
-      ) : action ? (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => onAdvance(card)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 w-full rounded-md py-2 text-sm font-semibold disabled:opacity-50"
+        <span
+          className={cn(
+            'mk-nums rounded-full px-2 py-1 font-mono text-xs font-medium tabular-nums',
+            ageSeverity === 'ok' && 'bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300',
+            ageSeverity === 'warn' &&
+              'bg-saffron-100 text-saffron-900 dark:bg-saffron-500/15 dark:text-saffron-200',
+            ageSeverity === 'danger' &&
+              'bg-mkrose-100 text-mkrose-900 dark:bg-mkrose-500/15 dark:text-mkrose-200',
+          )}
         >
-          {action.label}
-        </button>
+          {ageMinutes}m
+        </span>
+      </header>
+
+      {card.suspicious ? (
+        <div className="border-saffron-200 bg-saffron-50 text-saffron-900 dark:border-saffron-500/30 dark:bg-saffron-500/10 dark:text-saffron-200 flex items-start gap-2 border-b px-4 py-2 text-[11px] font-medium">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="mt-px size-3.5 shrink-0"
+            aria-hidden
+          >
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          Flagged for review{card.suspiciousReason ? ` · ${card.suspiciousReason}` : ''}
+        </div>
       ) : null}
+
+      <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
+        {card.items.map((item) => {
+          const isReady = item.lineStatus === 'ready';
+          return (
+            <li key={item.id} className={cn('px-4 py-3', isReady && 'opacity-60')}>
+              <div className="flex items-start gap-3">
+                <span className="mk-nums bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950 mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md font-mono text-[13px] font-semibold tabular-nums">
+                  {item.quantity}×
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      'text-foreground font-serif text-base font-medium leading-tight',
+                      isReady && 'line-through',
+                    )}
+                  >
+                    {item.name}
+                  </p>
+                  {item.modifiers.length > 0 ? (
+                    <p className="text-ink-600 dark:text-ink-300 mt-0.5 text-[12px]">
+                      {item.modifiers.join(' · ')}
+                    </p>
+                  ) : null}
+                  {item.notes ? (
+                    <p className="bg-saffron-50 text-saffron-900 dark:bg-saffron-500/10 dark:text-saffron-200 mt-1 inline-block rounded px-2 py-0.5 text-[11px] italic">
+                      &ldquo;{item.notes}&rdquo;
+                    </p>
+                  ) : null}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {!stationFilter && item.stationName ? (
+                      <Badge variant="outline" size="xs" shape="pill">
+                        @ {item.stationName}
+                      </Badge>
+                    ) : null}
+                    {stationFilter && isReady ? (
+                      <Badge variant="success" size="xs" shape="pill">
+                        <CheckIcon /> Done
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <footer className="border-ink-100 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/70 border-t px-4 py-3">
+        {stationFilter ? (
+          <StationActions card={card} pending={pending} onAdvanceLines={onAdvanceLines} />
+        ) : action ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            full
+            disabled={pending}
+            onClick={() => onAdvance(card)}
+          >
+            {action.label}
+          </Button>
+        ) : null}
+      </footer>
     </article>
   );
 }
@@ -424,31 +529,53 @@ function StationActions({
   const anyPreparing = card.items.some((line) => line.lineStatus === 'preparing');
   if (allReady) {
     return (
-      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-emerald-700">
-        Ready for pass
-      </p>
+      <div className="flex items-center justify-center gap-2 py-2">
+        <Badge variant="success" size="md" shape="pill" dot dotColor="oklch(0.59 0.14 172)">
+          Ready for pass
+        </Badge>
+      </div>
     );
   }
   return (
-    <div className="mt-3 flex gap-2">
+    <div className="flex gap-2">
       {!anyPreparing ? (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="md"
+          full
           disabled={pending}
           onClick={() => onAdvanceLines(card, 'preparing')}
-          className="border-border hover:bg-muted flex-1 rounded-md border py-2 text-sm font-semibold disabled:opacity-50"
         >
           Start
-        </button>
+        </Button>
       ) : null}
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="md"
+        full
         disabled={pending}
         onClick={() => onAdvanceLines(card, 'ready')}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-md py-2 text-sm font-semibold disabled:opacity-50"
       >
         Mark ready
-      </button>
+      </Button>
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
   );
 }

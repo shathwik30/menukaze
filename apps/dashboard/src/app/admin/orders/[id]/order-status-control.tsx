@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { OrderStatus } from '@menukaze/realtime';
+import {
+  ORDER_STATUS_TRANSITION_LABELS,
+  ORDER_STATUS_TRANSITIONS,
+  type OrderStatus,
+} from '@menukaze/shared';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 
 interface Props {
@@ -10,35 +14,17 @@ interface Props {
   currentStatus: OrderStatus;
 }
 
-/** Keeps client controls aligned with the server-side status state machine. */
-const NEXT_STATUSES: Record<OrderStatus, { next: OrderStatus; label: string }[]> = {
-  received: [
-    { next: 'confirmed', label: 'Confirm' },
-    { next: 'cancelled', label: 'Cancel' },
-  ],
-  confirmed: [
-    { next: 'preparing', label: 'Start preparing' },
-    { next: 'cancelled', label: 'Cancel' },
-  ],
-  preparing: [
-    { next: 'ready', label: 'Mark ready' },
-    { next: 'cancelled', label: 'Cancel' },
-  ],
-  ready: [
-    { next: 'served', label: 'Served' },
-    { next: 'out_for_delivery', label: 'Out for delivery' },
-    { next: 'completed', label: 'Complete' },
-    { next: 'cancelled', label: 'Cancel' },
-  ],
-  served: [{ next: 'completed', label: 'Complete' }],
-  out_for_delivery: [
-    { next: 'delivered', label: 'Delivered' },
-    { next: 'cancelled', label: 'Cancel' },
-  ],
-  delivered: [{ next: 'completed', label: 'Complete' }],
-  completed: [],
-  cancelled: [],
-};
+interface TransitionChoice {
+  next: OrderStatus;
+  label: string;
+}
+
+function transitionChoicesFor(status: OrderStatus): TransitionChoice[] {
+  return ORDER_STATUS_TRANSITIONS[status].map((next) => ({
+    next,
+    label: ORDER_STATUS_TRANSITION_LABELS[next],
+  }));
+}
 
 export function OrderStatusControl({ orderId, currentStatus }: Props) {
   const router = useRouter();
@@ -46,7 +32,7 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
   const [isPending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const transitions = NEXT_STATUSES[status];
+  const transitions = transitionChoicesFor(status);
 
   if (transitions.length === 0) {
     return (

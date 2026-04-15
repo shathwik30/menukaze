@@ -1,4 +1,5 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
+import { DEFAULT_PREP_MINUTES, WEEKDAYS, type Weekday } from '@menukaze/shared';
 
 /**
  * Tenant root. There is one `restaurants` document per tenant. Every other
@@ -9,11 +10,46 @@ import { Schema, type Types, type Model, type Connection, type HydratedDocument 
  * cross-tenant restaurant lookups.
  */
 
+export type RestaurantSubscriptionStatus =
+  | 'trial'
+  | 'active'
+  | 'past_due'
+  | 'suspended'
+  | 'cancelled';
+
+const RESTAURANT_SUBSCRIPTION_STATUSES: RestaurantSubscriptionStatus[] = [
+  'trial',
+  'active',
+  'past_due',
+  'suspended',
+  'cancelled',
+];
+
+export type RestaurantOnboardingStep =
+  | 'menu'
+  | 'tables'
+  | 'razorpay'
+  | 'staff'
+  | 'go-live'
+  | 'complete';
+
+const RESTAURANT_ONBOARDING_STEPS: RestaurantOnboardingStep[] = [
+  'menu',
+  'tables',
+  'razorpay',
+  'staff',
+  'go-live',
+  'complete',
+];
+
+export type RestaurantSslStatus = 'pending' | 'active' | 'failed';
+const RESTAURANT_SSL_STATUSES: RestaurantSslStatus[] = ['pending', 'active', 'failed'];
+
 export interface RestaurantDoc {
   slug: string;
   name: string;
   customDomain?: string;
-  sslStatus?: 'pending' | 'active' | 'failed';
+  sslStatus?: RestaurantSslStatus;
 
   country: string;
   currency: string;
@@ -57,7 +93,7 @@ export interface RestaurantDoc {
   logoUrl?: string;
   phone?: string;
   hours: Array<{
-    day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+    day: Weekday;
     closed: boolean;
     open?: string;
     close?: string;
@@ -65,7 +101,7 @@ export interface RestaurantDoc {
   }>;
 
   planId?: Types.ObjectId;
-  subscriptionStatus: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+  subscriptionStatus: RestaurantSubscriptionStatus;
   razorpayKeyIdEnc?: string;
   razorpayKeySecretEnc?: string;
 
@@ -74,7 +110,7 @@ export interface RestaurantDoc {
    * is completed; `'complete'` means onboarding is done and the user can
    * skip the wizard entirely.
    */
-  onboardingStep: 'menu' | 'tables' | 'razorpay' | 'staff' | 'go-live' | 'complete';
+  onboardingStep: RestaurantOnboardingStep;
   /** Set when the user clicks Go Live. Null until activation. */
   liveAt?: Date;
   /** User has hidden the post-onboarding checklist card on /admin. */
@@ -146,7 +182,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     slug: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     customDomain: { type: String, sparse: true, unique: true },
-    sslStatus: { type: String, enum: ['pending', 'active', 'failed'] },
+    sslStatus: { type: String, enum: RESTAURANT_SSL_STATUSES },
 
     country: { type: String, required: true },
     currency: { type: String, required: true },
@@ -156,7 +192,13 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     description: { type: String, maxlength: 1000 },
     email: { type: String, maxlength: 320 },
 
-    estimatedPrepMinutes: { type: Number, required: true, default: 20, min: 1, max: 600 },
+    estimatedPrepMinutes: {
+      type: Number,
+      required: true,
+      default: DEFAULT_PREP_MINUTES,
+      min: 1,
+      max: 600,
+    },
     minimumOrderMinor: { type: Number, required: true, default: 0, min: 0 },
     deliveryFeeMinor: { type: Number, required: true, default: 0, min: 0 },
     dineInSessionTimeoutMinutes: { type: Number, required: true, default: 180, min: 30, max: 720 },
@@ -195,7 +237,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
         {
           day: {
             type: String,
-            enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+            enum: WEEKDAYS,
             required: true,
           },
           closed: { type: Boolean, default: false },
@@ -210,14 +252,14 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     planId: { type: Schema.Types.ObjectId, ref: 'Plan' },
     subscriptionStatus: {
       type: String,
-      enum: ['trial', 'active', 'past_due', 'suspended', 'cancelled'],
+      enum: RESTAURANT_SUBSCRIPTION_STATUSES,
       default: 'trial',
     },
     razorpayKeyIdEnc: String,
     razorpayKeySecretEnc: String,
     onboardingStep: {
       type: String,
-      enum: ['menu', 'tables', 'razorpay', 'staff', 'go-live', 'complete'],
+      enum: RESTAURANT_ONBOARDING_STEPS,
       default: 'menu',
     },
     liveAt: Date,

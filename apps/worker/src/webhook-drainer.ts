@@ -24,9 +24,23 @@ const SIGNATURE_HEADER = 'X-Menukaze-Signature';
 const ID_HEADER = 'X-Menukaze-Webhook-Id';
 const TIMESTAMP_HEADER = 'X-Menukaze-Timestamp';
 const REQUEST_TIMEOUT_MS = 30_000;
+const FALLBACK_RETRY_DELAY_MS = 60_000;
 
 function signPayload(secret: string, timestamp: string, body: string): string {
   return createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
+}
+
+/**
+ * Look up the delay for the next retry attempt. Falls back to the longest
+ * configured delay (or `FALLBACK_RETRY_DELAY_MS` if the schedule is empty)
+ * so we never throw or schedule a `NaN` retry.
+ */
+function nextRetryDelayMs(currentAttempts: number): number {
+  return (
+    WEBHOOK_RETRY_DELAYS_MS[currentAttempts] ??
+    WEBHOOK_RETRY_DELAYS_MS[WEBHOOK_RETRY_DELAYS_MS.length - 1] ??
+    FALLBACK_RETRY_DELAY_MS
+  );
 }
 
 export async function drainWebhookOutbox(batchSize = 25): Promise<DrainResult> {
@@ -117,9 +131,7 @@ export async function drainWebhookOutbox(batchSize = 25): Promise<DrainResult> {
         item.failedAt = new Date();
         failed += 1;
       } else {
-        const nextDelay =
-          WEBHOOK_RETRY_DELAYS_MS[item.attempts] ??
-          WEBHOOK_RETRY_DELAYS_MS[WEBHOOK_RETRY_DELAYS_MS.length - 1]!;
+        const nextDelay = nextRetryDelayMs(item.attempts);
         item.nextAttemptAt = new Date(Date.now() + nextDelay);
         retried += 1;
       }

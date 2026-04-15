@@ -1,5 +1,19 @@
 import { randomBytes } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import {
+  ORDER_CHANNELS,
+  ORDER_LINE_STATUSES,
+  ORDER_STATUSES,
+  ORDER_TYPES,
+  PAYMENT_GATEWAYS,
+  PAYMENT_STATUSES,
+  type OrderChannel,
+  type OrderLineStatus,
+  type OrderStatus,
+  type OrderType,
+  type PaymentGateway,
+  type PaymentStatus,
+} from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -18,43 +32,20 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  * as status transitions on that embedded record.
  */
 
-export type OrderChannel = 'storefront' | 'qr_dinein' | 'kiosk' | 'walk_in' | 'api';
-export type OrderType = 'dine_in' | 'pickup' | 'delivery';
-
-/**
- * Canonical statuses every order flows through. Not every status
- * applies to every order type: delivery skips `served`, dine-in skips
- * `out_for_delivery`, etc. The KDS and dashboard handlers enforce which
- * transitions are legal.
- */
-export type OrderStatus =
-  | 'received'
-  | 'confirmed'
-  | 'preparing'
-  | 'ready'
-  | 'served'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'completed'
-  | 'cancelled';
-
-export type PaymentGateway = 'razorpay' | 'cash';
-export type PaymentStatus =
-  | 'pending'
-  | 'processing'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded';
+export type {
+  OrderChannel,
+  OrderLineStatus,
+  OrderStatus,
+  OrderType,
+  PaymentGateway,
+  PaymentStatus,
+};
 
 export interface OrderModifierSnapshot {
   groupName: string;
   optionName: string;
   priceMinor: number;
 }
-
-/** Per-line KDS status. Drives multi-station partial-ready handling. */
-export type OrderLineStatus = 'received' | 'preparing' | 'ready';
 
 export interface OrderLineItem {
   _id?: Types.ObjectId;
@@ -187,7 +178,7 @@ const lineItemSchema = new Schema<OrderLineItem>(
     stationId: { type: Schema.Types.ObjectId, ref: 'Station' },
     lineStatus: {
       type: String,
-      enum: ['received', 'preparing', 'ready'],
+      enum: ORDER_LINE_STATUSES,
       required: true,
       default: 'received',
     },
@@ -206,10 +197,10 @@ const statusEventSchema = new Schema<OrderStatusEvent>(
 
 const paymentSchema = new Schema<OrderPayment>(
   {
-    gateway: { type: String, enum: ['razorpay', 'cash'], required: true },
+    gateway: { type: String, enum: PAYMENT_GATEWAYS, required: true },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'succeeded', 'failed', 'cancelled', 'refunded'],
+      enum: PAYMENT_STATUSES,
       required: true,
       default: 'pending',
     },
@@ -225,18 +216,6 @@ const paymentSchema = new Schema<OrderPayment>(
   { _id: false },
 );
 
-const ORDER_STATUSES: OrderStatus[] = [
-  'received',
-  'confirmed',
-  'preparing',
-  'ready',
-  'served',
-  'out_for_delivery',
-  'delivered',
-  'completed',
-  'cancelled',
-];
-
 const orderSchema = new Schema<OrderDoc>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
@@ -244,10 +223,10 @@ const orderSchema = new Schema<OrderDoc>(
 
     channel: {
       type: String,
-      enum: ['storefront', 'qr_dinein', 'kiosk', 'walk_in', 'api'],
+      enum: ORDER_CHANNELS,
       required: true,
     },
-    type: { type: String, enum: ['dine_in', 'pickup', 'delivery'], required: true },
+    type: { type: String, enum: ORDER_TYPES, required: true },
 
     customer: {
       name: { type: String, required: true, maxlength: 200 },

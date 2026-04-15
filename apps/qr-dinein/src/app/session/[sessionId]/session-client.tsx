@@ -11,6 +11,17 @@ import {
   isSessionInWarningWindow,
 } from '@menukaze/shared';
 import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Eyebrow,
+  Input,
+  cn,
+} from '@menukaze/ui';
+import {
   cartItemCount,
   cartLineKey,
   cartSubtotalMinor,
@@ -150,6 +161,15 @@ export function SessionClient({
   const minutesRemaining = getSessionMinutesRemaining(lastActivityAt, sessionTimeoutMinutes, clock);
   const sessionLocked = status !== 'active' || sessionExpired;
 
+  const statusText =
+    status === 'needs_review'
+      ? 'Session needs staff assistance.'
+      : status === 'bill_requested'
+        ? paymentModeRequested === 'counter'
+          ? 'Counter payment requested — staff will be right with you.'
+          : 'Bill requested. Continue to payment when ready.'
+        : 'Shared session is live. Order as many rounds as you like.';
+
   function placeRound() {
     if (cartLines.length === 0) return;
     setError(null);
@@ -190,140 +210,174 @@ export function SessionClient({
 
   return (
     <>
-      <section className="border-border rounded-lg border p-4 text-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-foreground font-medium">
-              {status === 'needs_review'
-                ? 'This session now needs staff assistance.'
-                : status === 'bill_requested'
-                  ? paymentModeRequested === 'counter'
-                    ? 'Counter payment requested. A waiter or cashier will finish the bill.'
-                    : 'Bill requested. Continue to payment when ready.'
-                  : 'Shared session is live.'}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {liveSyncConnected ? 'Live sync connected' : 'Connecting live sync…'}
-            </p>
-          </div>
-          <span className="text-muted-foreground text-xs">
-            Timeout: {sessionTimeoutMinutes} min idle
+      <Card variant="surface" radius="lg" className="overflow-hidden">
+        <div className="border-ink-100 dark:border-ink-800 flex items-center gap-3 border-b px-5 py-3 text-xs">
+          <span
+            className={cn(
+              'relative inline-flex size-2 rounded-full',
+              liveSyncConnected ? 'bg-jade-500' : 'bg-ink-400 dark:bg-ink-600',
+            )}
+          >
+            {liveSyncConnected ? (
+              <span className="bg-jade-500 absolute inset-0 animate-ping rounded-full opacity-50" />
+            ) : null}
+          </span>
+          <span className="text-ink-700 dark:text-ink-300 font-medium">
+            {liveSyncConnected ? 'Live sync connected' : 'Connecting…'}
+          </span>
+          <span className="text-ink-400 dark:text-ink-500 ml-auto text-[11px]">
+            Idle timeout {sessionTimeoutMinutes}m
           </span>
         </div>
-        {timeoutWarning ? (
-          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            This session will time out in about {minutesRemaining} minute
-            {minutesRemaining === 1 ? '' : 's'} if nobody interacts.
-          </p>
-        ) : null}
-        {sessionExpired ? (
-          <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">
-            Payment is still outstanding. A waiter has to review this table before it can be
-            cleared.
-          </p>
-        ) : null}
-      </section>
+        <div className="px-5 py-4">
+          <p className="text-foreground text-sm font-medium">{statusText}</p>
+          {timeoutWarning ? (
+            <div className="border-saffron-200 bg-saffron-50 text-saffron-900 dark:border-saffron-500/30 dark:bg-saffron-500/10 dark:text-saffron-200 mt-3 rounded-lg border px-3 py-2 text-xs">
+              Session times out in ~{minutesRemaining} minute{minutesRemaining === 1 ? '' : 's'} —
+              add something to keep it alive.
+            </div>
+          ) : null}
+          {sessionExpired ? (
+            <div className="border-mkrose-200 bg-mkrose-50 text-mkrose-900 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-200 mt-3 rounded-lg border px-3 py-2 text-xs">
+              Payment is still outstanding. A waiter needs to review the table before it can be
+              cleared.
+            </div>
+          ) : null}
+        </div>
+      </Card>
 
       {rounds.length > 0 ? (
-        <section className="border-border rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Your rounds</h2>
-            <span className="text-foreground font-mono text-sm font-semibold">{totalLabel}</span>
-          </div>
-          <ul className="mt-3 space-y-3 text-sm">
-            {rounds.map((round) => (
-              <li
-                key={round.id}
-                className="border-border flex items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
-              >
-                <div className="min-w-0">
-                  <p className="text-foreground font-mono text-xs">
-                    {round.publicOrderId}{' '}
-                    <span className="text-muted-foreground ml-1">· {round.status}</span>
-                  </p>
-                  <p className="text-foreground mt-1">
-                    {round.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
-                  </p>
-                </div>
-                <span className="text-foreground shrink-0 font-mono text-xs">
-                  {round.totalLabel}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card variant="surface" radius="lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif text-xl">Your table so far</CardTitle>
+                <p className="text-ink-500 dark:text-ink-400 text-xs">
+                  {rounds.length} round{rounds.length === 1 ? '' : 's'} ordered
+                </p>
+              </div>
+              <span className="mk-nums text-foreground font-serif text-xl font-medium tabular-nums tracking-tight">
+                {totalLabel}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ol className="border-ink-200 dark:border-ink-700 relative ml-2 space-y-4 border-l border-dashed pl-5">
+              {rounds.map((round, idx) => (
+                <li key={round.id} className="relative">
+                  <span className="bg-saffron-500 ring-surface dark:ring-ink-900 absolute -left-[25px] mt-1 flex size-5 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-4">
+                    {idx + 1}
+                  </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-[13px]">
+                        <span className="text-foreground font-mono font-medium tracking-tight">
+                          {round.publicOrderId}
+                        </span>
+                        <Badge variant="subtle" size="xs">
+                          {round.status.replace(/_/g, ' ')}
+                        </Badge>
+                      </p>
+                      <p className="text-ink-700 dark:text-ink-300 mt-1 text-sm">
+                        {round.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
+                      </p>
+                    </div>
+                    <span className="mk-nums text-foreground shrink-0 font-mono text-[13px] tabular-nums">
+                      {round.totalLabel}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <section className="border-border rounded-lg border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">Menu</h2>
+      <section>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <Eyebrow tone="accent">Order</Eyebrow>
+            <h2 className="text-foreground mt-1 font-serif text-2xl font-medium tracking-tight">
+              Menu
+            </h2>
+          </div>
           {menus.length > 1 ? (
-            <nav className="flex gap-1 text-xs">
-              {menus.map((menu) => (
-                <button
-                  key={menu.id}
-                  type="button"
-                  onClick={() => setActiveMenuId(menu.id)}
-                  className={
-                    menu.id === activeMenuId
-                      ? 'bg-foreground text-background rounded-full px-3 py-1'
-                      : 'text-muted-foreground border-input rounded-full border px-3 py-1'
-                  }
-                >
-                  {menu.name}
-                </button>
-              ))}
+            <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Menus">
+              {menus.map((menu) => {
+                const active = menu.id === activeMenuId;
+                return (
+                  <button
+                    key={menu.id}
+                    type="button"
+                    onClick={() => setActiveMenuId(menu.id)}
+                    className={cn(
+                      'whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                      active
+                        ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
+                        : 'bg-canvas-200 text-ink-600 hover:bg-canvas-300 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
+                    )}
+                  >
+                    {menu.name}
+                  </button>
+                );
+              })}
             </nav>
           ) : null}
         </div>
 
-        <div className="mt-4 flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           {visibleCategories.map((category) => {
             const catItems = items.filter((i) => i.categoryId === category.id);
             if (catItems.length === 0) return null;
             return (
               <div key={category.id}>
-                <h3 className="text-foreground text-sm font-semibold">{category.name}</h3>
-                <ul className="divide-border mt-2 divide-y">
+                <h3 className="border-ink-100 text-foreground dark:border-ink-800 border-b pb-3 font-serif text-lg font-medium tracking-tight">
+                  {category.name}
+                </h3>
+                <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
                   {catItems.map((item) => (
-                    <li key={item.id} className="flex items-start justify-between gap-3 py-3">
-                      <div className="min-w-0">
-                        <div className="flex items-start gap-3">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt=""
-                              className="h-14 w-14 shrink-0 rounded-md border object-cover"
-                            />
-                          ) : null}
-                          <div className="min-w-0">
-                            <p className="text-foreground font-medium">
+                    <li
+                      key={item.id}
+                      className={cn(
+                        'flex items-start justify-between gap-4 py-4',
+                        item.soldOut && 'opacity-60',
+                      )}
+                    >
+                      <div className="flex min-w-0 flex-1 gap-3">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt=""
+                            className="ring-ink-100 dark:ring-ink-800 size-16 shrink-0 rounded-xl object-cover ring-1"
+                          />
+                        ) : null}
+                        <div className="min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-foreground font-serif text-[15px] font-medium leading-tight">
                               {item.name}
-                              {item.soldOut ? (
-                                <span className="text-muted-foreground ml-2 text-xs uppercase">
-                                  sold out
-                                </span>
-                              ) : null}
                             </p>
-                            {item.description ? (
-                              <p className="text-muted-foreground text-xs">{item.description}</p>
-                            ) : null}
-                            {item.comboItemNames.length > 0 ? (
-                              <p className="text-muted-foreground mt-1 text-[11px]">
-                                Includes: {item.comboItemNames.join(', ')}
-                              </p>
-                            ) : null}
-                            {item.modifiers.length > 0 ? (
-                              <p className="text-muted-foreground mt-1 text-[11px]">
-                                {item.modifiers.length} modifier group
-                                {item.modifiers.length === 1 ? '' : 's'} available
-                              </p>
-                            ) : null}
                           </div>
+                          {item.description ? (
+                            <p className="text-ink-500 dark:text-ink-400 mt-1 line-clamp-2 text-[12.5px] leading-relaxed">
+                              {item.description}
+                            </p>
+                          ) : null}
+                          {item.comboItemNames.length > 0 ? (
+                            <p className="text-ink-500 dark:text-ink-400 mt-1 text-[11px] italic">
+                              Includes {item.comboItemNames.join(' · ')}
+                            </p>
+                          ) : null}
+                          {item.soldOut ? (
+                            <Badge variant="danger" size="xs" shape="pill" className="mt-2">
+                              Sold out
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="text-foreground font-mono text-sm">{item.priceLabel}</span>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <span className="mk-nums text-foreground font-mono text-[13px] font-medium tabular-nums">
+                          {item.priceLabel}
+                        </span>
                         <RoundItemAddButton
                           itemId={item.id}
                           name={item.name}
@@ -344,107 +398,195 @@ export function SessionClient({
       </section>
 
       {cartLines.length > 0 && !sessionLocked ? (
-        <section className="border-border bg-background sticky bottom-3 rounded-lg border p-4 shadow-lg">
-          <p className="text-muted-foreground text-xs uppercase tracking-wide">This round</p>
-          <label className="mt-3 flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Who is this round for?</span>
-            <input
-              type="text"
-              list={`participants-${sessionId}`}
-              value={participantLabel}
-              onChange={(e) => setParticipantLabel(e.target.value)}
-              maxLength={60}
-              className="border-input bg-background h-8 rounded-md border px-2 text-xs"
-            />
-            <datalist id={`participants-${sessionId}`}>
-              {[customerName, ...participants]
-                .filter((value, index, all) => all.indexOf(value) === index)
-                .map((participant) => (
-                  <option key={participant} value={participant} />
-                ))}
-            </datalist>
-          </label>
-          <ul className="mt-2 space-y-3 text-sm">
-            {cartLines.map((line) => {
-              const key = cartLineKey(line);
-              return (
-                <li key={key} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="truncate">{line.name}</span>
-                      {line.modifiers.length > 0 ? (
-                        <p className="text-muted-foreground text-[11px]">
-                          {line.modifiers.map((modifier) => modifier.optionName).join(', ')}
+        <Card
+          variant="elevated"
+          radius="lg"
+          className="border-ink-200 sticky bottom-4 z-10 shadow-[0_24px_60px_-12px_oklch(0.14_0.016_90/0.25)] backdrop-blur-md"
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Eyebrow tone="accent">This round</Eyebrow>
+                <p className="mt-1 font-serif text-lg font-medium">
+                  {cartItemCount(cartLines)} item{cartItemCount(cartLines) === 1 ? '' : 's'}
+                </p>
+              </div>
+              <span className="mk-nums text-foreground font-serif text-2xl font-medium tabular-nums tracking-tight">
+                {subtotalLabel}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.14em]">
+                Who is this round for?
+              </label>
+              <Input
+                type="text"
+                list={`participants-${sessionId}`}
+                value={participantLabel}
+                onChange={(e) => setParticipantLabel(e.target.value)}
+                maxLength={60}
+                className="h-9 text-sm"
+              />
+              <datalist id={`participants-${sessionId}`}>
+                {[customerName, ...participants]
+                  .filter((value, index, all) => all.indexOf(value) === index)
+                  .map((participant) => (
+                    <option key={participant} value={participant} />
+                  ))}
+              </datalist>
+            </div>
+
+            <ul className="space-y-2">
+              {cartLines.map((line) => {
+                const key = cartLineKey(line);
+                return (
+                  <li
+                    key={key}
+                    className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/60 rounded-xl border p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-foreground truncate text-[13px] font-medium">
+                          {line.name}
                         </p>
-                      ) : null}
+                        {line.modifiers.length > 0 ? (
+                          <p className="text-ink-500 dark:text-ink-400 text-[11px]">
+                            {line.modifiers.map((m) => m.optionName).join(', ')}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="border-ink-200 bg-surface dark:border-ink-700 dark:bg-ink-800 inline-flex items-center rounded-full border p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => decrementLine(key)}
+                          className="text-ink-600 hover:bg-canvas-100 dark:text-ink-300 dark:hover:bg-ink-700 flex size-6 items-center justify-center rounded-full transition-colors"
+                          aria-label="Decrease"
+                        >
+                          −
+                        </button>
+                        <span className="mk-nums w-5 text-center text-xs font-medium tabular-nums">
+                          {line.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => incrementLine(key)}
+                          className="text-ink-600 hover:bg-canvas-100 dark:text-ink-300 dark:hover:bg-ink-700 flex size-6 items-center justify-center rounded-full transition-colors"
+                          aria-label="Increase"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <span className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => decrementLine(key)}
-                        className="border-input h-6 w-6 rounded-md border text-xs"
-                      >
-                        −
-                      </button>
-                      <span className="w-5 text-center text-xs">{line.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => incrementLine(key)}
-                        className="border-input h-6 w-6 rounded-md border text-xs"
-                      >
-                        +
-                      </button>
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={line.notes ?? ''}
-                    onChange={(e) => setNotes(key, e.target.value)}
-                    placeholder="Special instructions (optional)"
-                    maxLength={200}
-                    className="border-input bg-background h-8 rounded-md border px-2 text-xs"
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-border mt-3 flex items-center justify-between border-t pt-3 text-sm">
-            <span className="font-semibold">{cartItemCount(cartLines)} items</span>
-            <span className="font-mono font-semibold">{subtotalLabel}</span>
-          </div>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={placeRound}
-            className="bg-primary text-primary-foreground mt-3 h-10 w-full rounded-md text-sm font-semibold disabled:opacity-50"
-          >
-            {isPending ? 'Placing…' : 'Place this round'}
-          </button>
-        </section>
+                    <Input
+                      type="text"
+                      value={line.notes ?? ''}
+                      onChange={(e) => setNotes(key, e.target.value)}
+                      placeholder="Add a note (no nuts, extra sauce…)"
+                      maxLength={200}
+                      className="mt-2 h-8 text-xs"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+
+            <Button
+              type="button"
+              size="lg"
+              variant="accent"
+              full
+              loading={isPending}
+              disabled={isPending}
+              onClick={placeRound}
+            >
+              {isPending ? 'Placing round' : `Place round · ${subtotalLabel}`}
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <section className="border-border flex flex-wrap items-center gap-2 rounded-lg border p-4">
-        <button
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
           type="button"
+          variant={waiterCalled ? 'accent' : 'outline'}
+          size="md"
           onClick={callWaiter}
           disabled={isPending || sessionLocked}
-          className="border-input rounded-md border px-3 py-2 text-xs disabled:opacity-50"
         >
-          {waiterCalled ? 'Waiter on the way ✓' : 'Call waiter'}
-        </button>
+          {waiterCalled ? (
+            <>
+              <CheckIcon /> Waiter on the way
+            </>
+          ) : (
+            <>
+              <BellIcon /> Call waiter
+            </>
+          )}
+        </Button>
         {rounds.length > 0 && (status === 'active' || status === 'bill_requested') ? (
-          <Link
-            href={`/session/${sessionId}/bill`}
-            className="bg-primary text-primary-foreground ml-auto inline-flex h-9 items-center rounded-md px-4 text-xs font-semibold"
-          >
-            {status === 'bill_requested' ? 'Continue to payment →' : 'Request bill →'}
+          <Link href={`/session/${sessionId}/bill`} className="ml-auto">
+            <Button variant="primary" size="md">
+              {status === 'bill_requested' ? 'Continue to payment' : 'Request bill'}
+              <ArrowIcon />
+            </Button>
           </Link>
         ) : null}
-      </section>
+      </div>
 
       {error ? (
-        <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
+        <div className="border-mkrose-200 bg-mkrose-50 text-mkrose-800 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-300 rounded-lg border px-3 py-2.5 text-sm font-medium">
+          {error}
+        </div>
       ) : null}
     </>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+function BellIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  );
+}
+function ArrowIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden
+    >
+      <path d="M5 12h14M13 5l7 7-7 7" />
+    </svg>
   );
 }

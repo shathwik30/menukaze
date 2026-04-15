@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { resolveFlags, type StaffRole } from '@menukaze/rbac';
+import { Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { StaffClient, type StaffMember, type StaffInviteRow } from './staff-client';
 
@@ -68,15 +68,17 @@ export default async function StaffPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Staff</h1>
-          <p className="text-muted-foreground text-sm">Invite and manage team members</p>
-        </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
+      <header>
+        <Eyebrow withBar tone="accent">
+          Team &amp; Admin
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+          Staff
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+          Invite team members and control their access with role-based permissions.
+        </p>
       </header>
 
       <StaffClient
@@ -89,6 +91,6 @@ export default async function StaffPage() {
         canRemove={canRemove}
         roleOptions={roleOptions}
       />
-    </main>
+    </div>
   );
 }

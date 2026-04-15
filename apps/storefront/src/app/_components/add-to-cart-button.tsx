@@ -2,6 +2,16 @@
 
 import { useState } from 'react';
 import { maxSelectionsForModifierGroup, validateModifierSelection } from '@menukaze/shared';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  cn,
+} from '@menukaze/ui';
 import { useCart } from '@/stores/cart';
 
 interface ModifierOption {
@@ -44,13 +54,15 @@ export function AddToCartButton({
 
   if (disabled) {
     return (
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">Unavailable</span>
+      <span className="text-ink-400 dark:text-ink-500 text-xs uppercase tracking-[0.12em]">
+        Unavailable
+      </span>
     );
   }
 
   function flashAdded() {
     setJustAdded(true);
-    window.setTimeout(() => setJustAdded(false), 1200);
+    window.setTimeout(() => setJustAdded(false), 1500);
   }
 
   function resetConfigurator() {
@@ -133,133 +145,240 @@ export function AddToCartButton({
 
   if (modifiers.length === 0) {
     return (
-      <button
+      <Button
         type="button"
+        size="sm"
+        variant={justAdded ? 'accent' : 'outline'}
         onClick={() => {
           addLine({ itemId, name, priceMinor, modifiers: [] });
           flashAdded();
         }}
-        className="border-input hover:bg-accent hover:text-accent-foreground shrink-0 rounded-md border px-3 py-1 text-xs font-medium"
         aria-label={`Add ${name} to cart`}
       >
-        {justAdded ? 'Added ✓' : 'Add'}
-      </button>
+        {justAdded ? (
+          <>
+            <CheckIcon /> Added
+          </>
+        ) : (
+          <>
+            <PlusIcon /> Add
+          </>
+        )}
+      </Button>
     );
   }
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        size="sm"
+        variant={justAdded ? 'accent' : 'outline'}
         onClick={() => {
           setError(null);
           setOpen(true);
         }}
-        className="border-input hover:bg-accent hover:text-accent-foreground shrink-0 rounded-md border px-3 py-1 text-xs font-medium"
         aria-label={`Customize ${name}`}
       >
-        {justAdded ? 'Added ✓' : 'Customize'}
-      </button>
+        {justAdded ? (
+          <>
+            <CheckIcon /> Added
+          </>
+        ) : (
+          <>
+            <SlidersIcon /> Customize
+          </>
+        )}
+      </Button>
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/40 p-3 sm:items-center sm:justify-center"
-          onClick={resetConfigurator}
-        >
-          <div
-            className="bg-background w-full max-w-md rounded-2xl border p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold">{name}</h3>
-                <p className="text-muted-foreground text-xs">
-                  Base price {formatMoney(priceMinor)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={resetConfigurator}
-                className="text-muted-foreground text-xs underline"
-              >
-                Close
-              </button>
+      <Dialog open={open} onClose={resetConfigurator} size="md" position="bottom">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle>{name}</DialogTitle>
+              <DialogDescription>
+                From <span className="mk-nums font-mono">{formatMoney(priceMinor)}</span>
+              </DialogDescription>
             </div>
-
-            <div className="mt-4 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
-              {modifiers.map((group) => {
-                const optionNames = selected[group.name] ?? [];
-                const limit = maxSelectionsForModifierGroup(group);
-                const label =
-                  group.required && limit === 1
-                    ? 'Choose 1'
-                    : group.required
-                      ? `Choose 1-${limit}`
-                      : limit === 1
-                        ? 'Optional'
-                        : `Optional, up to ${limit}`;
-                return (
-                  <section key={group.name} className="border-border rounded-xl border p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium">{group.name}</p>
-                        <p className="text-muted-foreground text-xs">{label}</p>
-                      </div>
-                      <span className="text-muted-foreground text-xs">
-                        {optionNames.length}/{limit}
-                      </span>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {group.options.map((option) => {
-                        const active = optionNames.includes(option.name);
-                        return (
-                          <label
-                            key={option.name}
-                            className={
-                              active
-                                ? 'border-foreground bg-accent flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm'
-                                : 'border-input flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm'
-                            }
-                          >
-                            <span className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={active}
-                                onChange={() => toggleOption(group, option.name)}
-                              />
-                              <span>{option.name}</span>
-                            </span>
-                            <span className="font-mono text-xs">
-                              {option.priceMinor === 0 ? 'Included' : `+${option.priceLabel}`}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-
-            {error ? (
-              <p className="bg-destructive/10 text-destructive mt-4 rounded-md px-3 py-2 text-xs">
-                {error}
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold">{formatMoney(previewTotalMinor)}</span>
-              <button
-                type="button"
-                onClick={addConfiguredItem}
-                className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold"
-              >
-                Add to cart
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={resetConfigurator}
+              aria-label="Close"
+              className="text-ink-500 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-canvas-50 rounded-lg p-1.5 transition-colors"
+            >
+              <CloseIcon />
+            </button>
           </div>
+        </DialogHeader>
+
+        <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto px-6 pb-2">
+          {modifiers.map((group) => {
+            const optionNames = selected[group.name] ?? [];
+            const limit = maxSelectionsForModifierGroup(group);
+            const label =
+              group.required && limit === 1
+                ? 'Required · Pick one'
+                : group.required
+                  ? `Required · Pick up to ${limit}`
+                  : limit === 1
+                    ? 'Optional'
+                    : `Optional · Up to ${limit}`;
+            return (
+              <fieldset
+                key={group.name}
+                className="border-ink-200 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/50 rounded-xl border p-4"
+              >
+                <legend className="bg-surface text-ink-950 dark:bg-ink-900 dark:text-canvas-50 -mt-6 mb-0 px-2 text-[13px] font-semibold tracking-tight">
+                  {group.name}
+                </legend>
+                <div className="-mt-1 flex items-center justify-between gap-3">
+                  <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.14em]">
+                    {label}
+                  </p>
+                  <Badge variant="subtle" size="xs">
+                    {optionNames.length}/{limit}
+                  </Badge>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  {group.options.map((option) => {
+                    const active = optionNames.includes(option.name);
+                    return (
+                      <label
+                        key={option.name}
+                        className={cn(
+                          'flex cursor-pointer items-center justify-between rounded-lg border px-3.5 py-2.5 text-sm transition-all duration-150',
+                          active
+                            ? 'border-saffron-500 bg-saffron-50 ring-saffron-500 dark:border-saffron-400 dark:bg-saffron-500/15 ring-1'
+                            : 'border-ink-200 bg-surface hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900/80 dark:hover:border-ink-700',
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors',
+                              active
+                                ? 'border-saffron-600 bg-saffron-500 text-white'
+                                : 'border-ink-300 bg-surface dark:border-ink-600 dark:bg-ink-800',
+                            )}
+                          >
+                            {active ? (
+                              <svg
+                                viewBox="0 0 16 16"
+                                className="size-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden
+                              >
+                                <polyline points="3 8 7 12 13 4" />
+                              </svg>
+                            ) : null}
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={active}
+                            onChange={() => toggleOption(group, option.name)}
+                            className="sr-only"
+                          />
+                          <span className="font-medium">{option.name}</span>
+                        </span>
+                        <span className="mk-nums text-ink-500 dark:text-ink-400 font-mono text-xs">
+                          {option.priceMinor === 0 ? 'Included' : `+${option.priceLabel}`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            );
+          })}
+
+          {error ? (
+            <div className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-300 rounded-lg border px-3 py-2.5 text-sm font-medium">
+              {error}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+
+        <DialogFooter>
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="text-left">
+              <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.12em]">
+                Total
+              </p>
+              <p className="mk-nums text-foreground font-serif text-xl font-medium">
+                {formatMoney(previewTotalMinor)}
+              </p>
+            </div>
+            <Button type="button" size="lg" variant="primary" onClick={addConfiguredItem}>
+              Add to cart
+            </Button>
+          </div>
+        </DialogFooter>
+      </Dialog>
     </>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+function SlidersIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
+    </svg>
+  );
+}
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      aria-hidden
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
   );
 }

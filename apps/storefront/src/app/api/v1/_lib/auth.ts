@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getModels, getMongoConnection, hashApiKey, type ApiKeyDoc } from '@menukaze/db';
+import { ERROR_CODES, type ErrorCode } from '@menukaze/shared';
 import type { Types } from 'mongoose';
 
 export interface ApiKeyContext {
@@ -11,7 +12,13 @@ export interface ApiKeyContext {
   channel: { id: string; name: string; icon: string | null; color: string | null };
 }
 
-export type ApiResponseError =
+/**
+ * Public API errors are a subset of the canonical {@link ErrorCode} registry
+ * in `@menukaze/shared`. The narrow union prevents `/api/v1/*` routes from
+ * accidentally surfacing internal-only error codes (e.g. `tenant_context_missing`).
+ */
+export type ApiResponseError = Extract<
+  ErrorCode,
   | 'invalid_request'
   | 'unauthenticated'
   | 'forbidden'
@@ -24,30 +31,15 @@ export type ApiResponseError =
   | 'delivery_zone_not_covered'
   | 'rate_limit_exceeded'
   | 'internal_error'
-  | 'service_unavailable';
-
-const ERROR_STATUS: Record<ApiResponseError, number> = {
-  invalid_request: 400,
-  unauthenticated: 401,
-  forbidden: 403,
-  not_found: 404,
-  idempotency_conflict: 409,
-  order_items_empty: 422,
-  item_unavailable: 422,
-  restaurant_closed: 422,
-  below_minimum_order: 422,
-  delivery_zone_not_covered: 422,
-  rate_limit_exceeded: 429,
-  internal_error: 500,
-  service_unavailable: 503,
-};
+  | 'service_unavailable'
+>;
 
 export function apiError(
   code: ApiResponseError,
   message: string,
   init?: ResponseInit,
 ): NextResponse {
-  const status = ERROR_STATUS[code];
+  const status = ERROR_CODES[code].status;
   return NextResponse.json({ error: { code, message, status } }, { status, ...(init ?? {}) });
 }
 

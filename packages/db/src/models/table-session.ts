@@ -1,4 +1,10 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import {
+  PAYMENT_MODE_REQUESTED_OPTIONS,
+  TABLE_SESSION_STATUSES,
+  type PaymentModeRequested,
+  type TableSessionStatusValue,
+} from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -16,7 +22,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  *   needs_review: terminal; unpaid after timeout
  */
 
-export type TableSessionStatus = 'active' | 'bill_requested' | 'paid' | 'closed' | 'needs_review';
+export type TableSessionStatus = TableSessionStatusValue;
 
 export interface TableSessionParticipant {
   label: string;
@@ -27,7 +33,7 @@ export interface TableSessionDoc {
   restaurantId: Types.ObjectId;
   tableId: Types.ObjectId;
   status: TableSessionStatus;
-  paymentModeRequested?: 'online' | 'counter';
+  paymentModeRequested?: PaymentModeRequested;
 
   customer: {
     name: string;
@@ -70,11 +76,11 @@ const tableSessionSchema = new Schema<TableSessionDoc>(
     tableId: { type: Schema.Types.ObjectId, ref: 'Table', required: true },
     status: {
       type: String,
-      enum: ['active', 'bill_requested', 'paid', 'closed', 'needs_review'],
+      enum: TABLE_SESSION_STATUSES,
       required: true,
       default: 'active',
     },
-    paymentModeRequested: { type: String, enum: ['online', 'counter'] },
+    paymentModeRequested: { type: String, enum: PAYMENT_MODE_REQUESTED_OPTIONS },
     customer: {
       name: { type: String, required: true, maxlength: 200 },
       email: { type: String, required: true, maxlength: 320 },

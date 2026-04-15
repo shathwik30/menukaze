@@ -14,6 +14,8 @@ export const env = createEnv({
       .string()
       .regex(/^\d{4,6}$/, 'KIOSK_EXIT_PIN must be 4-6 digits')
       .optional(),
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   },
   client: {},
   runtimeEnv: {
@@ -23,6 +25,8 @@ export const env = createEnv({
     ABLY_API_KEY: process.env['ABLY_API_KEY'],
     KIOSK_RESTAURANT_SLUG: process.env['KIOSK_RESTAURANT_SLUG'],
     KIOSK_EXIT_PIN: process.env['KIOSK_EXIT_PIN'],
+    UPSTASH_REDIS_REST_URL: process.env['UPSTASH_REDIS_REST_URL'],
+    UPSTASH_REDIS_REST_TOKEN: process.env['UPSTASH_REDIS_REST_TOKEN'],
   },
   skipValidation: process.env['SKIP_ENV_VALIDATION'] === 'true',
   emptyStringAsUndefined: true,

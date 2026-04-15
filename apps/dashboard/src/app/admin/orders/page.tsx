@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
+import { Button, Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { OrdersLive } from './orders-live';
 
@@ -34,33 +35,47 @@ export default async function DashboardOrdersPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Orders</h1>
-          <p className="text-muted-foreground text-sm">
-            Live feed for {restaurant?.name} · last 50 orders
+          <Eyebrow withBar tone="accent">
+            Operations · Live
+          </Eyebrow>
+          <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+            Orders
+          </h1>
+          <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+            Live feed for {restaurant?.name} — showing the most recent 50 orders.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {canCreateWalkIn ? (
-            <Link
-              href="/admin/orders/new"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
-            >
-              + New walk-in order
+            <Link href="/admin/orders/new">
+              <Button variant="primary" size="md">
+                <PlusIcon /> New walk-in
+              </Button>
             </Link>
           ) : null}
-          <Link
-            href="/admin"
-            className="border-input hover:bg-accent text-sm underline underline-offset-4"
-          >
-            ← Back to dashboard
-          </Link>
         </div>
       </header>
 
       <OrdersLive restaurantId={session.restaurantId} initialRows={rows} />
-    </main>
+    </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      className="size-4"
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
 }

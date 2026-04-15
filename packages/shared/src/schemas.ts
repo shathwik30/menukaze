@@ -13,6 +13,7 @@
 
 import { z } from 'zod';
 import { CURRENCIES } from './currency';
+import { STAFF_MEMBERSHIP_STATUSES, STAFF_ROLES, type StaffRole } from './domain';
 
 // ---------------------------------------------------------------------------
 // Primitive helpers
@@ -78,15 +79,12 @@ export type User = z.infer<typeof userSchema>;
 // Staff membership (user × restaurant role pairing)
 // ---------------------------------------------------------------------------
 
-export const staffRoleSchema = z.enum([
-  'owner',
-  'manager',
-  'waiter',
-  'kitchen',
-  'cashier',
-  'custom',
-]);
-export type StaffRole = z.infer<typeof staffRoleSchema>;
+export const staffRoleSchema = z.enum(STAFF_ROLES);
+/**
+ * Re-export from `./domain` so Zod-validated values and the
+ * compile-time `StaffRole` union stay in lock-step.
+ */
+export type { StaffRole };
 
 export const staffMembershipSchema = z.object({
   _id: objectIdSchema,
@@ -95,7 +93,7 @@ export const staffMembershipSchema = z.object({
   role: staffRoleSchema,
   customPermissions: z.array(z.string()).optional(),
   assignedTableIds: z.array(objectIdSchema).optional(),
-  status: z.enum(['active', 'deactivated']).default('active'),
+  status: z.enum(STAFF_MEMBERSHIP_STATUSES).default('active'),
   invitedBy: objectIdSchema.optional(),
   lastLoginAt: z.date().optional(),
   lastLoginIp: z.string().optional(),

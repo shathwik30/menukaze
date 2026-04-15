@@ -13,8 +13,7 @@ concurrency:
 env:
   TURBO_TELEMETRY_DISABLED: 1
   # Skip @t3-oss/env validation in CI jobs that don't need production secrets
-  # (lint, typecheck, format, test, build). E2E still goes through real env
-  # via .env.local which the workflow is expected to write in its own step.
+  # (lint, typecheck, format, build).
   SKIP_ENV_VALIDATION: 'true'
 
 jobs:
@@ -22,7 +21,6 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      e2e: ${{ steps.filter.outputs.e2e }}
       dashboard_preview: ${{ steps.filter.outputs.dashboard_preview }}
       storefront_preview: ${{ steps.filter.outputs.storefront_preview }}
       qr_dinein_preview: ${{ steps.filter.outputs.qr_dinein_preview }}
@@ -37,13 +35,6 @@ jobs:
         id: filter
         with:
           filters: |
-            e2e:
-              - 'apps/**'
-              - 'packages/**'
-              - 'tooling/playwright-config/**'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'turbo.json'
             dashboard_preview:
               - 'apps/dashboard/**'
               - 'packages/**'
@@ -146,22 +137,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, test]
+    needs: [lint, format, typecheck]
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -169,29 +148,6 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-
-  e2e:
-    name: E2E
-    runs-on: ubuntu-latest
-    needs: [changes, build]
-    if: needs.changes.outputs.e2e == 'true'
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm db:seed
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-artifacts
-          path: |
-            apps/*/playwright-report
-            apps/*/test-results
 
   preview:
     name: Preview

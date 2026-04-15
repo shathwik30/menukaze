@@ -19,7 +19,9 @@ import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
+  DEFAULT_PREP_MINUTES,
   formatMoney,
+  orderWebhookChannel,
   parseCurrencyCode,
   resolvePrimaryStationId,
   validateModifierSelection,
@@ -412,7 +414,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     };
   }
 
-  const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
+  const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
   const publicOrderId = generatePublicOrderId();
 
@@ -468,7 +470,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     data: {
       id: String(order._id),
       public_order_id: publicOrderId,
-      channel: { id: 'storefront', type: 'built_in' },
+      channel: orderWebhookChannel('storefront'),
       type: input.type === 'pickup' ? 'pickup' : 'delivery',
       total_minor: totalMinor,
       currency: restaurant.currency,

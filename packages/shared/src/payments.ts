@@ -7,8 +7,12 @@
  */
 
 import type { CurrencyCode } from './currency';
+import type { PaymentGateway, PaymentStatus } from './domain';
 
-export type GatewayId = 'razorpay' | 'cash';
+/** @deprecated Use {@link PaymentGateway} from `@menukaze/shared` instead. */
+export type GatewayId = PaymentGateway;
+
+export type { PaymentStatus };
 
 export interface CreateIntentInput {
   /** Always integer minor units. Never floats. */
@@ -29,14 +33,6 @@ export interface PaymentIntent {
   amountMinor: number;
   currency: CurrencyCode;
 }
-
-export type PaymentStatus =
-  | 'pending'
-  | 'processing'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded';
 
 export interface Payment {
   id: string;
@@ -83,7 +79,7 @@ export interface WebhookEvent {
  * with the per-restaurant credentials (decrypted just-in-time from `restaurants.razorpayKey*Enc`).
  */
 export interface PaymentGatewayInterface {
-  readonly id: GatewayId;
+  readonly id: PaymentGateway;
 
   createPaymentIntent(input: CreateIntentInput): Promise<PaymentIntent>;
   confirmPayment(intentId: string): Promise<Payment>;

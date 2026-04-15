@@ -2,7 +2,23 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { FLAGS, OWNER_ONLY_FLAGS } from '@menukaze/rbac';
+import { FLAGS, OWNER_ONLY_FLAGS, type StaffRole } from '@menukaze/rbac';
+import type { StaffMembershipStatus } from '@menukaze/shared';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  FieldError,
+  Input,
+  Label,
+  Select,
+  cn,
+} from '@menukaze/ui';
 import {
   inviteStaffAction,
   revokeInviteAction,
@@ -10,7 +26,7 @@ import {
   removeStaffAction,
 } from '@/app/actions/staff';
 
-export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
+export type { StaffRole };
 
 export interface StaffMember {
   membershipId: string;
@@ -19,7 +35,7 @@ export interface StaffMember {
   name: string;
   role: StaffRole;
   customPermissions: string[];
-  status: 'active' | 'deactivated';
+  status: StaffMembershipStatus;
 }
 
 export interface StaffInviteRow {
@@ -54,6 +70,15 @@ const FLAG_GROUPS = Array.from(
   }, new Map<string, string[]>()).entries(),
 );
 
+const ROLE_TONE: Record<StaffRole, 'accent' | 'success' | 'info' | 'warning' | 'subtle'> = {
+  owner: 'accent',
+  manager: 'info',
+  waiter: 'success',
+  kitchen: 'warning',
+  cashier: 'subtle',
+  custom: 'subtle',
+};
+
 function titleCase(value: string) {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
 }
@@ -65,7 +90,7 @@ function isStaffRole(value: string): value is StaffRole {
 function describeRole(role: StaffRole, customPermissions: string[]) {
   if (role !== 'custom') return titleCase(role);
   return customPermissions.length > 0
-    ? `Custom (${customPermissions.length} permission${customPermissions.length === 1 ? '' : 's'})`
+    ? `Custom · ${customPermissions.length} permission${customPermissions.length === 1 ? '' : 's'}`
     : 'Custom';
 }
 
@@ -79,29 +104,75 @@ function FlagChecklist({
   onToggle: (flag: string) => void;
 }) {
   return (
-    <div className="border-border rounded-md border p-3">
-      <p className="text-sm font-medium">Custom permission flags</p>
-      <p className="text-muted-foreground mt-1 text-xs">
+    <div className="border-ink-200 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/50 rounded-xl border p-4">
+      <div className="flex items-center gap-2">
+        <p className="text-ink-600 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          Custom permission flags
+        </p>
+        <Badge variant="subtle" size="xs">
+          {selected.length} selected
+        </Badge>
+      </div>
+      <p className="text-ink-500 dark:text-ink-400 mt-1 text-xs">
         Owner-only capabilities stay excluded. Pick the exact operational access this role needs.
       </p>
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-4">
         {FLAG_GROUPS.map(([group, flags]) => (
           <section key={group}>
-            <p className="text-foreground text-xs font-semibold uppercase tracking-wide">
+            <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.12em]">
               {titleCase(group)}
             </p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {flags.map((flag) => (
-                <label key={flag} className="flex items-start gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(flag)}
-                    disabled={disabled}
-                    onChange={() => onToggle(flag)}
-                  />
-                  <span>{titleCase(flag.split('.').slice(1).join(' '))}</span>
-                </label>
-              ))}
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+              {flags.map((flag) => {
+                const active = selected.includes(flag);
+                return (
+                  <label
+                    key={flag}
+                    className={cn(
+                      'flex cursor-pointer items-start gap-2.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors',
+                      active
+                        ? 'border-saffron-500/60 bg-saffron-50 text-ink-950 dark:bg-saffron-500/10 dark:text-canvas-50'
+                        : 'border-ink-200 bg-surface hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-ink-700',
+                      disabled && 'pointer-events-none opacity-50',
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                        active
+                          ? 'border-saffron-600 bg-saffron-500 text-white'
+                          : 'border-ink-300 dark:border-ink-600',
+                      )}
+                    >
+                      {active ? (
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="size-2.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <polyline points="2 6 5 9 10 3" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={active}
+                      disabled={disabled}
+                      onChange={() => onToggle(flag)}
+                    />
+                    <span className="font-mono text-[11px] leading-tight">
+                      {flag.split('.').slice(1).join('.')}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </section>
         ))}
@@ -151,22 +222,26 @@ function InviteForm({
         setInviteRole(defaultInviteRole);
         setCustomPermissions([]);
       }}
-      className="mt-3 flex flex-col gap-3"
+      className="space-y-4"
     >
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-xs">
-          Email
-          <input
+      <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+        <div className="space-y-1.5">
+          <Label htmlFor="invite-email" required>
+            Email
+          </Label>
+          <Input
+            id="invite-email"
             type="email"
             required
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+            placeholder="alex@restaurant.com"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          Role
-          <select
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="invite-role">Role</Label>
+          <Select
+            id="invite-role"
             value={inviteRole}
             onChange={(e) => {
               if (!isStaffRole(e.target.value)) return;
@@ -174,22 +249,17 @@ function InviteForm({
               setInviteRole(nextRole);
               if (nextRole !== 'custom') setCustomPermissions([]);
             }}
-            className="border-input bg-background h-9 rounded-md border px-3 text-sm"
           >
             {roleOptions.map((role) => (
               <option key={role} value={role}>
                 {titleCase(role)}
               </option>
             ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          disabled={pending}
-          className="bg-primary text-primary-foreground h-9 rounded-md px-4 text-sm font-medium disabled:opacity-50"
-        >
+          </Select>
+        </div>
+        <Button type="submit" variant="primary" size="md" disabled={pending} loading={pending}>
           Send invite
-        </button>
+        </Button>
       </div>
 
       {inviteRole === 'custom' ? (
@@ -232,7 +302,6 @@ function MemberRow({
     ? roleOptions
     : [member.role, ...roleOptions];
 
-  // Re-sync when RSC passes fresh member props after a save + router.refresh().
   useEffect(() => {
     setRole(member.role);
     setCustomPermissions(member.customPermissions);
@@ -244,32 +313,39 @@ function MemberRow({
     );
   }
 
+  const deactivated = member.status === 'deactivated';
+
   return (
-    <li
-      className={
-        member.status === 'deactivated'
-          ? 'flex flex-col gap-3 py-3 opacity-50'
-          : 'flex flex-col gap-3 py-3'
-      }
-    >
+    <li className={cn('flex flex-col gap-3 py-4', deactivated && 'opacity-60')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-foreground font-medium">
-            {member.name || member.email}
-            {isCurrentUser ? (
-              <span className="text-muted-foreground ml-2 text-[10px] uppercase">(you)</span>
-            ) : null}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {member.email} · {describeRole(member.role, member.customPermissions)}
-          </p>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar fallback={member.name || member.email} size="md" />
+          <div className="min-w-0">
+            <p className="text-foreground flex items-center gap-2 font-medium">
+              {member.name || member.email}
+              {isCurrentUser ? (
+                <span className="text-ink-400 text-[10px] font-medium uppercase tracking-[0.14em]">
+                  (you)
+                </span>
+              ) : null}
+              {deactivated ? (
+                <Badge variant="danger" size="xs" shape="pill">
+                  Deactivated
+                </Badge>
+              ) : null}
+            </p>
+            <p className="text-ink-500 dark:text-ink-400 truncate text-[12.5px]">{member.email}</p>
+          </div>
+          <Badge variant={ROLE_TONE[member.role]} size="sm" shape="pill">
+            {describeRole(member.role, member.customPermissions)}
+          </Badge>
         </div>
 
         {canShowMemberActions ? (
           <div className="flex flex-wrap items-center gap-2">
             {canEditMember ? (
               <>
-                <select
+                <Select
                   value={role}
                   disabled={pending}
                   onChange={(e) => {
@@ -278,16 +354,18 @@ function MemberRow({
                     setRole(nextRole);
                     if (nextRole !== 'custom') setCustomPermissions([]);
                   }}
-                  className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+                  className="h-9 w-auto text-xs"
                 >
                   {memberRoleOptions.map((option) => (
                     <option key={option} value={option}>
                       {titleCase(option)}
                     </option>
                   ))}
-                </select>
-                <button
+                </Select>
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   disabled={pending}
                   onClick={() =>
                     onSave({
@@ -296,21 +374,22 @@ function MemberRow({
                       customPermissions: role === 'custom' ? customPermissions : [],
                     })
                   }
-                  className="border-input h-8 rounded-md border px-3 text-xs disabled:opacity-50"
                 >
-                  Save role
-                </button>
+                  Save
+                </Button>
               </>
             ) : null}
             {canRemoveMember ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 disabled={pending}
                 onClick={() => onRemove(member.membershipId, member.email)}
-                className="text-destructive text-xs underline"
+                className="text-mkrose-600 hover:text-mkrose-700"
               >
                 Remove
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}
@@ -349,85 +428,109 @@ export function StaffClient({
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-6">
       {canInvite && roleOptions.length > 0 ? (
-        <section className="border-border rounded-lg border p-4">
-          <h2 className="text-lg font-semibold">Invite a team member</h2>
-          <InviteForm
-            pending={isPending}
-            roleOptions={roleOptions}
-            onSubmit={(payload) => run(() => inviteStaffAction(payload))}
-          />
-        </section>
+        <Card variant="surface" radius="lg">
+          <CardHeader>
+            <CardTitle>Invite a team member</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InviteForm
+              pending={isPending}
+              roleOptions={roleOptions}
+              onSubmit={(payload) => run(() => inviteStaffAction(payload))}
+            />
+          </CardContent>
+        </Card>
       ) : null}
 
       {invites.length > 0 ? (
-        <section className="border-border rounded-lg border p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">Pending invites</h2>
-          <ul className="divide-border mt-3 divide-y text-sm">
-            {invites.map((invite) => (
-              <li
-                key={invite.id}
-                className="flex flex-wrap items-center justify-between gap-4 py-2"
-              >
-                <span>
-                  <span className="text-foreground font-medium">{invite.email}</span>{' '}
-                  <span className="text-muted-foreground text-xs">
-                    · {describeRole(invite.role, invite.customPermissions)}
-                  </span>
-                </span>
-                <span className="flex items-center gap-3 text-xs">
-                  <span className="text-muted-foreground">
-                    expires {new Date(invite.expiresAt).toLocaleDateString()}
-                  </span>
-                  {canInvite ? (
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => run(() => revokeInviteAction(invite.id))}
-                      className="text-destructive underline"
-                    >
-                      Revoke
-                    </button>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card variant="surface" radius="lg">
+          <CardHeader>
+            <CardTitle className="text-base">Pending invites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
+              {invites.map((invite) => (
+                <li
+                  key={invite.id}
+                  className="flex flex-wrap items-center justify-between gap-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar fallback={invite.email} size="sm" />
+                    <div>
+                      <p className="text-foreground text-sm font-medium">{invite.email}</p>
+                      <p className="text-ink-500 dark:text-ink-400 text-[11px]">
+                        {describeRole(invite.role, invite.customPermissions)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <Badge variant="subtle" size="sm" shape="pill">
+                      Expires {new Date(invite.expiresAt).toLocaleDateString()}
+                    </Badge>
+                    {canInvite ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => run(() => revokeInviteAction(invite.id))}
+                        className="text-mkrose-600 hover:text-mkrose-700"
+                      >
+                        Revoke
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <section className="border-border rounded-lg border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Team</h2>
-        {members.length === 0 ? (
-          <p className="text-muted-foreground mt-2 text-sm">No members yet.</p>
-        ) : (
-          <ul className="divide-border mt-3 divide-y text-sm">
-            {members.map((member) => (
-              <MemberRow
-                key={member.membershipId}
-                member={member}
-                isCurrentUser={member.userId === currentUserId}
-                currentUserRole={currentUserRole}
-                pending={isPending}
-                roleOptions={roleOptions}
-                canEdit={canEdit}
-                canRemove={canRemove}
-                onSave={(payload) => run(() => changeRoleAction(payload))}
-                onRemove={(membershipId, email) => {
-                  if (window.confirm(`Remove ${email}?`)) {
-                    run(() => removeStaffAction(membershipId));
-                  }
-                }}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
+      <Card variant="surface" radius="lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Team</CardTitle>
+            <Badge variant="subtle" size="sm" shape="pill">
+              {members.length} member{members.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <EmptyState
+              compact
+              title="No team members yet"
+              description="Invite people above to give them dashboard access."
+            />
+          ) : (
+            <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
+              {members.map((member) => (
+                <MemberRow
+                  key={member.membershipId}
+                  member={member}
+                  isCurrentUser={member.userId === currentUserId}
+                  currentUserRole={currentUserRole}
+                  pending={isPending}
+                  roleOptions={roleOptions}
+                  canEdit={canEdit}
+                  canRemove={canRemove}
+                  onSave={(payload) => run(() => changeRoleAction(payload))}
+                  onRemove={(membershipId, email) => {
+                    if (window.confirm(`Remove ${email}?`)) {
+                      run(() => removeStaffAction(membershipId));
+                    }
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      {error ? (
-        <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
-      ) : null}
-    </>
+      {error ? <FieldError>{error}</FieldError> : null}
+    </div>
   );
 }

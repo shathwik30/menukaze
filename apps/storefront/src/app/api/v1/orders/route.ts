@@ -10,7 +10,13 @@ import {
   upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectIds } from '@menukaze/db/object-id';
-import { computeTax, resolvePrimaryStationId, validateModifierSelection } from '@menukaze/shared';
+import {
+  computeTax,
+  DEFAULT_PREP_MINUTES,
+  orderWebhookApiChannel,
+  resolvePrimaryStationId,
+  validateModifierSelection,
+} from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey } from '../_lib/auth';
 import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
 
@@ -179,7 +185,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const publicOrderId = generatePublicOrderId();
   const now = new Date();
-  const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
+  const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
   const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
 
   const order = await Order.create({
@@ -222,7 +228,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     data: {
       id: String(order._id),
       public_order_id: publicOrderId,
-      channel: { id: ctx.channel.id, name: ctx.channel.name, type: 'api' },
+      channel: orderWebhookApiChannel(ctx.channel.id, ctx.channel.name),
       type: input.type,
       total_minor: totalMinor,
       currency: restaurant.currency,

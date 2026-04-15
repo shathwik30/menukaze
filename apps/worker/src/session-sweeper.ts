@@ -1,5 +1,5 @@
 import { getMongoConnection, getModels, getRestaurantSupportRecipients } from '@menukaze/db';
-import { captureException } from '@menukaze/monitoring';
+import { captureException, captureMessage } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { env } from './env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
@@ -12,6 +12,7 @@ import {
 
 export const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
 const MAX_SESSIONS_PER_SWEEP = 200;
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
 export interface SweepResult {
   scanned: number;
@@ -27,7 +28,11 @@ async function sendNeedsReviewEmail(input: {
   happenedAt: string;
 }): Promise<void> {
   if (env.MENUKAZE_SKIP_EMAIL) {
-    console.info(`[email:skip] to=${input.to} subject="Payment review needed"`);
+    captureMessage('email send skipped (MENUKAZE_SKIP_EMAIL=true)', 'info', {
+      surface: 'worker:session-sweeper',
+      to: input.to,
+      subject: 'Payment review needed',
+    });
     return;
   }
 
@@ -55,7 +60,7 @@ async function sendNeedsReviewEmail(input: {
     'Open the dashboard and settle the table manually before releasing it.',
   ].join('\n');
 
-  const response = await fetch('https://api.resend.com/emails', {
+  const response = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,

@@ -11,6 +11,7 @@ import {
   type OrderStatus,
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
+import { Badge, Card, EmptyState, cn, type BadgeProps } from '@menukaze/ui';
 
 export interface OrderRow {
   id: string;
@@ -29,16 +30,111 @@ interface Props {
   initialRows: OrderRow[];
 }
 
-const STATUS_CLASSES: Record<string, string> = {
-  received: 'bg-slate-100 text-slate-700',
-  confirmed: 'bg-blue-100 text-blue-800',
-  preparing: 'bg-amber-100 text-amber-800',
-  ready: 'bg-emerald-100 text-emerald-800',
-  served: 'bg-teal-100 text-teal-800',
-  out_for_delivery: 'bg-violet-100 text-violet-800',
-  delivered: 'bg-violet-100 text-violet-900',
-  completed: 'bg-zinc-100 text-zinc-700',
-  cancelled: 'bg-red-100 text-red-800',
+const STATUS_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
+  received: 'subtle',
+  confirmed: 'info',
+  preparing: 'warning',
+  ready: 'success',
+  served: 'accent',
+  out_for_delivery: 'info',
+  delivered: 'success',
+  completed: 'subtle',
+  cancelled: 'danger',
+};
+
+const CHANNEL_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  online: {
+    label: 'Online',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden
+      >
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="M8 20h8" />
+      </svg>
+    ),
+  },
+  qr: {
+    label: 'QR',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden
+      >
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <path d="M14 14h3v3h-3zM20 14h1M14 20h1M20 17v3h-3" />
+      </svg>
+    ),
+  },
+  kiosk: {
+    label: 'Kiosk',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden
+      >
+        <rect x="3" y="2" width="18" height="16" rx="2" />
+        <path d="M12 18v4M8 22h8" />
+      </svg>
+    ),
+  },
+  walkin: {
+    label: 'Walk-in',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden
+      >
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+      </svg>
+    ),
+  },
+  api: {
+    label: 'API',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden
+      >
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    ),
+  },
 };
 
 export function OrdersLive({ restaurantId, initialRows }: Props) {
@@ -83,66 +179,131 @@ export function OrdersLive({ restaurantId, initialRows }: Props) {
   );
 
   return (
-    <>
-      <div className="text-muted-foreground text-xs">
-        {connected ? 'Live · updating in real time' : 'Connecting…'}
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-2 text-xs">
+        <span
+          className={cn(
+            'relative inline-flex size-2 rounded-full',
+            connected ? 'bg-jade-500' : 'bg-ink-400 dark:bg-ink-600',
+          )}
+        >
+          {connected ? (
+            <span className="bg-jade-500 absolute inset-0 animate-ping rounded-full opacity-50" />
+          ) : null}
+        </span>
+        <span className="text-ink-700 dark:text-ink-300 font-medium">
+          {connected ? 'Live · receiving real-time updates' : 'Connecting to live feed…'}
+        </span>
       </div>
 
-      <Section title={`Active (${active.length})`} rows={active} />
-      <Section title={`Archived (${archived.length})`} rows={archived} dimmed />
-    </>
+      <Section title="Active" count={active.length} rows={active} />
+      <Section title="Completed &amp; cancelled" count={archived.length} rows={archived} dimmed />
+    </div>
   );
 }
 
-function Section({ title, rows, dimmed }: { title: string; rows: OrderRow[]; dimmed?: boolean }) {
+function Section({
+  title,
+  count,
+  rows,
+  dimmed,
+}: {
+  title: string;
+  count: number;
+  rows: OrderRow[];
+  dimmed?: boolean;
+}) {
   return (
-    <section className="border-border rounded-lg border p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide">{title}</h2>
+    <Card variant="surface" radius="lg" className="overflow-hidden">
+      <div className="border-ink-100 dark:border-ink-800 flex items-center justify-between border-b px-6 py-4">
+        <h2 className="text-ink-600 dark:text-ink-400 text-[13px] font-semibold uppercase tracking-[0.14em]">
+          <span dangerouslySetInnerHTML={{ __html: title }} />
+        </h2>
+        <Badge variant="subtle" size="sm" shape="pill">
+          {count}
+        </Badge>
+      </div>
       {rows.length === 0 ? (
-        <p className="text-muted-foreground mt-2 text-sm">No orders in this bucket.</p>
+        <div className="p-4">
+          <EmptyState
+            compact
+            title={dimmed ? 'No archived orders' : 'No active orders right now'}
+            description={
+              dimmed
+                ? 'Completed and cancelled orders will appear here.'
+                : 'New orders appear instantly as they come in.'
+            }
+          />
+        </div>
       ) : (
-        <ul
-          className={
-            dimmed ? 'divide-border mt-2 divide-y opacity-70' : 'divide-border mt-2 divide-y'
-          }
-        >
+        <ul className={cn('divide-ink-100 dark:divide-ink-800 divide-y', dimmed && 'opacity-85')}>
           {rows.map((row) => {
-            const pickupNumber = formatPickupNumber(row.publicOrderId);
+            const pickup = formatPickupNumber(row.publicOrderId);
+            const channel = CHANNEL_META[row.channel] ?? {
+              label: row.channel,
+              icon: null,
+            };
             return (
-              <li key={row.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                <div className="min-w-0">
-                  <p className="text-foreground font-medium">
-                    <span className="font-mono text-base font-semibold">#{pickupNumber}</span>{' '}
-                    <span className="text-muted-foreground font-mono text-xs">
-                      {row.publicOrderId}
-                    </span>{' '}
-                    <span className="text-muted-foreground text-xs font-normal">
-                      · {row.customerName}
+              <li key={row.id}>
+                <Link
+                  href={`/admin/orders/${row.id}`}
+                  className="hover:bg-canvas-100/60 dark:hover:bg-ink-900/60 group flex items-center justify-between gap-4 px-6 py-4 transition-colors"
+                >
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="bg-canvas-100 ring-ink-200 dark:bg-ink-800 dark:ring-ink-700 flex size-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset">
+                      <span className="mk-nums text-foreground font-mono text-[13px] font-semibold tabular-nums tracking-tight">
+                        #{pickup}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-foreground flex items-center gap-2 text-sm font-semibold">
+                        {row.customerName}
+                        <span className="text-ink-400 dark:text-ink-500 font-mono text-[11px] font-normal">
+                          {row.publicOrderId}
+                        </span>
+                      </p>
+                      <p className="text-ink-500 dark:text-ink-400 mt-0.5 flex items-center gap-3 text-[12px]">
+                        <span className="inline-flex items-center gap-1">
+                          {channel.icon} {channel.label}
+                        </span>
+                        <span className="bg-ink-300 dark:bg-ink-600 size-1 rounded-full" />
+                        <span className="capitalize">{row.type.replace('_', ' ')}</span>
+                        <span className="bg-ink-300 dark:bg-ink-600 size-1 rounded-full" />
+                        <span>
+                          {new Date(row.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge variant={STATUS_VARIANT[row.status] ?? 'subtle'} size="sm" shape="pill">
+                      {row.status.replace(/_/g, ' ')}
+                    </Badge>
+                    <span className="mk-nums text-foreground hidden font-serif text-base font-medium tabular-nums sm:inline">
+                      {row.totalLabel}
                     </span>
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {row.channel} · {row.type} · {new Date(row.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${STATUS_CLASSES[row.status] ?? 'bg-muted text-muted-foreground'}`}
-                  >
-                    {row.status}
-                  </span>
-                  <span className="text-foreground font-mono text-sm">{row.totalLabel}</span>
-                  <Link
-                    href={`/admin/orders/${row.id}`}
-                    className="text-foreground text-xs underline"
-                  >
-                    Open
-                  </Link>
-                </div>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-ink-400 group-hover:text-ink-700 dark:text-ink-500 dark:group-hover:text-canvas-100 size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
+                      aria-hidden
+                    >
+                      <path d="M5 12h14M13 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </Link>
               </li>
             );
           })}
         </ul>
       )}
-    </section>
+    </Card>
   );
 }

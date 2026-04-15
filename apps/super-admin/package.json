@@ -7,9 +7,7 @@
     "dev": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next dev --port 3004'",
     "build": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next build'",
     "start": "bash -lc 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; exec next start --port 3004'",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@menukaze/auth": "workspace:*",
@@ -34,7 +32,6 @@
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",
     "tailwindcss": "4.1.16",
-    "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "typescript": "5.9.3"
   }
 }

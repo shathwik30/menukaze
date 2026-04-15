@@ -1,11 +1,16 @@
 /**
  * Predefined role-to-flag mapping. Custom roles override the flag set
  * with their own. Roles are resolved at request time by `resolveFlags`.
+ *
+ * `StaffRole` is re-exported from `@menukaze/shared` so the Mongoose
+ * models, Zod schemas, and rbac flag tables all share a single literal
+ * union.
  */
 
+import type { StaffRole } from '@menukaze/shared';
 import { ALL_FLAGS, FLAGS, isFlag, type Flag } from './flags';
 
-export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen' | 'cashier' | 'custom';
+export type { StaffRole };
 
 const f = (...flags: Flag[]): ReadonlySet<Flag> => new Set(flags);
 

@@ -4,13 +4,14 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { computeTax, type TaxRule } from '@menukaze/shared';
+import { Badge, Button, Card, FieldError, Input, Label, cn } from '@menukaze/ui';
 import { cartLineKey, cartSubtotalMinor, useCart } from '@/stores/cart';
 import {
   createPaymentIntentAction,
   verifyPaymentAction,
   type CheckoutInput,
 } from '@/app/actions/checkout';
-import { computeTax, type TaxRule } from '@menukaze/shared';
 
 interface Props {
   restaurantId: string;
@@ -92,15 +93,33 @@ export function CheckoutForm({
 
   if (lines.length === 0) {
     return (
-      <div className="border-border rounded-lg border p-6 text-center">
-        <p className="text-muted-foreground text-sm">Your cart is empty.</p>
-        <Link
-          href="/"
-          className="bg-primary text-primary-foreground mt-4 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
-        >
-          Browse menu
+      <Card variant="surface" radius="lg" className="px-6 py-16 text-center">
+        <div className="bg-canvas-200 text-ink-700 dark:bg-ink-800 dark:text-ink-300 mx-auto flex size-14 items-center justify-center rounded-2xl">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-6"
+            aria-hidden
+          >
+            <circle cx="8" cy="21" r="1" />
+            <circle cx="19" cy="21" r="1" />
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+          </svg>
+        </div>
+        <h2 className="text-foreground mt-4 font-serif text-xl font-medium">Your cart is empty</h2>
+        <p className="text-ink-500 dark:text-ink-400 mt-1 text-sm">
+          Pick a few dishes to get started.
+        </p>
+        <Link href="/" className="mt-6 inline-flex">
+          <Button variant="primary" size="md">
+            Browse menu
+          </Button>
         </Link>
-      </div>
+      </Card>
     );
   }
 
@@ -129,7 +148,7 @@ export function CheckoutForm({
     }
 
     if (typeof window === 'undefined' || !window.Razorpay) {
-      setError('Razorpay checkout failed to load. Please refresh and try again.');
+      setError('Payment is loading — please retry in a moment.');
       setSubmitting(false);
       return;
     }
@@ -146,6 +165,7 @@ export function CheckoutForm({
         email: intent.customer.email,
         ...(intent.customer.phone ? { contact: intent.customer.phone } : {}),
       },
+      theme: { color: '#c38d3a' },
       handler: (response) => {
         void (async () => {
           const verified = await verifyPaymentAction({
@@ -175,178 +195,291 @@ export function CheckoutForm({
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
-      <section className="border-border rounded-lg border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Order summary</h2>
-        <ul className="divide-border mt-3 divide-y">
+      <Card variant="surface" radius="lg" className="overflow-hidden">
+        <div className="border-ink-100 dark:border-ink-800 flex items-center justify-between border-b px-6 py-4">
+          <h2 className="text-ink-600 dark:text-ink-400 text-sm font-semibold uppercase tracking-[0.14em]">
+            Your order
+          </h2>
+          <span className="text-ink-500 dark:text-ink-400 text-sm">
+            {lines.reduce((acc, l) => acc + l.quantity, 0)} items
+          </span>
+        </div>
+        <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
           {lines.map((line) => {
             const key = cartLineKey(line);
             const unitMinor =
               line.priceMinor + line.modifiers.reduce((s, m) => s + m.priceMinor, 0);
             return (
-              <li key={key} className="flex items-start justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-foreground truncate font-medium">{line.name}</p>
-                  {line.modifiers.length > 0 ? (
-                    <p className="text-muted-foreground text-xs">
-                      {line.modifiers.map((m) => m.optionName).join(', ')}
-                    </p>
-                  ) : null}
-                  {line.notes ? (
-                    <p className="text-muted-foreground text-xs italic">{line.notes}</p>
-                  ) : null}
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => decrement(key)}
-                      className="border-input h-7 w-7 rounded-md border text-sm"
-                      aria-label="Decrease"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-sm">{line.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => increment(key)}
-                      className="border-input h-7 w-7 rounded-md border text-sm"
-                      aria-label="Increase"
-                    >
-                      +
-                    </button>
+              <li key={key} className="flex items-start justify-between gap-4 px-6 py-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-foreground truncate font-serif text-base font-medium">
+                        {line.name}
+                      </p>
+                      {line.modifiers.length > 0 ? (
+                        <p className="text-ink-500 dark:text-ink-400 mt-0.5 text-[12.5px]">
+                          {line.modifiers.map((m) => m.optionName).join(' · ')}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="mk-nums text-foreground shrink-0 font-serif text-base font-medium tabular-nums">
+                      {formatMoney(unitMinor * line.quantity)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="border-ink-200 bg-surface dark:border-ink-700 dark:bg-ink-800 inline-flex items-center rounded-full border p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => decrement(key)}
+                        className="text-ink-600 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-700 flex size-7 items-center justify-center rounded-full transition-colors"
+                        aria-label="Decrease"
+                      >
+                        −
+                      </button>
+                      <span className="mk-nums w-7 text-center text-sm font-medium tabular-nums">
+                        {line.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => increment(key)}
+                        className="text-ink-600 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-700 flex size-7 items-center justify-center rounded-full transition-colors"
+                        aria-label="Increase"
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => remove(key)}
-                      className="text-muted-foreground ml-2 text-xs underline"
+                      className="text-ink-500 hover:text-mkrose-700 dark:text-ink-400 dark:hover:text-mkrose-400 ml-1 text-xs underline-offset-4 transition-colors hover:underline"
                     >
                       Remove
                     </button>
                   </div>
-                  <input
+                  <Input
                     type="text"
                     value={line.notes ?? ''}
                     onChange={(event) => setNotes(key, event.target.value)}
                     placeholder="Special instructions (optional)"
                     maxLength={200}
-                    className="border-input bg-background mt-2 h-8 w-full rounded-md border px-2 text-xs"
+                    className="mt-3 h-9 text-[13px]"
                   />
                 </div>
-                <span className="text-foreground shrink-0 font-mono text-sm">
-                  {formatMoney(unitMinor * line.quantity)}
-                </span>
               </li>
             );
           })}
         </ul>
-        <div className="border-border mt-3 flex flex-col gap-1 border-t pt-3 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-mono">{formatMoney(subtotal)}</span>
-          </div>
-          {taxMinor > 0 ? (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Tax</span>
-              <span className="font-mono">{formatMoney(taxMinor)}</span>
-            </div>
-          ) : null}
+
+        <div className="border-ink-100 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/60 space-y-1.5 border-t px-6 py-4 text-sm">
+          <Row label="Subtotal" value={formatMoney(subtotal)} />
+          {taxMinor > 0 ? <Row label="Tax" value={formatMoney(taxMinor)} /> : null}
           {orderType === 'delivery' && deliveryFeeMinor > 0 ? (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Delivery fee</span>
-              <span className="font-mono">{formatMoney(deliveryFeeMinor)}</span>
-            </div>
+            <Row label="Delivery fee" value={formatMoney(deliveryFeeMinor)} />
           ) : null}
-          <div className="flex items-center justify-between font-semibold">
-            <span>Total</span>
-            <span className="font-mono text-base">{formatMoney(total)}</span>
+          <div className="border-ink-200 dark:border-ink-700 mt-3 flex items-center justify-between border-t pt-3">
+            <span className="font-serif text-lg font-medium">Total</span>
+            <span className="mk-nums font-serif text-2xl font-medium tabular-nums tracking-tight">
+              {formatMoney(total)}
+            </span>
           </div>
         </div>
-        {belowMinimum ? (
-          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-xs">
-            Minimum order is {formatMoney(minimumOrderMinor)}. Add more items to continue.
-          </p>
-        ) : null}
-        <p className="text-muted-foreground mt-3 text-xs">
-          Estimated ready in ~{estimatedPrepMinutes} minutes after confirmation.
-        </p>
-      </section>
 
-      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
-        <fieldset className="border-border flex gap-2 rounded-md border p-2">
-          <legend className="text-muted-foreground px-1 text-xs uppercase tracking-wide">
+        {belowMinimum ? (
+          <div className="border-mkrose-200 bg-mkrose-50 text-mkrose-800 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-300 border-t px-6 py-3 text-[13px] font-medium">
+            Minimum order is {formatMoney(minimumOrderMinor)}. Add a little more to continue.
+          </div>
+        ) : null}
+        <div className="border-ink-100 bg-canvas-50 text-ink-500 dark:border-ink-800 dark:bg-ink-900/60 dark:text-ink-400 flex items-center gap-2 border-t px-6 py-3 text-xs">
+          <ClockIcon />
+          Ready in ~{estimatedPrepMinutes} minutes after confirmation
+        </div>
+      </Card>
+
+      <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6">
+        <fieldset>
+          <legend className="text-ink-600 dark:text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
             Order type
           </legend>
-          <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="orderType"
-              value="pickup"
-              checked={orderType === 'pickup'}
-              onChange={() => setOrderType('pickup')}
-            />
-            Pickup
-          </label>
-          <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="orderType"
-              value="delivery"
-              checked={orderType === 'delivery'}
-              onChange={() => setOrderType('delivery')}
-            />
-            Delivery
-          </label>
+          <div className="border-ink-200 bg-canvas-100 dark:border-ink-800 dark:bg-ink-900 grid grid-cols-2 gap-2 rounded-xl border p-1">
+            {(['pickup', 'delivery'] as const).map((type) => {
+              const active = orderType === type;
+              return (
+                <label
+                  key={type}
+                  className={cn(
+                    'relative flex cursor-pointer items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium capitalize transition-all duration-200',
+                    active
+                      ? 'bg-surface text-ink-950 ring-ink-200 dark:bg-ink-700 dark:text-canvas-50 dark:ring-ink-600 shadow-sm ring-1'
+                      : 'text-ink-500 hover:text-ink-900 dark:text-ink-400 dark:hover:text-canvas-100',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="orderType"
+                    value={type}
+                    checked={active}
+                    onChange={() => setOrderType(type)}
+                    className="sr-only"
+                  />
+                  {type === 'pickup' ? <BagIcon /> : <TruckIcon />}
+                  {type}
+                </label>
+              );
+            })}
+          </div>
         </fieldset>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Name</span>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="border-input bg-background h-10 rounded-md border px-3 text-sm"
-            autoComplete="name"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Email</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border-input bg-background h-10 rounded-md border px-3 text-sm"
-            autoComplete="email"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Phone (optional)</span>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="border-input bg-background h-10 rounded-md border px-3 text-sm"
-            autoComplete="tel"
-          />
-        </label>
+        <div className="grid gap-5">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="co-name" required>
+              Name
+            </Label>
+            <Input
+              id="co-name"
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              placeholder="Jane Doe"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="co-email" required>
+              Email
+            </Label>
+            <Input
+              id="co-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              placeholder="jane@example.com"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="co-phone">Phone</Label>
+            <Input
+              id="co-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              placeholder="For SMS order updates"
+            />
+          </div>
+        </div>
 
-        {error ? (
-          <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
-        ) : null}
+        {error ? <FieldError>{error}</FieldError> : null}
 
         {!razorpayReady ? (
-          <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-xs">
-            This restaurant hasn&apos;t finished setting up payments yet, so orders can&apos;t be
-            placed just now.
-          </p>
+          <div className="border-ink-200 bg-canvas-100 text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300 rounded-lg border px-4 py-3 text-xs">
+            <Badge variant="warning" size="xs" shape="pill" className="mb-2">
+              Setup incomplete
+            </Badge>
+            <p>{restaurantName} is still finishing payment setup — ordering will be live soon.</p>
+          </div>
         ) : null}
 
-        <button
+        <Button
           type="submit"
+          size="xl"
+          variant="primary"
+          full
+          loading={submitting}
           disabled={submitting || !razorpayReady || belowMinimum}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-medium disabled:opacity-50"
         >
-          {submitting ? 'Processing…' : `Pay ${formatMoney(total)}`}
-        </button>
+          {submitting ? 'Processing' : `Pay ${formatMoney(total)}`}
+        </Button>
+
+        <p className="text-ink-400 dark:text-ink-500 flex items-center justify-center gap-1.5 text-[11px]">
+          <LockIcon />
+          Secured by Razorpay · PCI-DSS compliant
+        </p>
       </form>
     </>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-ink-600 dark:text-ink-400">{label}</span>
+      <span className="mk-nums text-foreground font-mono tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+function BagIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      aria-hidden
+    >
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+      <path d="M3 6h18" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+function TruckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      aria-hidden
+    >
+      <path d="M5 18H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h11v13" />
+      <path d="M14 9h4l4 4v5h-2" />
+      <circle cx="7" cy="18" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </svg>
+  );
+}
+function LockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3"
+      aria-hidden
+    >
+      <rect width="18" height="11" x="3" y="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
   );
 }

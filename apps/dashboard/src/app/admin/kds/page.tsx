@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { Badge, Eyebrow, cn } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { KdsBoard, type KdsCard, type KdsLine, type KdsStation } from './kds-board';
 
@@ -9,13 +10,6 @@ interface PageProps {
   searchParams: Promise<{ station?: string }>;
 }
 
-/**
- * Kitchen display system. Shows every open order. When the `?station=X`
- * query param is set, the board scopes to a single station: only orders
- * with at least one line for that station appear, and only that station's
- * lines are shown / actionable. Without a station filter, the board acts as
- * the legacy single-screen KDS for the full feed.
- */
 export default async function KdsPage({ searchParams }: PageProps) {
   const { session, restaurantId } = await requirePageFlag(['kds.view']);
   const params = await searchParams;
@@ -87,45 +81,65 @@ export default async function KdsPage({ searchParams }: PageProps) {
     name: s.name,
     color: s.color ?? null,
   }));
+  const activeStation = stationFilter ? stationOptions.find((s) => s.id === stationFilter) : null;
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 p-6">
-      <header className="flex items-center justify-between">
+    <div className="flex min-h-screen flex-col gap-5 px-6 py-6 sm:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Kitchen Display</h1>
-          <p className="text-muted-foreground text-sm">{restaurant?.name}</p>
+          <Eyebrow tone="accent">
+            <span className="bg-mkrose-500 relative inline-flex size-2 rounded-full">
+              <span className="bg-mkrose-500 absolute inset-0 animate-ping rounded-full opacity-60" />
+            </span>
+            Kitchen display · Live
+          </Eyebrow>
+          <h1 className="text-foreground mt-2 font-serif text-3xl font-medium tracking-tight sm:text-4xl">
+            {activeStation ? `${activeStation.name} station` : 'Kitchen Display'}
+          </h1>
+          <p className="text-ink-500 dark:text-ink-400 mt-1 text-sm">
+            {restaurant?.name} · {cards.length} open ticket{cards.length === 1 ? '' : 's'}
+          </p>
         </div>
-        <Link href="/admin" className="border-input text-sm underline underline-offset-4">
-          ← Back
-        </Link>
       </header>
 
       {stationOptions.length > 0 ? (
-        <nav className="flex flex-wrap items-center gap-2 text-xs">
+        <nav className="flex flex-wrap items-center gap-2">
           <Link
             href="/admin/kds"
-            className={`border-border rounded-md border px-2 py-1 ${
-              stationFilter ? 'hover:bg-muted' : 'bg-foreground text-background'
-            }`}
+            className={cn(
+              'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-medium transition-colors',
+              !stationFilter
+                ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
+                : 'bg-canvas-100 text-ink-700 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
+            )}
           >
             All stations
+            <Badge variant="subtle" size="xs" shape="pill" className="ml-2 bg-transparent">
+              {stationOptions.length}
+            </Badge>
           </Link>
-          {stationOptions.map((station) => (
-            <Link
-              key={station.id}
-              href={`/admin/kds?station=${encodeURIComponent(station.id)}`}
-              className={`border-border rounded-md border px-2 py-1 ${
-                stationFilter === station.id ? 'bg-foreground text-background' : 'hover:bg-muted'
-              }`}
-            >
-              {station.name}
-            </Link>
-          ))}
+          {stationOptions.map((station) => {
+            const active = stationFilter === station.id;
+            return (
+              <Link
+                key={station.id}
+                href={`/admin/kds?station=${encodeURIComponent(station.id)}`}
+                className={cn(
+                  'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-medium transition-colors',
+                  active
+                    ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
+                    : 'bg-canvas-100 text-ink-700 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
+                )}
+              >
+                {station.name}
+              </Link>
+            );
+          })}
           <Link
             href="/admin/stations"
-            className="text-muted-foreground ml-auto underline-offset-2 hover:underline"
+            className="text-ink-500 hover:text-ink-950 dark:text-ink-400 dark:hover:text-canvas-50 ml-auto text-xs font-medium underline-offset-4 hover:underline"
           >
-            Manage stations
+            Manage stations →
           </Link>
         </nav>
       ) : null}
@@ -135,6 +149,6 @@ export default async function KdsPage({ searchParams }: PageProps) {
         initialCards={cards}
         stationFilter={stationFilter}
       />
-    </main>
+    </div>
   );
 }

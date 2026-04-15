@@ -1,4 +1,5 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { WEEKDAYS, type Weekday } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -15,7 +16,7 @@ export interface MenuDoc {
   order: number;
   /** Optional schedule. Empty means the menu is always active. */
   schedule?: {
-    days: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[];
+    days: Weekday[];
     startTime: string;
     endTime: string;
   };
@@ -29,7 +30,7 @@ const menuSchema = new Schema<MenuDoc>(
     name: { type: String, required: true, maxlength: 120 },
     order: { type: Number, default: 0 },
     schedule: {
-      days: { type: [String], enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+      days: { type: [String], enum: WEEKDAYS },
       startTime: String,
       endTime: String,
     },

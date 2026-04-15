@@ -22,8 +22,8 @@ export function resolvePrimaryStationId<T extends string | { toString(): string 
  * Rule: order is `ready` only if every line is ready. If any line is
  * `preparing`, the order is `preparing`. Otherwise it's still `received`.
  */
-export type OrderLineStatus = 'received' | 'preparing' | 'ready';
-export type DerivedOrderStage = 'received' | 'preparing' | 'ready';
+import type { OrderLineStatus } from './domain';
+export type DerivedOrderStage = OrderLineStatus;
 
 export function deriveOrderStage(lineStatuses: readonly OrderLineStatus[]): DerivedOrderStage {
   if (lineStatuses.length === 0) return 'received';

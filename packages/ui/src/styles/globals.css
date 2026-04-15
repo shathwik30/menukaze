@@ -1,81 +1,327 @@
 /*
- * Menukaze design tokens — Tailwind 4 CSS-first config + shadcn slate theme.
+ * Menukaze Design System — "Atelier"
+ * A premium, editorial, food-forward design language for a restaurant SaaS.
  *
- * Apps import this file once at the root layout:
+ * Consumed by every app via:
  *   import '@menukaze/ui/styles.css';
  *
- * Tailwind 4 reads the @theme block to derive utility classes — no
- * tailwind.config.ts needed. To customize, override these CSS variables in
- * the consuming app's own CSS file.
+ * Fonts are loaded via next/font in each app's layout.tsx and bound to the
+ * --font-sans / --font-serif / --font-mono CSS variables on <html>.
  */
 
 @import 'tailwindcss';
 
+/*
+ * Tell Tailwind 4 to scan the UI package's own source so classes used by the
+ * shared components (bg-saffron-500, text-ink-950, etc.) are included in
+ * every consuming app's generated CSS. Path is resolved relative to this file.
+ */
+@source '../../src/**/*.{ts,tsx}';
+
+/*
+ * Dark mode is opt-in via the `.dark` class (or [data-theme="dark"]) on any
+ * ancestor — NOT via prefers-color-scheme. Without this override, Tailwind 4
+ * fires every `dark:*` utility whenever the OS is in dark mode, which
+ * conflicts with our explicit light-theme defaults.
+ */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* ===========================================================
+     * Primitive palette (OKLCH — perceptually uniform)
+     * =========================================================== */
 
+    /* Ink — warm near-black progression (text, dark surfaces) */
+    --mk-ink-50: oklch(0.98 0.003 72);
+    --mk-ink-100: oklch(0.96 0.004 74);
+    --mk-ink-200: oklch(0.92 0.005 76);
+    --mk-ink-300: oklch(0.86 0.006 78);
+    --mk-ink-400: oklch(0.72 0.008 80);
+    --mk-ink-500: oklch(0.54 0.01 82);
+    --mk-ink-600: oklch(0.42 0.012 84);
+    --mk-ink-700: oklch(0.32 0.014 86);
+    --mk-ink-800: oklch(0.22 0.015 88);
+    --mk-ink-900: oklch(0.14 0.016 90);
+    --mk-ink-950: oklch(0.085 0.017 92);
+
+    /* Canvas — warm off-white surfaces (bg, cards in light mode) */
+    --mk-canvas-50: oklch(0.995 0.003 82);
+    --mk-canvas-100: oklch(0.985 0.005 84);
+    --mk-canvas-200: oklch(0.97 0.006 86);
+    --mk-canvas-300: oklch(0.95 0.008 88);
+    --mk-canvas-400: oklch(0.92 0.009 90);
+
+    /* Saffron — signature brand accent (warm amber/spice) */
+    --mk-saffron-50: oklch(0.975 0.024 75);
+    --mk-saffron-100: oklch(0.94 0.055 72);
+    --mk-saffron-200: oklch(0.885 0.1 68);
+    --mk-saffron-300: oklch(0.815 0.14 62);
+    --mk-saffron-400: oklch(0.755 0.17 55);
+    --mk-saffron-500: oklch(0.695 0.185 48);
+    --mk-saffron-600: oklch(0.615 0.18 44);
+    --mk-saffron-700: oklch(0.515 0.16 42);
+    --mk-saffron-800: oklch(0.41 0.13 40);
+    --mk-saffron-900: oklch(0.325 0.1 38);
+    --mk-saffron-950: oklch(0.225 0.07 36);
+
+    /* Jade — verdant green for success / open / positive */
+    --mk-jade-50: oklch(0.965 0.025 158);
+    --mk-jade-100: oklch(0.92 0.055 160);
+    --mk-jade-200: oklch(0.85 0.085 162);
+    --mk-jade-300: oklch(0.76 0.115 165);
+    --mk-jade-400: oklch(0.68 0.13 168);
+    --mk-jade-500: oklch(0.59 0.14 172);
+    --mk-jade-600: oklch(0.49 0.13 174);
+    --mk-jade-700: oklch(0.39 0.11 176);
+    --mk-jade-800: oklch(0.3 0.09 178);
+    --mk-jade-900: oklch(0.225 0.07 180);
+    --mk-jade-950: oklch(0.16 0.05 182);
+
+    /* Rose — destructive / danger */
+    --mk-rose-50: oklch(0.97 0.02 15);
+    --mk-rose-100: oklch(0.93 0.045 15);
+    --mk-rose-200: oklch(0.86 0.085 15);
+    --mk-rose-300: oklch(0.77 0.13 16);
+    --mk-rose-400: oklch(0.69 0.17 18);
+    --mk-rose-500: oklch(0.615 0.2 22);
+    --mk-rose-600: oklch(0.535 0.2 24);
+    --mk-rose-700: oklch(0.435 0.18 26);
+    --mk-rose-800: oklch(0.34 0.15 28);
+    --mk-rose-900: oklch(0.26 0.11 30);
+    --mk-rose-950: oklch(0.18 0.08 32);
+
+    /* Lapis — info / neutral accent (cool counterpoint to saffron) */
+    --mk-lapis-50: oklch(0.965 0.02 250);
+    --mk-lapis-100: oklch(0.92 0.045 250);
+    --mk-lapis-200: oklch(0.855 0.08 250);
+    --mk-lapis-300: oklch(0.77 0.115 250);
+    --mk-lapis-400: oklch(0.68 0.14 250);
+    --mk-lapis-500: oklch(0.58 0.155 250);
+    --mk-lapis-600: oklch(0.49 0.15 252);
+    --mk-lapis-700: oklch(0.4 0.13 254);
+    --mk-lapis-800: oklch(0.31 0.1 256);
+    --mk-lapis-900: oklch(0.235 0.075 258);
+
+    /* ===========================================================
+     * Semantic tokens — Light theme (default)
+     * Prefixed with --mk- to avoid collision with Tailwind @theme
+     * variables which register under --color-*
+     * =========================================================== */
+
+    --mk-bg: var(--mk-canvas-50);
+    --mk-bg-subtle: var(--mk-canvas-100);
+    --mk-bg-muted: var(--mk-canvas-200);
+    --mk-bg-inverse: var(--mk-ink-950);
+
+    --mk-surface: #ffffff;
+    --mk-surface-subtle: var(--mk-canvas-100);
+    --mk-surface-raised: #ffffff;
+    --mk-surface-sunken: var(--mk-canvas-100);
+    --mk-surface-inverse: var(--mk-ink-900);
+    --mk-overlay: oklch(0.14 0.016 90 / 0.55);
+
+    --mk-fg: var(--mk-ink-950);
+    --mk-fg-subtle: var(--mk-ink-700);
+    --mk-fg-muted: var(--mk-ink-500);
+    --mk-fg-faint: var(--mk-ink-400);
+    --mk-fg-on-accent: #ffffff;
+    --mk-fg-inverse: var(--mk-canvas-50);
+
+    --mk-border: var(--mk-ink-200);
+    --mk-border-subtle: var(--mk-ink-100);
+    --mk-border-strong: var(--mk-ink-300);
+
+    --mk-accent: var(--mk-saffron-500);
+    --mk-accent-hover: var(--mk-saffron-600);
+    --mk-accent-active: var(--mk-saffron-700);
+    --mk-accent-subtle: var(--mk-saffron-50);
+    --mk-accent-muted: var(--mk-saffron-100);
+    --mk-accent-emphasis: var(--mk-saffron-700);
+
+    --mk-success: var(--mk-jade-600);
+    --mk-success-bg: var(--mk-jade-50);
+    --mk-success-fg: var(--mk-jade-700);
+
+    --mk-danger: var(--mk-rose-600);
+    --mk-danger-bg: var(--mk-rose-50);
+    --mk-danger-fg: var(--mk-rose-700);
+
+    --mk-info: var(--mk-lapis-600);
+    --mk-info-bg: var(--mk-lapis-50);
+    --mk-info-fg: var(--mk-lapis-700);
+
+    --mk-warning: var(--mk-saffron-600);
+    --mk-warning-bg: var(--mk-saffron-50);
+    --mk-warning-fg: var(--mk-saffron-800);
+
+    /* ===========================================================
+     * Typography
+     * Fonts are bound by each app via next/font → --font-sans etc.
+     * Fallbacks are carefully chosen to feel similar if CDN fails.
+     * =========================================================== */
+
+    --font-sans:
+      var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+      'Helvetica Neue', sans-serif;
+    --font-serif:
+      var(--font-fraunces), 'Fraunces', 'Instrument Serif', ui-serif, 'Iowan Old Style',
+      'Times New Roman', Georgia, serif;
+    --font-mono:
+      var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', 'Consolas',
+      monospace;
+
+    --tracking-tightest: -0.04em;
+    --tracking-tighter: -0.025em;
+    --tracking-tight: -0.015em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.015em;
+    --tracking-wider: 0.06em;
+    --tracking-widest: 0.16em;
+
+    /* ===========================================================
+     * Radii (premium, slightly rounder than default)
+     * =========================================================== */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-2xl: 28px;
+    --radius-3xl: 36px;
+    --radius-full: 9999px;
+
+    /* shadcn-compat alias */
+    --radius: 0.625rem;
+
+    /* ===========================================================
+     * Shadows (realistic, warm-tinted)
+     * =========================================================== */
+    --shadow-xs: 0 1px 2px 0 oklch(0.14 0.016 90 / 0.05);
+    --shadow-sm: 0 1px 2px 0 oklch(0.14 0.016 90 / 0.05), 0 1px 3px 0 oklch(0.14 0.016 90 / 0.03);
+    --shadow-md:
+      0 2px 4px -1px oklch(0.14 0.016 90 / 0.04), 0 4px 8px -2px oklch(0.14 0.016 90 / 0.06);
+    --shadow-lg:
+      0 4px 8px -2px oklch(0.14 0.016 90 / 0.05), 0 12px 24px -6px oklch(0.14 0.016 90 / 0.1);
+    --shadow-xl:
+      0 8px 16px -4px oklch(0.14 0.016 90 / 0.06), 0 20px 40px -12px oklch(0.14 0.016 90 / 0.14);
+    --shadow-2xl: 0 32px 64px -16px oklch(0.14 0.016 90 / 0.28);
+
+    --shadow-inner: inset 0 2px 4px 0 oklch(0.14 0.016 90 / 0.05);
+    --shadow-ring: 0 0 0 1px oklch(0.14 0.016 90 / 0.06);
+
+    --shadow-glow-saffron:
+      0 0 0 3px oklch(0.695 0.185 48 / 0.18), 0 10px 30px -8px oklch(0.615 0.18 44 / 0.42);
+    --shadow-glow-jade:
+      0 0 0 3px oklch(0.59 0.14 172 / 0.18), 0 10px 30px -8px oklch(0.49 0.13 174 / 0.42);
+
+    /* ===========================================================
+     * Motion (spring + ease curves)
+     * =========================================================== */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+    --dur-instant: 80ms;
+    --dur-fast: 150ms;
+    --dur-base: 220ms;
+    --dur-slow: 320ms;
+    --dur-slower: 500ms;
+    --dur-slowest: 800ms;
+
+    /* ===========================================================
+     * shadcn-compat HSL tokens (so legacy classes keep working)
+     * =========================================================== */
+    --background: 40 24% 99%;
+    --foreground: 30 10% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 30 10% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --popover-foreground: 30 10% 9%;
+    --primary: 30 10% 9%;
+    --primary-foreground: 40 24% 99%;
+    --secondary: 40 14% 95%;
+    --secondary-foreground: 30 10% 9%;
+    --muted: 40 14% 95%;
+    --muted-foreground: 30 6% 46%;
+    --accent: 40 14% 95%;
+    --accent-foreground: 30 10% 9%;
+    --destructive: 12 80% 52%;
+    --destructive-foreground: 40 24% 99%;
+    --border: 36 10% 88%;
+    --input: 36 10% 88%;
+    --ring: 36 92% 55%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+  .dark,
+  [data-theme='dark'] {
+    --mk-bg: var(--mk-ink-950);
+    --mk-bg-subtle: var(--mk-ink-900);
+    --mk-bg-muted: var(--mk-ink-800);
+    --mk-bg-inverse: var(--mk-canvas-50);
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --mk-surface: var(--mk-ink-900);
+    --mk-surface-subtle: var(--mk-ink-800);
+    --mk-surface-raised: var(--mk-ink-800);
+    --mk-surface-sunken: var(--mk-ink-950);
+    --mk-surface-inverse: var(--mk-canvas-50);
+    --mk-overlay: oklch(0.05 0.012 90 / 0.8);
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --mk-fg: var(--mk-canvas-50);
+    --mk-fg-subtle: var(--mk-ink-200);
+    --mk-fg-muted: var(--mk-ink-400);
+    --mk-fg-faint: var(--mk-ink-500);
+    --mk-fg-inverse: var(--mk-ink-950);
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --mk-border: var(--mk-ink-800);
+    --mk-border-subtle: var(--mk-ink-900);
+    --mk-border-strong: var(--mk-ink-700);
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --mk-accent: var(--mk-saffron-400);
+    --mk-accent-hover: var(--mk-saffron-300);
+    --mk-accent-active: var(--mk-saffron-200);
+    --mk-accent-subtle: oklch(0.755 0.17 55 / 0.12);
+    --mk-accent-muted: oklch(0.755 0.17 55 / 0.18);
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --mk-success-bg: oklch(0.59 0.14 172 / 0.14);
+    --mk-success-fg: var(--mk-jade-300);
+    --mk-danger-bg: oklch(0.615 0.2 22 / 0.14);
+    --mk-danger-fg: var(--mk-rose-300);
+    --mk-info-bg: oklch(0.58 0.155 250 / 0.14);
+    --mk-info-fg: var(--mk-lapis-300);
+    --mk-warning-bg: oklch(0.695 0.185 48 / 0.14);
+    --mk-warning-fg: var(--mk-saffron-200);
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* shadcn-compat */
+    --background: 30 10% 7%;
+    --foreground: 40 14% 96%;
+    --card: 30 10% 10%;
+    --card-foreground: 40 14% 96%;
+    --popover: 30 10% 10%;
+    --popover-foreground: 40 14% 96%;
+    --primary: 40 14% 96%;
+    --primary-foreground: 30 10% 9%;
+    --secondary: 30 8% 16%;
+    --secondary-foreground: 40 14% 96%;
+    --muted: 30 8% 16%;
+    --muted-foreground: 30 8% 66%;
+    --accent: 30 8% 18%;
+    --accent-foreground: 40 14% 96%;
+    --destructive: 12 70% 52%;
+    --destructive-foreground: 40 14% 96%;
+    --border: 30 8% 18%;
+    --input: 30 8% 22%;
+    --ring: 36 92% 55%;
   }
 }
 
-@theme {
+/* ===========================================================
+ * Tailwind 4 @theme — exposes tokens as utility classes
+ * =========================================================== */
+
+@theme inline {
+  /* shadcn-compat color utilities (bg-background, text-foreground, etc.) */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -96,17 +342,437 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  /* Menukaze premium palette */
+  --color-ink-50: var(--mk-ink-50);
+  --color-ink-100: var(--mk-ink-100);
+  --color-ink-200: var(--mk-ink-200);
+  --color-ink-300: var(--mk-ink-300);
+  --color-ink-400: var(--mk-ink-400);
+  --color-ink-500: var(--mk-ink-500);
+  --color-ink-600: var(--mk-ink-600);
+  --color-ink-700: var(--mk-ink-700);
+  --color-ink-800: var(--mk-ink-800);
+  --color-ink-900: var(--mk-ink-900);
+  --color-ink-950: var(--mk-ink-950);
+
+  --color-canvas-50: var(--mk-canvas-50);
+  --color-canvas-100: var(--mk-canvas-100);
+  --color-canvas-200: var(--mk-canvas-200);
+  --color-canvas-300: var(--mk-canvas-300);
+  --color-canvas-400: var(--mk-canvas-400);
+
+  --color-saffron-50: var(--mk-saffron-50);
+  --color-saffron-100: var(--mk-saffron-100);
+  --color-saffron-200: var(--mk-saffron-200);
+  --color-saffron-300: var(--mk-saffron-300);
+  --color-saffron-400: var(--mk-saffron-400);
+  --color-saffron-500: var(--mk-saffron-500);
+  --color-saffron-600: var(--mk-saffron-600);
+  --color-saffron-700: var(--mk-saffron-700);
+  --color-saffron-800: var(--mk-saffron-800);
+  --color-saffron-900: var(--mk-saffron-900);
+  --color-saffron-950: var(--mk-saffron-950);
+
+  --color-jade-50: var(--mk-jade-50);
+  --color-jade-100: var(--mk-jade-100);
+  --color-jade-200: var(--mk-jade-200);
+  --color-jade-300: var(--mk-jade-300);
+  --color-jade-400: var(--mk-jade-400);
+  --color-jade-500: var(--mk-jade-500);
+  --color-jade-600: var(--mk-jade-600);
+  --color-jade-700: var(--mk-jade-700);
+  --color-jade-800: var(--mk-jade-800);
+  --color-jade-900: var(--mk-jade-900);
+  --color-jade-950: var(--mk-jade-950);
+
+  --color-mkrose-50: var(--mk-rose-50);
+  --color-mkrose-100: var(--mk-rose-100);
+  --color-mkrose-200: var(--mk-rose-200);
+  --color-mkrose-300: var(--mk-rose-300);
+  --color-mkrose-400: var(--mk-rose-400);
+  --color-mkrose-500: var(--mk-rose-500);
+  --color-mkrose-600: var(--mk-rose-600);
+  --color-mkrose-700: var(--mk-rose-700);
+  --color-mkrose-800: var(--mk-rose-800);
+  --color-mkrose-900: var(--mk-rose-900);
+
+  --color-lapis-50: var(--mk-lapis-50);
+  --color-lapis-100: var(--mk-lapis-100);
+  --color-lapis-200: var(--mk-lapis-200);
+  --color-lapis-300: var(--mk-lapis-300);
+  --color-lapis-400: var(--mk-lapis-400);
+  --color-lapis-500: var(--mk-lapis-500);
+  --color-lapis-600: var(--mk-lapis-600);
+  --color-lapis-700: var(--mk-lapis-700);
+  --color-lapis-800: var(--mk-lapis-800);
+  --color-lapis-900: var(--mk-lapis-900);
+
+  /* Semantic surface tokens (themeable via .dark) */
+  --color-surface: var(--mk-surface);
+  --color-surface-subtle: var(--mk-surface-subtle);
+  --color-surface-raised: var(--mk-surface-raised);
+  --color-surface-sunken: var(--mk-surface-sunken);
+
+  /* Fonts */
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  /* Radii */
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+
+  /* Shadows */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+  --shadow-glow: var(--shadow-glow-saffron);
+  --shadow-glow-jade: var(--shadow-glow-jade);
+
+  /* Letter-spacing */
+  --tracking-tightest: -0.04em;
+  --tracking-tighter: -0.025em;
+  --tracking-tight: -0.015em;
+  --tracking-wide: 0.015em;
+  --tracking-wider: 0.06em;
+  --tracking-widest: 0.16em;
+
+  /* Motion curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Keyframes */
+  --animate-fade-in: fade-in var(--dur-base) var(--ease-out);
+  --animate-slide-up: slide-up var(--dur-slow) var(--ease-out);
+  --animate-slide-down: slide-down var(--dur-slow) var(--ease-out);
+  --animate-scale-in: scale-in var(--dur-base) var(--ease-spring);
+  --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-pulse-glow: pulse-glow 2s var(--ease-in-out) infinite;
+  --animate-aurora: aurora 16s ease-in-out infinite;
+  --animate-float: float 6s var(--ease-in-out) infinite;
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.695 0.185 48 / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px oklch(0.695 0.185 48 / 0);
+  }
+}
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate(30px, -40px) rotate(4deg) scale(1.05);
+  }
+  66% {
+    transform: translate(-30px, 30px) rotate(-4deg) scale(0.95);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ===========================================================
+ * Base layer — global element styles
+ * =========================================================== */
 
 @layer base {
   * {
     border-color: hsl(var(--border));
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    text-size-adjust: 100%;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss03';
+  }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--mk-saffron-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: oklch(0.885 0.1 68 / 0.6);
+    color: var(--mk-ink-950);
+  }
+
+  /* Typographic polish for the editorial serif */
+  .font-serif {
+    font-feature-settings: 'ss01', 'ss02', 'ss03';
+    font-variation-settings:
+      'opsz' 48,
+      'SOFT' 50;
+    letter-spacing: -0.015em;
+  }
+
+  /* Native form controls get a softer appearance */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+}
+
+/* ===========================================================
+ * Component utilities — reusable compositions
+ * =========================================================== */
+
+@layer components {
+  /* Film-grain noise texture for premium surfaces */
+  .mk-grain {
+    position: relative;
+  }
+  .mk-grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/></svg>");
+  }
+  .dark .mk-grain::after {
+    opacity: 0.05;
+    mix-blend-mode: screen;
+  }
+
+  /* Glassy panel (frosted surface) */
+  .mk-glass {
+    background: oklch(1 0 0 / 0.72);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid oklch(1 0 0 / 0.6);
+  }
+  .dark .mk-glass {
+    background: oklch(0.14 0.016 90 / 0.64);
+    border-color: oklch(1 0 0 / 0.08);
+  }
+
+  /* Hairline divider with a subtle highlight */
+  .mk-hairline {
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--mk-border) 20%,
+      var(--mk-border) 80%,
+      transparent
+    );
+    height: 1px;
+  }
+
+  /* Gradient text */
+  .mk-gradient-text {
+    background-image: linear-gradient(
+      135deg,
+      var(--mk-ink-950) 0%,
+      var(--mk-saffron-700) 55%,
+      var(--mk-saffron-500) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Aurora gradient mesh (animated) */
+  .mk-aurora {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    filter: blur(48px);
+    opacity: 0.6;
+  }
+  .mk-aurora::before,
+  .mk-aurora::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%, var(--mk-saffron-300) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 80% 20%, var(--mk-jade-300) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 70% 80%, var(--mk-saffron-400) 0%, transparent 60%);
+    animation: var(--animate-aurora);
+  }
+  .mk-aurora::after {
+    animation-delay: -8s;
+    opacity: 0.7;
+  }
+
+  /* Shimmer overlay for loading states */
+  .mk-shimmer {
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.3), transparent);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  /* Fine typographic small-caps */
+  .mk-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mk-fg-muted);
+  }
+
+  /* Editorial caps lockup (serif) */
+  .mk-display {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 0.95;
+  }
+  .mk-display-italic {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings:
+      'opsz' 72,
+      'SOFT' 100;
+    letter-spacing: -0.02em;
+  }
+
+  /* Tabular numerics for tables / money */
+  .mk-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'zero';
+  }
+
+  /* Subtle gold foil highlight (for premium badges, pro chips) */
+  .mk-foil {
+    background: linear-gradient(
+      120deg,
+      var(--mk-saffron-400) 0%,
+      var(--mk-saffron-200) 30%,
+      var(--mk-saffron-500) 50%,
+      var(--mk-saffron-300) 75%,
+      var(--mk-saffron-500) 100%
+    );
+    background-size: 200% 200%;
+    animation: aurora 14s ease-in-out infinite;
+  }
+}
+
+/* ===========================================================
+ * Scrollbar (unobtrusive, refined)
+ * =========================================================== */
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mk-ink-300) transparent;
+  }
+  .dark * {
+    scrollbar-color: var(--mk-ink-700) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--mk-ink-300);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--mk-ink-400);
+  }
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: var(--mk-ink-700);
+  }
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--mk-ink-600);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

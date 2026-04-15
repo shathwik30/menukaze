@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AuroraBackdrop, BrandRow, Button, Eyebrow, FieldError, Input, Label } from '@menukaze/ui';
 import { authClient } from '@/lib/auth-client';
 
 export function LoginForm({ inviteToken }: { inviteToken: string }) {
@@ -29,57 +30,119 @@ export function LoginForm({ inviteToken }: { inviteToken: string }) {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-3xl font-bold">Log in</h1>
-        <p className="text-muted-foreground mb-8 text-sm">
-          {inviteToken
-            ? 'Log in with the email that received the staff invite.'
-            : 'Welcome back to Menukaze.'}
-        </p>
+    <main className="relative flex min-h-screen overflow-hidden">
+      <AuroraBackdrop intensity="soft" />
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Email</span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
-            />
-          </label>
+      <div className="relative z-10 grid w-full grid-cols-1 lg:grid-cols-2">
+        <aside className="bg-ink-950 text-canvas-50 relative hidden flex-col justify-between p-10 lg:flex">
+          <div className="flex items-center justify-between">
+            <BrandRow size="md" className="text-canvas-50" />
+            <Link
+              href="https://menukaze.com"
+              className="text-ink-400 hover:text-canvas-50 text-[12px] uppercase tracking-[0.18em] transition-colors"
+            >
+              ← Back to site
+            </Link>
+          </div>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Password</span>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
-            />
-          </label>
+          <figure className="space-y-8">
+            <blockquote className="text-canvas-50 font-serif text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight tracking-tight">
+              &ldquo;Menukaze replaced three vendors for us &mdash; QR menus, online orders, and the
+              kitchen screen. The design alone sets a new bar.&rdquo;
+            </blockquote>
+            <figcaption className="flex items-center gap-4">
+              <div className="bg-saffron-500/20 ring-saffron-400/40 size-10 rounded-full ring-1" />
+              <div>
+                <p className="text-canvas-50 font-medium">Aruna Shivan</p>
+                <p className="text-ink-400 text-sm">Owner, Tamarind Kitchen</p>
+              </div>
+            </figcaption>
+          </figure>
 
-          {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          <div className="text-ink-500 flex items-center gap-5 text-[11px] uppercase tracking-[0.18em]">
+            <span>PCI-DSS</span>
+            <span className="bg-ink-700 size-1 rounded-full" />
+            <span>SOC 2 Type II</span>
+            <span className="bg-ink-700 size-1 rounded-full" />
+            <span>GDPR Ready</span>
+          </div>
+        </aside>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-          >
-            {busy ? 'Logging in...' : 'Log in'}
-          </button>
-        </form>
+        <section className="relative flex min-h-screen items-center justify-center px-6 py-14 sm:px-12">
+          <div className="w-full max-w-sm">
+            <div className="mb-10 flex items-center justify-between lg:hidden">
+              <BrandRow size="sm" />
+            </div>
 
-        <p className="text-muted-foreground mt-6 text-center text-sm">
-          {inviteToken ? 'Need an account for this invite?' : 'Opening a restaurant?'}{' '}
-          <Link href={signupHref} className="text-foreground font-medium hover:underline">
-            {inviteToken ? 'Create staff account' : 'Create owner account'}
-          </Link>
-        </p>
+            <Eyebrow withBar tone="accent">
+              Owner &amp; staff login
+            </Eyebrow>
+            <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+              Welcome back.
+            </h1>
+            <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+              {inviteToken
+                ? 'Sign in with the email that received the invite to accept your staff role.'
+                : 'Log in to run your restaurant with Menukaze.'}
+            </p>
+
+            <form onSubmit={onSubmit} className="mt-8 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="login-email" required>
+                  Email
+                </Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="owner@restaurant.com"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between">
+                  <Label htmlFor="login-password" required>
+                    Password
+                  </Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-ink-500 hover:text-ink-950 dark:text-ink-400 dark:hover:text-canvas-50 text-xs underline-offset-4 hover:underline"
+                  >
+                    Forgot?
+                  </Link>
+                </div>
+                <Input
+                  id="login-password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+
+              {error ? <FieldError>{error}</FieldError> : null}
+
+              <Button type="submit" size="lg" full loading={busy} disabled={busy}>
+                {busy ? 'Signing in' : 'Sign in'}
+              </Button>
+            </form>
+
+            <p className="text-ink-500 dark:text-ink-400 mt-6 text-center text-sm">
+              {inviteToken ? 'First time on Menukaze?' : 'New to Menukaze?'}{' '}
+              <Link
+                href={signupHref}
+                className="text-saffron-700 dark:text-saffron-400 font-medium underline-offset-4 hover:underline"
+              >
+                {inviteToken ? 'Create staff account' : 'Create owner account'}
+              </Link>
+            </p>
+          </div>
+        </section>
       </div>
     </main>
   );

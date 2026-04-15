@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { BrandRow } from '@menukaze/ui';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,6 @@ export default async function AttractScreen() {
 
   const logoUrl = restaurant.logoUrl;
 
-  // Suppress noise: fetch active item count to show "N items available"
   let itemCount = 0;
   try {
     const conn = await getMongoConnection('live');
@@ -24,7 +24,7 @@ export default async function AttractScreen() {
   }
 
   return (
-    <main className="relative flex h-screen overflow-hidden bg-zinc-950 text-white">
+    <main className="bg-ink-950 text-canvas-50 relative h-screen w-screen overflow-hidden">
       <script
         nonce={nonce}
         type="application/json"
@@ -34,89 +34,145 @@ export default async function AttractScreen() {
         }}
       />
 
-      <div className="absolute inset-y-0 left-0 w-3 bg-emerald-400" />
-      <div className="grid min-h-0 w-full grid-cols-[1.05fr_0.95fr]">
-        <section className="flex min-h-0 flex-col justify-between px-14 py-12">
-          <div className="flex items-center gap-4">
+      {/* Atmospheric aurora backdrop */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 60% at 10% 20%, oklch(0.755 0.170 55 / 0.35), transparent 60%), radial-gradient(ellipse 50% 60% at 90% 80%, oklch(0.590 0.140 172 / 0.28), transparent 60%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
+        }}
+      />
+
+      <div className="relative grid h-full w-full grid-cols-[1.05fr_0.95fr]">
+        <section className="flex min-h-0 flex-col justify-between px-14 py-14">
+          <div className="flex items-center gap-5">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={restaurant.name}
-                className="h-20 w-20 rounded-lg border border-white/15 object-cover"
+                className="size-24 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10"
               />
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-3xl font-black">
+              <div className="text-canvas-50 flex size-24 items-center justify-center rounded-2xl bg-white/5 font-serif text-4xl font-medium ring-1 ring-white/15">
                 {restaurant.name.charAt(0).toUpperCase()}
               </div>
             )}
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
+              <p className="text-saffron-400 inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.28em]">
+                <span className="bg-saffron-400 inline-block h-px w-8" />
                 Self ordering
               </p>
-              <p className="mt-1 text-3xl font-black tracking-tight">{restaurant.name}</p>
+              <p className="text-canvas-50 mt-3 font-serif text-5xl font-medium tracking-tight">
+                {restaurant.name}
+              </p>
             </div>
           </div>
 
-          <div className="max-w-3xl">
-            <p className="text-2xl font-semibold text-white/70">Welcome to {restaurant.name}</p>
-            <h1 className="mt-4 max-w-2xl text-7xl font-black leading-none tracking-tight">
-              Tap to order
+          <div>
+            <p className="text-canvas-50/60 text-2xl font-medium">Welcome to {restaurant.name}</p>
+            <h1 className="text-canvas-50 mt-4 font-serif text-[9rem] font-medium leading-[0.88] tracking-[-0.04em]">
+              Tap to <span className="text-saffron-400 italic">order.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-2xl leading-snug text-white/70">
-              Choose your items, pay here, and keep your pickup number for collection.
+            <p className="text-canvas-50/70 mt-8 max-w-xl text-[22px] leading-snug">
+              Choose your dishes, pay here, and keep your pickup number for collection.
             </p>
           </div>
 
-          <div className="grid max-w-2xl grid-cols-3 gap-3 text-sm font-semibold text-white/70">
-            <div className="rounded-lg border border-white/15 bg-white/5 p-4">
-              <p className="text-white">1. Choose</p>
-              <p className="mt-1 font-normal text-white/50">Browse the live menu.</p>
-            </div>
-            <div className="rounded-lg border border-white/15 bg-white/5 p-4">
-              <p className="text-white">2. Pay</p>
-              <p className="mt-1 font-normal text-white/50">Use the secure checkout.</p>
-            </div>
-            <div className="rounded-lg border border-white/15 bg-white/5 p-4">
-              <p className="text-white">3. Collect</p>
-              <p className="mt-1 font-normal text-white/50">Listen for your number.</p>
-            </div>
+          <div className="grid max-w-3xl grid-cols-3 gap-4">
+            <StepCard n={1} label="Choose" detail="Browse the live menu." />
+            <StepCard n={2} label="Pay" detail="Secure checkout in seconds." />
+            <StepCard n={3} label="Collect" detail="Listen for your number." />
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col justify-center bg-white px-12 text-zinc-950">
-          <div className="mx-auto w-full max-w-md">
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5">
+        <section className="bg-canvas-50 text-ink-950 relative flex min-h-0 flex-col justify-center overflow-hidden px-14">
+          {/* Warm corner gradient */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full opacity-80 blur-3xl"
+            style={{
+              background:
+                'radial-gradient(closest-side, oklch(0.885 0.100 68 / 0.55), transparent)',
+            }}
+          />
+
+          <div className="relative mx-auto w-full max-w-md">
+            <div className="border-ink-100 bg-surface rounded-3xl border p-6 shadow-xl">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-ink-500 inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.18em]">
+                  <span className="bg-jade-500 relative inline-flex size-2 rounded-full">
+                    <span className="bg-jade-500 absolute inset-0 animate-ping rounded-full opacity-60" />
+                  </span>
                   Available now
                 </p>
                 {itemCount > 0 ? (
-                  <p className="rounded-md bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-800">
+                  <span className="bg-jade-500/15 text-jade-700 rounded-full px-3 py-1 text-xs font-semibold">
                     {itemCount} items
-                  </p>
+                  </span>
                 ) : null}
               </div>
-              <p className="mt-4 text-4xl font-black leading-tight">Start when you are ready.</p>
-              <p className="mt-3 text-lg leading-relaxed text-zinc-600">
-                Your pickup number appears right after payment.
+              <p className="text-ink-950 mt-5 font-serif text-[42px] font-medium leading-[1.05] tracking-tight">
+                Start when you&apos;re ready.
+              </p>
+              <p className="text-ink-500 mt-3 text-base leading-relaxed">
+                Your pickup number appears immediately after payment.
               </p>
             </div>
 
             <Link
               href="/kiosk/mode"
-              className="mt-5 flex h-24 w-full items-center justify-center rounded-lg bg-emerald-500 text-3xl font-black text-zinc-950 shadow-xl shadow-emerald-950/20 active:translate-y-0.5 active:bg-emerald-400"
+              className="bg-ink-950 text-canvas-50 ring-ink-950 hover:bg-ink-900 group mt-6 flex h-28 w-full items-center justify-center gap-4 rounded-3xl text-[34px] font-medium shadow-[0_24px_60px_-10px_oklch(0.14_0.016_90/0.55)] ring-1 transition-all duration-200 active:translate-y-1 active:shadow-[0_12px_30px_-8px_oklch(0.14_0.016_90/0.45)]"
             >
-              Start order
+              <span className="font-serif tracking-tight">Start order</span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-8 transition-transform duration-300 group-hover:translate-x-1"
+                aria-hidden
+              >
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
             </Link>
 
-            <p className="mt-5 text-center text-base font-medium text-zinc-500">
-              Touch the button above to begin.
-            </p>
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <span className="text-ink-400 text-[12px] uppercase tracking-[0.18em]">
+                Touch to begin
+              </span>
+            </div>
+          </div>
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+            <BrandRow size="sm" className="opacity-70" />
           </div>
         </section>
       </div>
-
-      <div className="pointer-events-none absolute bottom-0 right-0 h-32 w-32 border-b-[32px] border-r-[32px] border-b-rose-500 border-r-rose-500" />
     </main>
+  );
+}
+
+function StepCard({ n, label, detail }: { n: number; label: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
+      <div className="flex items-center gap-2">
+        <span className="bg-saffron-500/20 text-saffron-300 ring-saffron-400/30 flex size-7 items-center justify-center rounded-full font-mono text-xs font-semibold ring-1">
+          {n}
+        </span>
+        <p className="text-canvas-50 font-serif text-xl font-medium">{label}</p>
+      </div>
+      <p className="text-canvas-50/55 mt-2 text-sm leading-relaxed">{detail}</p>
+    </div>
   );
 }

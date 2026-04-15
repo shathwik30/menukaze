@@ -16,10 +16,13 @@ import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
+  DEFAULT_PREP_MINUTES,
   formatMoney,
+  orderWebhookChannel,
   parseCurrencyCode,
   resolvePrimaryStationId,
   validateModifierSelection,
+  walkInPlaceholderEmail,
 } from '@menukaze/shared';
 import {
   actionError,
@@ -198,7 +201,7 @@ export async function createWalkInOrderAction(
         const trimmedName = input.customerName?.trim();
         const customerName =
           trimmedName && trimmedName.length > 0 ? trimmedName : 'Walk-in customer';
-        const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
+        const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
         const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
 
         const paymentSucceeded = input.paymentMethod === 'cash';
@@ -209,7 +212,7 @@ export async function createWalkInOrderAction(
           type: input.type,
           customer: {
             name: customerName,
-            email: `walkin+${publicOrderId}@noreply.local`,
+            email: walkInPlaceholderEmail(publicOrderId),
           },
           items: snapshotLines,
           subtotalMinor,
@@ -260,7 +263,7 @@ export async function createWalkInOrderAction(
           data: {
             id: String(order._id),
             public_order_id: publicOrderId,
-            channel: { id: 'walk_in', type: 'built_in' },
+            channel: orderWebhookChannel('walk_in'),
             type: input.type,
             total_minor: totalMinor,
             currency: restaurant.currency,

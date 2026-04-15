@@ -1,9 +1,32 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { Inter, Fraunces, JetBrains_Mono } from 'next/font/google';
 import { CookieConsent } from './_components/cookie-consent';
 import '@/env';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+  display: 'swap',
+  style: ['normal', 'italic'],
+  axes: ['SOFT', 'opsz'],
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+  weight: ['400', '500', '600'],
+});
 
 export const metadata: Metadata = {
   title: 'Menukaze',
@@ -11,13 +34,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  // Nonce is injected by middleware (x-nonce header) for CSP enforcement.
   const nonce = (await headers()).get('x-nonce') ?? '';
   return (
-    <html lang="en">
-      {/* Passing nonce on <head> makes Next.js apply it to its own inline scripts. */}
+    <html lang="en" className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable}`}>
       <head nonce={nonce} />
-      <body className="bg-background text-foreground min-h-screen antialiased">
+      <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         {children}
         <CookieConsent />
       </body>

@@ -197,8 +197,13 @@ export function MenuManagerClient({
   }
 
   return (
-    <>
-      <p className="text-muted-foreground text-xs">Currency: {currencyLabel}</p>
+    <div className="flex flex-col gap-6">
+      <div className="bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300 flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-[11px] font-medium">
+        <span className="mk-nums text-ink-400 font-mono text-[10px] uppercase tracking-[0.14em]">
+          Currency
+        </span>
+        <span className="font-mono">{currencyLabel}</span>
+      </div>
 
       {canEdit ? (
         <CreateMenuForm
@@ -208,20 +213,55 @@ export function MenuManagerClient({
       ) : null}
 
       {menus.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          No menus yet. Create one above to add categories and items.
-        </p>
+        <div className="border-ink-200 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/40 rounded-2xl border border-dashed px-6 py-16 text-center">
+          <p className="text-ink-600 dark:text-ink-300 font-serif text-xl font-medium">
+            No menus yet
+          </p>
+          <p className="text-ink-500 dark:text-ink-400 mt-1 text-sm">
+            Create one above to add categories and dishes.
+          </p>
+        </div>
       ) : null}
 
       {menus.map((menu) => (
-        <section key={menu.id} className="border-border rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">{menu.name}</h2>
-              <p className="text-muted-foreground text-xs">
-                {menu.schedule
-                  ? `${menu.schedule.days.join(', ')} · ${menu.schedule.startTime}–${menu.schedule.endTime}`
-                  : 'Always active'}
+        <section
+          key={menu.id}
+          className="border-ink-100 bg-surface dark:border-ink-800 dark:bg-ink-900 overflow-hidden rounded-2xl border shadow-sm"
+        >
+          <header className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/60 flex items-start justify-between gap-3 border-b px-6 py-4">
+            <div className="min-w-0">
+              <h2 className="text-foreground font-serif text-2xl font-medium tracking-tight">
+                {menu.name}
+              </h2>
+              <p className="text-ink-500 dark:text-ink-400 mt-1 inline-flex items-center gap-1.5 text-xs">
+                {menu.schedule ? (
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-3.5"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    {menu.schedule.days.map((d) => d.toUpperCase()).join(' · ')}
+                    <span className="font-mono">
+                      {menu.schedule.startTime}–{menu.schedule.endTime}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="bg-jade-500 relative inline-flex size-1.5 rounded-full">
+                      <span className="bg-jade-500 absolute inset-0 animate-ping rounded-full opacity-60" />
+                    </span>
+                    Always active
+                  </>
+                )}
               </p>
             </div>
             {canEdit ? (
@@ -235,45 +275,52 @@ export function MenuManagerClient({
                     run(() => deleteMenuAction(menu.id));
                   }
                 }}
-                className="text-destructive text-xs underline"
+                className="text-mkrose-600 dark:text-mkrose-400 text-xs font-medium underline-offset-4 hover:underline"
               >
                 Delete menu
               </button>
             ) : null}
-          </div>
+          </header>
 
-          {canEdit ? <MenuSettingsForm menu={menu} pending={isPending} run={run} /> : null}
+          <div className="space-y-4 p-6">
+            {canEdit ? <MenuSettingsForm menu={menu} pending={isPending} run={run} /> : null}
 
-          {canEdit ? (
-            <CreateCategoryForm
-              menuId={menu.id}
-              onSubmit={(name, order) =>
-                run(() => createCategoryAction({ menuId: menu.id, name, order }))
-              }
-              pending={isPending}
-            />
-          ) : null}
-
-          <div className="mt-4 flex flex-col gap-4">
-            {menu.categories.map((category) => (
-              <CategoryBlock
-                key={category.id}
-                category={category}
-                availableItems={availableItems}
+            {canEdit ? (
+              <CreateCategoryForm
+                menuId={menu.id}
+                onSubmit={(name, order) =>
+                  run(() => createCategoryAction({ menuId: menu.id, name, order }))
+                }
                 pending={isPending}
-                run={run}
-                canEdit={canEdit}
-                canToggleAvailability={canToggleAvailability}
               />
-            ))}
+            ) : null}
+
+            <div className="flex flex-col gap-4">
+              {menu.categories.map((category) => (
+                <CategoryBlock
+                  key={category.id}
+                  category={category}
+                  availableItems={availableItems}
+                  pending={isPending}
+                  run={run}
+                  canEdit={canEdit}
+                  canToggleAvailability={canToggleAvailability}
+                />
+              ))}
+            </div>
           </div>
         </section>
       ))}
 
       {error ? (
-        <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
+        <div
+          role="alert"
+          className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-300 rounded-xl border px-4 py-3 text-sm font-medium"
+        >
+          {error}
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

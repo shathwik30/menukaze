@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { ApiKeysManager } from './api-keys-manager';
 
@@ -12,18 +12,18 @@ export default async function ApiKeysPage() {
   const keys = await ApiKey.find({ restaurantId }).sort({ createdAt: -1 }).lean().exec();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">API keys & channels</h1>
-          <p className="text-muted-foreground text-sm">
-            Each API key is also a channel. Orders placed through a key are tagged with that
-            key&apos;s name on the dashboard, KDS, and analytics.
-          </p>
-        </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
+      <header>
+        <Eyebrow withBar tone="accent">
+          Developers
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+          API keys
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-2xl text-sm">
+          Each API key is also a channel — orders placed through a key are tagged with that
+          key&apos;s name across the dashboard, KDS, and analytics.
+        </p>
       </header>
 
       <ApiKeysManager
@@ -42,6 +42,6 @@ export default async function ApiKeysPage() {
           requestCount: k.requestCount,
         }))}
       />
-    </main>
+    </div>
   );
 }

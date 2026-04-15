@@ -1,6 +1,6 @@
 'use server';
 
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -18,7 +18,10 @@ import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
+  DEFAULT_PREP_MINUTES,
   formatMoney,
+  kioskPlaceholderEmail,
+  orderWebhookChannel,
   parseCurrencyCode,
   resolvePrimaryStationId,
   validateModifierSelection,
@@ -211,7 +214,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
   });
   const razorpayOrderId = readRazorpayOrderId(rzpOrder);
 
-  const prepMinutes = restaurant.estimatedPrepMinutes ?? 20;
+  const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
 
   // Kiosk orders use a placeholder email — no receipt is sent.
@@ -222,7 +225,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     type: input.orderMode === 'dine_in' ? 'dine_in' : 'pickup',
     customer: {
       name: input.customerName,
-      email: `kiosk+${publicOrderId}@noreply.local`,
+      email: kioskPlaceholderEmail(publicOrderId),
     },
     items: snapshotLines,
     subtotalMinor,
@@ -347,7 +350,7 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
     data: {
       id: orderId,
       public_order_id: order.publicOrderId,
-      channel: { id: 'kiosk', type: 'built_in' },
+      channel: orderWebhookChannel('kiosk'),
       type: order.type,
       total_minor: order.totalMinor,
       currency: order.currency,
@@ -362,7 +365,19 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
 // PIN verification (staff exit)
 // ---------------------------------------------------------------------------
 
+/**
+ * Verify the PIN entered by a staff member to unlock the kiosk's exit
+ * overlay. Comparison is constant-time to avoid leaking the secret one
+ * digit at a time. If `KIOSK_EXIT_PIN` is not configured the action
+ * always returns `{ ok: false }` — there is no insecure default.
+ */
 export async function verifyKioskPinAction(pin: string): Promise<{ ok: boolean }> {
-  const expected = env.KIOSK_EXIT_PIN ?? '1234';
-  return { ok: pin === expected };
+  const expected = env.KIOSK_EXIT_PIN;
+  if (!expected) return { ok: false };
+  if (typeof pin !== 'string' || pin.length !== expected.length) return { ok: false };
+
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  const providedBytes = Buffer.from(pin, 'utf8');
+  if (providedBytes.length !== expectedBytes.length) return { ok: false };
+  return { ok: timingSafeEqual(providedBytes, expectedBytes) };
 }

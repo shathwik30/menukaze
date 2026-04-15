@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
+import { API_KEY_ENVS, API_KEY_SCOPES, type ApiKeyEnv, type ApiKeyScope } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 /**
@@ -18,8 +19,7 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
  *   - `admin`: every endpoint including channels.configure equivalents
  */
 
-export type ApiKeyScope = 'read_only' | 'read_write' | 'admin';
-export type ApiKeyEnv = 'live' | 'test';
+export type { ApiKeyScope, ApiKeyEnv };
 
 export interface ApiKeyDoc {
   restaurantId: Types.ObjectId;
@@ -55,11 +55,11 @@ const apiKeySchema = new Schema<ApiKeyDoc>(
     color: { type: String, maxlength: 32 },
     scope: {
       type: String,
-      enum: ['read_only', 'read_write', 'admin'],
+      enum: API_KEY_SCOPES,
       required: true,
       default: 'read_only',
     },
-    env: { type: String, enum: ['live', 'test'], required: true, default: 'test' },
+    env: { type: String, enum: API_KEY_ENVS, required: true, default: 'test' },
     keyHash: { type: String, required: true, unique: true, maxlength: 64 },
     prefix: { type: String, required: true, maxlength: 16 },
     lastFour: { type: String, required: true, maxlength: 8 },

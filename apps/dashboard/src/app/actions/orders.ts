@@ -2,13 +2,7 @@
 
 import type { Types } from 'mongoose';
 import { z } from 'zod';
-import {
-  enqueueWebhookEvent,
-  getMongoConnection,
-  getModels,
-  type OrderStatus,
-  type OrderType,
-} from '@menukaze/db';
+import { enqueueWebhookEvent, getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
@@ -16,6 +10,14 @@ import { env } from '@/env';
 import { recordAudit } from '@/lib/audit';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
+import {
+  canTransitionOrderStatus,
+  isTerminalOrderStatus,
+  orderWebhookChannel,
+  webhookEventForOrderStatus,
+  type OrderStatus,
+  type OrderType,
+} from '@menukaze/shared';
 import {
   actionError,
   invalidEntityError,
@@ -25,39 +27,24 @@ import {
 import { OrderReadyEmail } from '@/emails/order-ready';
 
 /**
- * Transitions the canonical status FSM for dashboard operators.
- * - `received`  starting state after checkout (before payment captured)
- * - `confirmed` payment captured; the kitchen can start
- * - `preparing` kitchen staff tapped "start"
- * - `ready`     kitchen staff tapped "ready"
- * - `served`    dine-in only, waiter tapped "served"
- * - `completed` order archived (terminal)
- * - `cancelled` terminal, can be reached from any non-terminal state
+ * Operator-facing status set. The list is the canonical FSM from
+ * `@menukaze/shared` minus `received`, since `received` is only ever the
+ * initial state — operators never transition INTO it.
  */
-const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
-  received: ['confirmed', 'cancelled'],
-  confirmed: ['preparing', 'cancelled'],
-  preparing: ['ready', 'cancelled'],
-  ready: ['served', 'out_for_delivery', 'completed', 'cancelled'],
-  served: ['completed'],
-  out_for_delivery: ['delivered', 'cancelled'],
-  delivered: ['completed'],
-  completed: [],
-  cancelled: [],
-};
+const OPERATOR_NEXT_STATUSES = [
+  'confirmed',
+  'preparing',
+  'ready',
+  'served',
+  'out_for_delivery',
+  'delivered',
+  'completed',
+  'cancelled',
+] as const satisfies readonly OrderStatus[];
 
 const updateInput = z.object({
   orderId: z.string().min(1),
-  nextStatus: z.enum([
-    'confirmed',
-    'preparing',
-    'ready',
-    'served',
-    'out_for_delivery',
-    'delivered',
-    'completed',
-    'cancelled',
-  ]),
+  nextStatus: z.enum(OPERATOR_NEXT_STATUSES),
   cancelReason: z.string().min(1).max(500).optional(),
 });
 
@@ -192,8 +179,7 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
         const order = await Order.findOne({ restaurantId, _id: orderId }).exec();
         if (!order) return { ok: false, error: 'Order not found.' };
 
-        const allowed = NEXT_STATUSES[order.status];
-        if (!allowed.includes(parsed.data.nextStatus)) {
+        if (!canTransitionOrderStatus(order.status, parsed.data.nextStatus)) {
           return {
             ok: false,
             error: `Cannot transition from ${order.status} to ${parsed.data.nextStatus}.`,
@@ -201,8 +187,7 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
         }
 
         const now = new Date();
-        const isTerminal =
-          parsed.data.nextStatus === 'completed' || parsed.data.nextStatus === 'cancelled';
+        const isTerminal = isTerminalOrderStatus(parsed.data.nextStatus);
         const isCancel = parsed.data.nextStatus === 'cancelled';
 
         if (isCancel && !parsed.data.cancelReason) {
@@ -247,14 +232,7 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
         });
 
         // Map status transitions to the public webhook event catalogue.
-        const eventByStatus: Partial<Record<OrderStatus, string>> = {
-          confirmed: 'order.confirmed',
-          preparing: 'order.preparing',
-          ready: 'order.ready',
-          completed: 'order.completed',
-          cancelled: 'order.cancelled',
-        };
-        const eventType = eventByStatus[parsed.data.nextStatus];
+        const eventType = webhookEventForOrderStatus(parsed.data.nextStatus);
         if (eventType) {
           await enqueueWebhookEvent(conn, {
             restaurantId,
@@ -262,7 +240,7 @@ export async function updateOrderStatusAction(raw: unknown): Promise<UpdateOrder
             data: {
               id: orderIdStr,
               public_order_id: order.publicOrderId,
-              channel: { id: order.channel, type: 'built_in' },
+              channel: orderWebhookChannel(order.channel),
               status: parsed.data.nextStatus,
               total_minor: order.totalMinor,
               currency: order.currency,

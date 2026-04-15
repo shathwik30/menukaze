@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
+import { Eyebrow } from '@menukaze/ui';
 import { requireAnyPageFlag } from '@/lib/session';
 import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
 
@@ -84,17 +84,17 @@ export default async function MenuManagementPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Menu</h1>
-          <p className="text-muted-foreground text-sm">
-            Edit categories, items, schedules, modifiers, and availability
-          </p>
-        </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
+      <header>
+        <Eyebrow withBar tone="accent">
+          Catalog
+        </Eyebrow>
+        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+          Menu
+        </h1>
+        <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-xl text-sm">
+          Organise menus, categories, dishes, modifiers, schedules and live availability.
+        </p>
       </header>
 
       <MenuManagerClient
@@ -104,6 +104,6 @@ export default async function MenuManagementPage() {
         canEdit={canEditMenu}
         canToggleAvailability={canToggleAvailability}
       />
-    </main>
+    </div>
   );
 }
