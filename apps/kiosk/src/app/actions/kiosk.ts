@@ -10,7 +10,6 @@ import {
   getModels,
   getMongoConnection,
   restaurantHasReachedOrderCapacity,
-  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { channels } from '@menukaze/realtime';
