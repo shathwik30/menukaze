@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@menukaze/shared": "workspace:*",
-    "ably": "2.7.0"
+    "ably": "2.21.0"
   }
 }
