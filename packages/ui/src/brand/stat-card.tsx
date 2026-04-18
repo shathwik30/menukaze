@@ -30,7 +30,7 @@ export const StatCard = forwardRef<HTMLDivElement, StatCardProps>(
       />
       <div className="relative">
         <div className="flex items-start justify-between">
-          <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold tracking-[0.14em] uppercase">
             {label}
           </p>
           {icon ? (

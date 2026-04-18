@@ -85,7 +85,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
 
       {/* Profile */}
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+        <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Profile
         </h2>
         <InfoRow label="Owner" value={`${data.ownerName} (${data.ownerEmail})`} />
@@ -101,7 +101,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
 
       {/* Onboarding */}
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+        <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Onboarding
         </h2>
         <InfoRow label="Current step" value={data.onboardingStep} />
@@ -109,7 +109,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
 
       {/* Billing */}
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+        <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Billing
         </h2>
         <InfoRow label="Plan" value={data.planName} />
@@ -118,7 +118,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
 
       {/* Stats */}
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+        <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Statistics
         </h2>
         <InfoRow label="Total orders" value={data.orderCount.toLocaleString()} />
@@ -131,7 +131,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
       {/* Feature Flags */}
       {flagEntries.length > 0 && (
         <section className="border-border rounded-lg border p-4">
-          <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+          <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
             Feature Flags
           </h2>
           {flagEntries.map(([key, val]) => (
@@ -142,7 +142,7 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
 
       {/* Actions */}
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wider">
+        <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Actions
         </h2>
         {error && <p className="text-destructive mb-3 text-sm">{error}</p>}

@@ -34,7 +34,7 @@ export function LoginForm() {
       <div className="relative z-10 w-full max-w-sm px-6">
         <div className="mb-10 flex items-center justify-between">
           <BrandRow size="sm" />
-          <span className="border-ink-200 bg-canvas-50 text-ink-600 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-400 rounded-full border px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em]">
+          <span className="border-ink-200 bg-canvas-50 text-ink-600 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-400 rounded-full border px-2 py-0.5 font-mono text-[10px] font-medium tracking-[0.14em] uppercase">
             Restricted
           </span>
         </div>
@@ -42,7 +42,7 @@ export function LoginForm() {
         <Eyebrow withBar tone="accent">
           Platform console
         </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight">
+        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight">
           Super admin sign&#8209;in.
         </h1>
         <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
@@ -87,7 +87,7 @@ export function LoginForm() {
           </Button>
         </form>
 
-        <p className="text-ink-400 dark:text-ink-500 mt-6 text-center text-[11px] uppercase tracking-[0.14em]">
+        <p className="text-ink-400 dark:text-ink-500 mt-6 text-center text-[11px] tracking-[0.14em] uppercase">
           Monitored · All actions logged
         </p>
       </div>

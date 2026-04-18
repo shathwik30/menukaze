@@ -9,15 +9,9 @@ export interface EnqueueEventInput {
   data: Record<string, unknown>;
 }
 
-/**
- * Enqueue a webhook event to every active subscription that listens to it.
- * Best-effort: errors are swallowed because the event source (an order
- * action) is the source of truth, not the webhook fan-out. The worker
- * picks up the resulting `pending` deliveries and drains them.
- *
- * Returns the number of deliveries created so callers can log fan-out
- * counts in development.
- */
+// Best-effort: errors are swallowed because the event source (an order
+// action) is the source of truth, not the webhook fan-out. The worker
+// drains resulting `pending` deliveries.
 export async function enqueueWebhookEvent(
   connection: Connection,
   input: EnqueueEventInput,

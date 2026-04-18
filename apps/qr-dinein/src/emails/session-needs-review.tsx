@@ -6,10 +6,6 @@ interface Props {
   happenedAt: string;
 }
 
-/**
- * Staff-facing alert: a dine-in session timed out before the customer
- * completed payment and needs manual reconciliation from the dashboard.
- */
 export function SessionNeedsReviewEmail({
   restaurantName,
   tableName,

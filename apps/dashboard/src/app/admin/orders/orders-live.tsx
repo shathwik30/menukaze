@@ -216,7 +216,7 @@ function Section({
   return (
     <Card variant="surface" radius="lg" className="overflow-hidden">
       <div className="border-ink-100 dark:border-ink-800 flex items-center justify-between border-b px-6 py-4">
-        <h2 className="text-ink-600 dark:text-ink-400 text-[13px] font-semibold uppercase tracking-[0.14em]">
+        <h2 className="text-ink-600 dark:text-ink-400 text-[13px] font-semibold tracking-[0.14em] uppercase">
           <span dangerouslySetInnerHTML={{ __html: title }} />
         </h2>
         <Badge variant="subtle" size="sm" shape="pill">
@@ -251,7 +251,7 @@ function Section({
                 >
                   <div className="flex min-w-0 items-center gap-4">
                     <div className="bg-canvas-100 ring-ink-200 dark:bg-ink-800 dark:ring-ink-700 flex size-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset">
-                      <span className="mk-nums text-foreground font-mono text-[13px] font-semibold tabular-nums tracking-tight">
+                      <span className="mk-nums text-foreground font-mono text-[13px] font-semibold tracking-tight tabular-nums">
                         #{pickup}
                       </span>
                     </div>

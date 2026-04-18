@@ -32,7 +32,6 @@ export default async function AuditPage({ searchParams }: Props) {
     PlatformAuditLog.countDocuments(filter).exec(),
   ]);
 
-  // Resolve actor names and target restaurant names
   const actorIds = [...new Set(logs.map((l) => l.actorUserId))];
   const targetRestIds = [
     ...new Set(logs.filter((l) => l.targetRestaurantId).map((l) => l.targetRestaurantId!)),

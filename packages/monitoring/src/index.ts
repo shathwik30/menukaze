@@ -1,23 +1,9 @@
-/**
- * Thin facade over error reporting and production logs. The default sink writes
- * structured JSON entries locally. Server runtimes can install the built-in
- * Axiom HTTP sink with {@link configureMonitoringFromEnv}.
- *
- * Call-site contract: never pass a Response/Request/secret in `context`.
- * Only pass data safe to surface in the eventual error monitor.
- */
-
 export type Severity = 'info' | 'warning' | 'error';
 
 export interface MonitoringContext {
-  /**
-   * Logical surface that captured the event. Use `area:subarea` form so the
-   * monitor can group by surface (e.g. `dashboard:orders`, `worker:webhooks`).
-   */
+  /** `area:subarea` form, e.g. `dashboard:orders`, `worker:webhooks`. */
   surface?: string;
-  /** One-line free-form note from the call site. */
   message?: string;
-  /** Anything else the monitor should attach (request id, tenant id, etc.). */
   [key: string]: unknown;
 }
 
@@ -247,27 +233,14 @@ export function configureMonitoringFromEnv(input: ConfigureMonitoringInput): 'ax
   return 'axiom';
 }
 
-/**
- * Replace the active sink. Production wiring (e.g. `@sentry/nextjs`) installs
- * a sink that forwards to the external service. Tests can install a no-op
- * or capturing sink. Pass `null` to restore the default JSON-to-stderr sink.
- */
 export function setMonitoringSink(sink: MonitoringSink | null): void {
   activeSink = sink ?? defaultSink;
 }
 
-/**
- * Report a thrown exception. Pass additional context (trace ids, user hints,
- * etc.) via the second arg — it will be forwarded to the active sink.
- */
 export function captureException(error: unknown, context?: MonitoringContext): void {
   activeSink.captureException(error, context);
 }
 
-/**
- * Report a plain message (not an exception). Use for expected-but-notable
- * conditions like retry-exhaustion, fallback paths, or config warnings.
- */
 export function captureMessage(
   message: string,
   severity: Severity = 'info',

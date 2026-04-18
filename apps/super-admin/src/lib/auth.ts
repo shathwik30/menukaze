@@ -1,11 +1,6 @@
 import 'server-only';
 import { createAuth, type AuthInstance } from '@menukaze/auth';
 import { nextCookies } from 'better-auth/next-js';
-
-/**
- * Memoised BetterAuth instance for the super-admin process. Same pattern as
- * the dashboard — lazy singleton that opens the Mongo connection on first use.
- */
 import { env } from '@/env';
 
 let cached: Promise<AuthInstance> | null = null;

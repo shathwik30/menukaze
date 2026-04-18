@@ -82,7 +82,7 @@ export default async function AuditLogPage({ searchParams }: PageProps) {
         <p className="text-muted-foreground text-sm">No actions recorded yet.</p>
       ) : (
         <table className="border-border w-full border text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide">
+          <thead className="bg-muted/50 text-left text-xs tracking-wide uppercase">
             <tr>
               <th className="px-3 py-2">When</th>
               <th className="px-3 py-2">Who</th>

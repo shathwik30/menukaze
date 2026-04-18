@@ -1,23 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { readEncryptionEnv } from './env';
 
-/**
- * Envelope encryption for per-tenant secrets (Razorpay keys, webhook
- * secrets, etc.) stored in MongoDB.
- *
- * - Algorithm: AES-256-GCM (authenticated encryption, no separate HMAC needed)
- * - Key: 32 bytes derived from the base64 `ENCRYPTION_KEY` env var
- * - Each call uses a fresh 12-byte IV (standard GCM nonce size)
- * - Ciphertext carries a 16-byte auth tag that the decrypt call verifies
- *
- * Encoded string layout (single column-safe string):
- *
- *     v1:<base64 iv>:<base64 ciphertext>:<base64 auth tag>
- *
- * The `v1` prefix lets us rotate algorithms later (`v2:…`, `v3:…`) without
- * losing access to existing ciphertexts. The decrypt function rejects any
- * unknown version.
- */
+// Envelope format: `v1:<base64 iv>:<base64 ciphertext>:<base64 tag>`.
+// AES-256-GCM with a fresh 12-byte IV per call and a 16-byte auth tag.
+// The `v1` prefix is an algorithm-rotation hook — decrypt rejects unknown versions.
 
 const VERSION = 'v1';
 const KEY_BYTES = 32;
@@ -38,10 +24,6 @@ function getKey(): Buffer {
   return key;
 }
 
-/**
- * Encrypt a UTF-8 string and return a single `v1:iv:ciphertext:tag` encoded
- * value suitable for storing in a MongoDB string field.
- */
 export function envelopeEncrypt(plaintext: string): string {
   const key = getKey();
   const iv = randomBytes(IV_BYTES);
@@ -53,13 +35,6 @@ export function envelopeEncrypt(plaintext: string): string {
   )}`;
 }
 
-/**
- * Decrypt an envelope-encoded value. Throws if:
- * - The version prefix is unknown
- * - The ENCRYPTION_KEY is missing or the wrong length
- * - The ciphertext is tampered (GCM auth tag mismatch)
- * - The input is malformed
- */
 export function envelopeDecrypt(encoded: string): string {
   const parts = encoded.split(':');
   if (parts.length !== 4) {

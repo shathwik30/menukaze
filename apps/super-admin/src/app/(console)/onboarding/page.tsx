@@ -38,12 +38,10 @@ export default async function OnboardingPage() {
       .exec(),
   ]);
 
-  // Build step counts map
   const stepMap = new Map<string, number>();
   for (const s of stepCounts) stepMap.set(s._id, s.count);
 
-  // Funnel: how many reached each step (cumulative from complete backwards)
-  // "reached step X" means they are currently on step X or any step after X
+  // Cumulative: "reached step X" means currently on step X or any later step.
   const stepOrder = [...ONBOARDING_STEPS];
   const funnel: Array<{ step: string; count: number }> = [];
   let cumulative = 0;
@@ -52,7 +50,6 @@ export default async function OnboardingPage() {
     funnel.unshift({ step: stepOrder[i]!, count: cumulative });
   }
 
-  // Time-to-live metrics
   const timeToLiveDays = liveRestaurants.map((r) => {
     const diff = (r.liveAt!.getTime() - r.createdAt.getTime()) / oneDayMs;
     return Math.max(0, diff);
@@ -79,16 +76,15 @@ export default async function OnboardingPage() {
     <div className="mx-auto max-w-5xl space-y-8">
       <h1 className="text-2xl font-bold">Onboarding Analytics</h1>
 
-      {/* Key metrics */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="border-border rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
             Avg Time to Live
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">{avgTimeToLive.toFixed(1)}d</p>
         </div>
         <div className="border-border rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
             Day-1 Completion
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
@@ -97,7 +93,7 @@ export default async function OnboardingPage() {
           <p className="text-muted-foreground text-xs">{dayOneCompletion} merchants</p>
         </div>
         <div className="border-border rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
             7-Day Completion
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
@@ -106,7 +102,7 @@ export default async function OnboardingPage() {
           <p className="text-muted-foreground text-xs">{sevenDayCompletion} merchants</p>
         </div>
         <div className="border-border rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
             Never Completed
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
@@ -116,13 +112,11 @@ export default async function OnboardingPage() {
         </div>
       </div>
 
-      {/* Funnel */}
       <section className="border-border rounded-lg border p-6">
         <h2 className="mb-4 text-lg font-semibold">Onboarding Funnel</h2>
         <FunnelChart steps={funnel} total={totalSignups} />
       </section>
 
-      {/* Stuck merchants */}
       <section>
         <h2 className="mb-4 text-lg font-semibold">Stuck Merchants ({stuckMerchants.length})</h2>
         <StuckMerchants merchants={stuckMerchants} />

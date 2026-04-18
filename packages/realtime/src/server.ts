@@ -1,14 +1,7 @@
 import Ably from 'ably';
 import type { RealtimeEvent } from './events';
 
-/**
- * Server-only Ably entrypoints.
- *
- * `publishRealtimeEvent(channelName, event)` fans an event out over Ably on
- * the given channel. `createAblyTokenRequest(capability, clientId?)` issues
- * a short-lived token that the browser can use to subscribe without ever
- * seeing the root API key.
- */
+const ABLY_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 let cached: Ably.Rest | null = null;
 
@@ -35,11 +28,6 @@ export type AblyCapability = Record<
   Array<'publish' | 'subscribe' | 'presence' | 'history'>
 >;
 
-/**
- * Mint a token request the browser can use to authenticate with Ably. The
- * `capability` argument is an Ably-style scope map: channel-name → permitted
- * operations. Customer tracking pages receive `{ '<channel>': ['subscribe'] }`.
- */
 export async function createAblyTokenRequest(
   capability: AblyCapability,
   clientId?: string,
@@ -48,6 +36,6 @@ export async function createAblyTokenRequest(
   return rest.auth.createTokenRequest({
     capability: JSON.stringify(capability),
     ...(clientId ? { clientId } : {}),
-    ttl: 60 * 60 * 1000, // 1 hour
+    ttl: ABLY_TOKEN_TTL_MS,
   });
 }

@@ -106,7 +106,7 @@ export default async function StorefrontHomePage() {
         phone={restaurant.phone}
       />
 
-      <main className="mx-auto max-w-5xl px-4 pb-40 pt-12 sm:px-6 sm:pt-16 lg:px-8">
+      <main className="mx-auto max-w-5xl px-4 pt-12 pb-40 sm:px-6 sm:pt-16 lg:px-8">
         {activeItems.length === 0 ? (
           <div className="border-ink-200 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/40 rounded-2xl border border-dashed px-6 py-20 text-center">
             <p className="text-ink-600 dark:text-ink-300 font-serif text-xl">
@@ -158,7 +158,7 @@ export default async function StorefrontHomePage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-10 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-2 sm:items-start">
             <BrandRow size="sm" />
-            <span className="text-ink-400 dark:text-ink-500 text-[11px] uppercase tracking-[0.18em]">
+            <span className="text-ink-400 dark:text-ink-500 text-[11px] tracking-[0.18em] uppercase">
               Craft for restaurants
             </span>
           </div>

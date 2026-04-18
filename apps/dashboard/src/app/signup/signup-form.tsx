@@ -50,7 +50,7 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
         <Eyebrow withBar tone="accent">
           {inviteToken ? 'Staff invite' : 'Create an account'}
         </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-[2.75rem]">
+        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-[2.75rem]">
           {inviteToken ? 'Join your team.' : 'Open your restaurant.'}
         </h1>
         <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">

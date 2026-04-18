@@ -1,18 +1,3 @@
-/**
- * Tenant-bound repository factory.
- *
- * Handlers do not touch raw Mongoose models. They go through `ctx.repos.*`,
- * which is constructed by the tenant middleware via
- * `createTenantRepo(model, tenantId)`. Every method automatically injects
- * `restaurantId` into the query so a handler that forgets to scope a query
- * CANNOT leak data across tenants.
- *
- * The minimal surface here is a CRUD shape; specialised methods belong on
- * domain-specific repos that wrap this one. Options arguments are intentionally
- * omitted at this stage — they will be re-introduced per-method as concrete
- * needs arise (e.g. `lean()`, `session`).
- */
-
 import type { Model, HydratedDocument, Query, UpdateQuery, UpdateWriteOpResult } from 'mongoose';
 import type * as mongoose from 'mongoose';
 
@@ -32,14 +17,9 @@ export interface TenantRepo<TDoc extends { restaurantId: unknown }> {
   countDocuments(filter?: FilterQuery<TDoc>): Query<number, HydratedDocument<TDoc>>;
 }
 
-/**
- * Wrap a Mongoose model so every read/write is auto-scoped to one restaurant.
- *
- * The wrapper merges `{ restaurantId }` into every filter and force-sets it
- * on every create. The underlying model still has the tenantScopedPlugin
- * installed, which throws if anything ever bypasses the wrapper and forgets
- * to set restaurantId — defence in depth.
- */
+// Auto-injects `restaurantId` into every filter/create. The tenantScopedPlugin
+// on the underlying model still throws if anything bypasses this wrapper —
+// defence in depth.
 export function createTenantRepo<TDoc extends { restaurantId: unknown }>(
   model: Model<TDoc>,
   restaurantId: string,

@@ -1,29 +1,19 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * One delivery attempt log per (subscription × event). Created in the
- * `pending` state by the event dispatcher and drained by the worker, which
- * POSTs the payload, records the response, and either marks `delivered`,
- * schedules a retry with exponential backoff, or marks `failed` after the
- * retry budget is exhausted.
- *
- * Retry schedule per the platform spec: 1 min → 5 min → 30 min → 2 hr →
- * 24 hr → permanent fail (5 attempts total).
- */
+// Retry schedule: 1m → 5m → 30m → 2h → 24h → permanent fail (5 attempts total).
 
 export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed';
 
 export interface WebhookDeliveryDoc {
   restaurantId: Types.ObjectId;
   subscriptionId: Types.ObjectId;
-  /** Stable event id sent in `X-Menukaze-Webhook-Id`. */
+  /** Sent in `X-Menukaze-Webhook-Id`. */
   eventId: string;
   eventType: string;
   payload: Record<string, unknown>;
   status: WebhookDeliveryStatus;
   attempts: number;
-  /** Time the worker should pick this up next. */
   nextAttemptAt: Date;
   lastResponseStatus?: number;
   lastResponseBody?: string;
@@ -63,16 +53,12 @@ webhookDeliverySchema.index({ status: 1, nextAttemptAt: 1 });
 webhookDeliverySchema.index({ restaurantId: 1, createdAt: -1 });
 webhookDeliverySchema.index({ restaurantId: 1, subscriptionId: 1, createdAt: -1 });
 
-/**
- * Retry schedule in milliseconds, indexed by attempt count (after the first).
- * After the 5th attempt fails, the delivery is marked permanently failed.
- */
 export const WEBHOOK_RETRY_DELAYS_MS: number[] = [
-  60 * 1000, // 1 min
-  5 * 60 * 1000, // 5 min
-  30 * 60 * 1000, // 30 min
-  2 * 60 * 60 * 1000, // 2 hr
-  24 * 60 * 60 * 1000, // 24 hr
+  60 * 1000,
+  5 * 60 * 1000,
+  30 * 60 * 1000,
+  2 * 60 * 60 * 1000,
+  24 * 60 * 60 * 1000,
 ];
 
 export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_DELAYS_MS.length;

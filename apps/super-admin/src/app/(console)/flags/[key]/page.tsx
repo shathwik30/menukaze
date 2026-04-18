@@ -20,7 +20,6 @@ export default async function FlagDetailPage({ params }: Props) {
   const flag = await FeatureFlag.findOne({ key }).lean().exec();
   if (!flag) notFound();
 
-  // Load restaurant names for overrides
   const overrideEntries = flag.restaurantOverrides
     ? Object.entries(Object.fromEntries(flag.restaurantOverrides))
     : [];
@@ -42,7 +41,6 @@ export default async function FlagDetailPage({ params }: Props) {
     enabled: enabled as boolean,
   }));
 
-  // Load plan names for plan gates
   const plans = flag.planGates.length
     ? await Plan.find({ _id: { $in: flag.planGates } }, { name: 1 })
         .lean()

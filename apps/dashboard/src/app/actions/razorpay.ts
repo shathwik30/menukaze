@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { envelopeEncrypt, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+import { runRestaurantAction, validationError } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
 import { verifyRazorpayKeys } from '@/lib/razorpay';
 
@@ -23,63 +23,57 @@ export type ConnectRazorpayInput = z.infer<typeof inputSchema>;
 
 export type ConnectRazorpayResult = { ok: true } | { ok: false; error: string };
 
-/**
- * Verifies Razorpay credentials, stores them encrypted, and advances onboarding.
- */
 export async function connectRazorpayAction(raw: unknown): Promise<ConnectRazorpayResult> {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const { keyId, keySecret } = parsed.data;
 
-  try {
-    return await withRestaurantAction(
-      ['payments.configure'],
-      async ({ restaurantId, session, role }) => {
-        const verify = await verifyRazorpayKeys(keyId, keySecret);
-        if (!verify.ok) {
-          return { ok: false, error: verify.error };
-        }
+  return runRestaurantAction(
+    ['payments.configure'],
+    { onError: 'Could not save Razorpay credentials.', onForbidden: RAZORPAY_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
+      const verify = await verifyRazorpayKeys(keyId, keySecret);
+      if (!verify.ok) {
+        return { ok: false, error: verify.error };
+      }
 
-        const conn = await getMongoConnection('live');
-        const { Restaurant } = getModels(conn);
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
 
-        const restaurant = await Restaurant.findById(restaurantId).exec();
-        if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
 
-        if (restaurant.onboardingStep !== 'razorpay') {
-          return { ok: false, error: 'This restaurant has already completed the Razorpay step.' };
-        }
+      if (restaurant.onboardingStep !== 'razorpay') {
+        return { ok: false, error: 'This restaurant has already completed the Razorpay step.' };
+      }
 
-        const encKeyId = envelopeEncrypt(keyId);
-        const encSecret = envelopeEncrypt(keySecret);
+      const encKeyId = envelopeEncrypt(keyId);
+      const encSecret = envelopeEncrypt(keySecret);
 
-        const result = await Restaurant.updateOne(
-          { _id: restaurantId },
-          {
-            $set: {
-              razorpayKeyIdEnc: encKeyId,
-              razorpayKeySecretEnc: encSecret,
-              onboardingStep: 'staff',
-            },
+      const result = await Restaurant.updateOne(
+        { _id: restaurantId },
+        {
+          $set: {
+            razorpayKeyIdEnc: encKeyId,
+            razorpayKeySecretEnc: encSecret,
+            onboardingStep: 'staff',
           },
-        ).exec();
-        if (result.matchedCount !== 1) throw new APIError('internal_error');
+        },
+      ).exec();
+      if (result.matchedCount !== 1) throw new APIError('internal_error');
 
-        await recordAudit({
-          restaurantId,
-          userId: session.user.id,
-          userEmail: session.user.email,
-          role,
-          action: 'payments.razorpay.connected',
-          resourceType: 'restaurant',
-          resourceId: String(restaurantId),
-          metadata: { keyIdMasked: `${keyId.slice(0, 12)}…` },
-        });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'payments.razorpay.connected',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+        metadata: { keyIdMasked: `${keyId.slice(0, 12)}…` },
+      });
 
-        return { ok: true };
-      },
-    );
-  } catch (error) {
-    return actionError(error, 'Could not save Razorpay credentials.', RAZORPAY_PERMISSION_ERROR);
-  }
+      return { ok: true };
+    },
+  );
 }

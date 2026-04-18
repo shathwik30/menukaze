@@ -82,7 +82,7 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
                     type="button"
                     onClick={() => setActiveMenuId(menu.id)}
                     className={cn(
-                      'relative -mb-px whitespace-nowrap px-1 py-3.5 text-sm font-medium transition-colors',
+                      'relative -mb-px px-1 py-3.5 text-sm font-medium whitespace-nowrap transition-colors',
                       active
                         ? 'text-ink-950 dark:text-canvas-50'
                         : 'text-ink-500 hover:text-ink-900 dark:text-ink-400 dark:hover:text-canvas-100',
@@ -109,7 +109,7 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <label className="relative flex-1">
           <span className="sr-only">Search menu</span>
-          <SearchIcon className="text-ink-400 pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2" />
+          <SearchIcon className="text-ink-400 pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
           <Input
             type="search"
             placeholder="Search the menu…"
@@ -201,11 +201,6 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
   );
 }
 
-/**
- * Horizontally-scrolling category chips. Click jumps to that category's
- * section; active chip is whichever section is currently closest to the top
- * of the viewport. Hidden when only a single category is visible.
- */
 function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
   const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? '');
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -231,7 +226,6 @@ function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
     return () => observer.disconnect();
   }, [categories]);
 
-  // Keep the active chip scrolled into view in the horizontal strip.
   useEffect(() => {
     const list = listRef.current;
     if (!list || !activeId) return;
@@ -263,7 +257,7 @@ function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
             data-category-id={category.id}
             onClick={() => jumpTo(category.id)}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors',
+              'shrink-0 rounded-full border px-4 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors',
               active
                 ? 'bg-ink-950 border-ink-950 text-canvas-50 dark:bg-canvas-50 dark:border-canvas-50 dark:text-ink-950'
                 : 'border-ink-200 text-ink-600 hover:border-ink-300 hover:text-ink-950 dark:border-ink-700 dark:text-ink-300 dark:hover:border-ink-600 dark:hover:text-canvas-50 bg-surface',
@@ -329,14 +323,14 @@ function DishRow({
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-foreground font-serif text-lg font-medium leading-tight tracking-tight">
+          <h3 className="text-foreground font-serif text-lg leading-tight font-medium tracking-tight">
             {item.name}
           </h3>
           <div
             aria-hidden
             className="border-ink-300 dark:border-ink-700 mt-2.5 hidden h-px flex-1 border-t border-dotted sm:block"
           />
-          <span className="mk-nums text-foreground shrink-0 font-serif text-lg font-medium tabular-nums tracking-tight">
+          <span className="mk-nums text-foreground shrink-0 font-serif text-lg font-medium tracking-tight tabular-nums">
             {item.priceLabel}
           </span>
         </div>

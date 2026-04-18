@@ -1,13 +1,8 @@
 import { Schema, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * BetterAuth identity. One row per human. Multi-tenancy is handled by the
- * separate `staff_memberships` collection. A user can be owner of one
- * restaurant and Waiter at another.
- *
- * Not tenant-scoped: the BetterAuth login flow looks up users by email
- * across all tenants.
- */
+// Not tenant-scoped: BetterAuth looks up users by email across all tenants.
+// Multi-tenancy lives in the separate staff_memberships collection.
+
 export interface UserDoc {
   email: string;
   emailLower?: string;
@@ -15,7 +10,6 @@ export interface UserDoc {
   name: string;
   image?: string | null;
   locale?: string;
-  /** Optional app-level discriminator for seeded/admin-created users. */
   type?: 'staff' | 'customer';
   createdAt: Date;
   updatedAt: Date;

@@ -6,13 +6,6 @@ import {
   WEBHOOK_RETRY_DELAYS_MS,
 } from '@menukaze/db';
 
-/**
- * Drain pending webhook deliveries due to fire. Each call processes up to
- * `batchSize` rows, posts the signed payload to the subscription URL, and
- * either marks `delivered`, schedules the next retry, or marks `failed`
- * after the retry budget is exhausted.
- */
-
 interface DrainResult {
   scanned: number;
   delivered: number;
@@ -30,11 +23,7 @@ function signPayload(secret: string, timestamp: string, body: string): string {
   return createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
 }
 
-/**
- * Look up the delay for the next retry attempt. Falls back to the longest
- * configured delay (or `FALLBACK_RETRY_DELAY_MS` if the schedule is empty)
- * so we never throw or schedule a `NaN` retry.
- */
+// Falls back to the longest schedule entry so we never schedule a NaN retry.
 function nextRetryDelayMs(currentAttempts: number): number {
   return (
     WEBHOOK_RETRY_DELAYS_MS[currentAttempts] ??
@@ -67,7 +56,7 @@ export async function drainWebhookOutbox(batchSize = 25): Promise<DrainResult> {
       null,
       { skipTenantGuard: true },
     ).exec();
-    if (!subscription || !subscription.enabled) {
+    if (!subscription?.enabled) {
       item.status = 'failed';
       item.failedAt = new Date();
       item.lastError = 'subscription_disabled_or_missing';

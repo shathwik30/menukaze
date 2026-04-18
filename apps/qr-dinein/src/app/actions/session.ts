@@ -41,6 +41,7 @@ import {
 } from '@menukaze/shared';
 import {
   getRazorpayClientFromEncryptedKeys,
+  readRazorpayOrderId,
   verifyRazorpayPaymentSignature,
 } from '@menukaze/shared/razorpay';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
@@ -48,10 +49,6 @@ import { getZodErrorMessage } from '@menukaze/shared/validation';
 import { SessionNeedsReviewEmail } from '@/emails/session-needs-review';
 import { SessionReceiptEmail } from '@/emails/session-receipt';
 
-/** Server actions for QR dine-in session lifecycle, billing, and payment. */
-
-// Keep phone validation lightweight for now. We only need a reasonable
-// user-entered contact string until SMS delivery is added.
 const customerSchema = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
@@ -65,13 +62,6 @@ const customerSchema = z.object({
 const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
 
 type SessionTimeoutModels = Pick<ReturnType<typeof getModels>, 'Order' | 'Table' | 'TableSession'>;
-
-function readRazorpayOrderId(order: { id?: unknown }): string {
-  if (typeof order.id !== 'string' || order.id.length === 0) {
-    throw new Error('Razorpay did not return an order id.');
-  }
-  return order.id;
-}
 
 async function publishTableStatus(
   restaurantId: string,
@@ -184,11 +174,8 @@ async function moveSessionToNeedsReview(
   await notifyNeedsReviewByEmail(session, at);
 }
 
-/**
- * Cheap anomaly heuristics on a new round. Returns the reason string when an
- * order should be flagged, or null when it looks normal. Called inline by
- * `placeRoundAction` — keep it fast (a single Mongo query).
- */
+// Fast heuristics (single Mongo query). Flagged rounds still flow to the KDS;
+// the dashboard surfaces a banner for staff review.
 async function detectSessionAnomaly(
   orderModel: ReturnType<typeof getModels>['Order'],
   tableModel: ReturnType<typeof getModels>['Table'],
@@ -667,9 +654,7 @@ export async function startOrJoinSessionAction(
     };
   }
 
-  // Per-table cap (default 1 active session). Belt-and-braces: the active-
-  // session lookup above already serializes scans, but a configurable cap
-  // makes large-table split-bill workflows possible.
+  // Configurable per-table cap enables large-table split-bill workflows.
   const maxSessionsPerTable = restaurant.hardening?.maxSessionsPerTable ?? 1;
   const activeSessionsForTable = await TableSession.countDocuments({
     restaurantId,
@@ -684,7 +669,6 @@ export async function startOrJoinSessionAction(
     };
   }
 
-  // Per-device 24h cap across the whole restaurant.
   const since = new Date(now.getTime() - DEFAULT_DEVICE_WINDOW_HOURS * 60 * 60 * 1000);
   const deviceCount = await TableSession.countDocuments({
     restaurantId,
@@ -827,10 +811,6 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   );
   const totalMinor = roundSnapshot.subtotalMinor + surchargeMinor;
 
-  // Anomaly detection: flag rounds placed within 90s of the previous round
-  // when the running session total is well above what the table seats can
-  // plausibly consume. Suspicious rounds still flow to the KDS but surface
-  // a banner to staff.
   const anomaly = await detectSessionAnomaly(Order, Table, restaurantId, session, totalMinor, now);
 
   const order = await Order.create({

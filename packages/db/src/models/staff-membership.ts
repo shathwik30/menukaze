@@ -7,11 +7,6 @@ import {
 } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * Tenant-scoped: a (user × restaurant) pairing carrying the user's role and
- * any custom permission flags. The same user can have memberships at multiple
- * restaurants with different roles.
- */
 export interface StaffMembershipDoc {
   restaurantId: Types.ObjectId;
   userId: Types.ObjectId;
@@ -47,10 +42,10 @@ const staffMembershipSchema = new Schema<StaffMembershipDoc>(
 
 staffMembershipSchema.plugin(tenantScopedPlugin);
 
-// A user can only have one membership per restaurant.
+// One membership per (user, restaurant).
 staffMembershipSchema.index({ restaurantId: 1, userId: 1 }, { unique: true });
 staffMembershipSchema.index({ restaurantId: 1, role: 1, status: 1 });
-// Used by login flow to enumerate a user's memberships across tenants.
+// Login enumerates a user's memberships across tenants.
 staffMembershipSchema.index({ userId: 1 });
 
 export type StaffMembershipHydratedDoc = HydratedDocument<StaffMembershipDoc>;

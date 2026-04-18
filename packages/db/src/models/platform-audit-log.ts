@@ -1,19 +1,14 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Audit trail for every super-admin action. Immutable — entries are never
- * updated or deleted. Not tenant-scoped.
- */
+// Immutable trail for every super-admin action. Entries are never updated or deleted.
 
 export interface PlatformAuditLogDoc {
   actorUserId: Types.ObjectId;
-  /** Action verb, e.g. 'merchant.suspend', 'plan.create', 'flag.toggle'. */
+  /** e.g. 'merchant.suspend', 'plan.create'. */
   action: string;
-  /** Resource type, e.g. 'restaurant', 'plan', 'feature_flag'. */
+  /** e.g. 'restaurant', 'plan', 'feature_flag'. */
   resource: string;
-  /** Resource ID (stringified ObjectId or key). */
   resourceId?: string;
-  /** Set when the action targets a specific merchant. */
   targetRestaurantId?: Types.ObjectId;
   /** Before/after snapshot for mutations. */
   diff?: Record<string, unknown>;

@@ -20,7 +20,7 @@ export default async function AttractScreen() {
     const { Item } = getModels(conn);
     itemCount = await Item.countDocuments({ restaurantId: restaurant._id, soldOut: false });
   } catch {
-    // Non-fatal
+    /* non-fatal: attract screen renders without the item count */
   }
 
   return (
@@ -34,7 +34,6 @@ export default async function AttractScreen() {
         }}
       />
 
-      {/* Atmospheric aurora backdrop */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -67,7 +66,7 @@ export default async function AttractScreen() {
               </div>
             )}
             <div>
-              <p className="text-saffron-400 inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.28em]">
+              <p className="text-saffron-400 inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.28em] uppercase">
                 <span className="bg-saffron-400 inline-block h-px w-8" />
                 Self ordering
               </p>
@@ -79,7 +78,7 @@ export default async function AttractScreen() {
 
           <div>
             <p className="text-canvas-50/60 text-2xl font-medium">Welcome to {restaurant.name}</p>
-            <h1 className="text-canvas-50 mt-4 font-serif text-[9rem] font-medium leading-[0.88] tracking-[-0.04em]">
+            <h1 className="text-canvas-50 mt-4 font-serif text-[9rem] leading-[0.88] font-medium tracking-[-0.04em]">
               Tap to <span className="text-saffron-400 italic">order.</span>
             </h1>
             <p className="text-canvas-50/70 mt-8 max-w-xl text-[22px] leading-snug">
@@ -95,10 +94,9 @@ export default async function AttractScreen() {
         </section>
 
         <section className="bg-canvas-50 text-ink-950 relative flex min-h-0 flex-col justify-center overflow-hidden px-14">
-          {/* Warm corner gradient */}
           <div
             aria-hidden
-            className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full opacity-80 blur-3xl"
+            className="pointer-events-none absolute -top-24 -right-24 size-96 rounded-full opacity-80 blur-3xl"
             style={{
               background:
                 'radial-gradient(closest-side, oklch(0.885 0.100 68 / 0.55), transparent)',
@@ -108,7 +106,7 @@ export default async function AttractScreen() {
           <div className="relative mx-auto w-full max-w-md">
             <div className="border-ink-100 bg-surface rounded-3xl border p-6 shadow-xl">
               <div className="flex items-center justify-between">
-                <p className="text-ink-500 inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.18em]">
+                <p className="text-ink-500 inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.18em] uppercase">
                   <span className="bg-jade-500 relative inline-flex size-2 rounded-full">
                     <span className="bg-jade-500 absolute inset-0 animate-ping rounded-full opacity-60" />
                   </span>
@@ -120,7 +118,7 @@ export default async function AttractScreen() {
                   </span>
                 ) : null}
               </div>
-              <p className="text-ink-950 mt-5 font-serif text-[42px] font-medium leading-[1.05] tracking-tight">
+              <p className="text-ink-950 mt-5 font-serif text-[42px] leading-[1.05] font-medium tracking-tight">
                 Start when you&apos;re ready.
               </p>
               <p className="text-ink-500 mt-3 text-base leading-relaxed">
@@ -148,7 +146,7 @@ export default async function AttractScreen() {
             </Link>
 
             <div className="mt-6 flex items-center justify-center gap-2">
-              <span className="text-ink-400 text-[12px] uppercase tracking-[0.18em]">
+              <span className="text-ink-400 text-[12px] tracking-[0.18em] uppercase">
                 Touch to begin
               </span>
             </div>

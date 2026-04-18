@@ -1,12 +1,3 @@
-/**
- * Reservation slot computation. Pure helpers — given operating hours and
- * existing bookings, return the bookable time slots for a date.
- *
- * The model treats each restaurant day as a flat list of `(slotStart, slotEnd)`
- * windows in the local timezone. The dashboard shows what's left, the
- * storefront shows what the customer can pick.
- */
-
 export interface RestaurantHourEntry {
   day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
   closed: boolean;
@@ -35,7 +26,6 @@ export interface BookedSlot {
 export interface SlotOption {
   slotStart: string;
   slotEnd: string;
-  /** True when at least one booking exists at this slot. */
   hasBookings: boolean;
 }
 
@@ -52,25 +42,15 @@ function formatHHmm(totalMinutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/**
- * Return the local-timezone weekday for an ISO date string (YYYY-MM-DD).
- * UTC-safe: builds a noon UTC date so DST doesn't slide the day.
- */
 export function isoWeekdayKey(isoDate: string): RestaurantHourEntry['day'] | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
   if (!match) return null;
   const [, y, mo, d] = match;
+  // Anchor at UTC noon so DST shifts never move the day.
   const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12, 0, 0));
   return DAY_KEYS[dt.getUTCDay()] ?? null;
 }
 
-/**
- * Compute the bookable slot list for a date given operating hours,
- * reservation settings, and any existing bookings on that date.
- *
- * Returns the empty array when the date is closed, blocked, or reservations
- * are disabled.
- */
 export function computeAvailableSlots(input: {
   date: string;
   hours: RestaurantHourEntry[];

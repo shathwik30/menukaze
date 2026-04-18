@@ -19,11 +19,6 @@ interface Props {
   phone?: string;
 }
 
-/**
- * Editorial hero for the storefront. Large display serif lockup, warm mesh
- * backdrop, status pill with animated dot, today's hours and phone.
- * Server component — no client JS.
- */
 export function StorefrontHeader({
   name,
   description,
@@ -45,7 +40,7 @@ export function StorefrontHeader({
   return (
     <header className="border-ink-100 bg-canvas-50 dark:border-ink-900 dark:bg-ink-950 relative overflow-hidden border-b">
       <MeshBackdrop />
-      <div className="relative mx-auto max-w-5xl px-4 pb-14 pt-16 sm:px-6 sm:pb-20 sm:pt-24 lg:px-8">
+      <div className="relative mx-auto max-w-5xl px-4 pt-16 pb-14 sm:px-6 sm:pt-24 sm:pb-20 lg:px-8">
         <Eyebrow withBar tone="accent">
           Now ordering
         </Eyebrow>
@@ -68,7 +63,7 @@ export function StorefrontHeader({
                 </div>
               )}
               <div className="min-w-0">
-                <h1 className="text-foreground font-serif text-4xl font-medium leading-[0.95] tracking-tight sm:text-5xl md:text-6xl">
+                <h1 className="text-foreground font-serif text-4xl leading-[0.95] font-medium tracking-tight sm:text-5xl md:text-6xl">
                   {name}
                 </h1>
               </div>

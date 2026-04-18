@@ -47,14 +47,8 @@ function writeConsent(consent: Consent): void {
 
 const PREFS_EVENT = 'mk:open-cookie-prefs';
 
-/**
- * Granular cookie consent banner. Categories: strictly necessary (always on),
- * performance, functional, targeting. Until the user picks, only strictly
- * necessary cookies (cart session, consent itself) should be set.
- *
- * Re-open from the footer "Cookie preferences" link, which dispatches the
- * `mk:open-cookie-prefs` event.
- */
+// Until the user picks, only strictly-necessary cookies (cart session,
+// consent itself) may be set. Re-open via the `mk:open-cookie-prefs` event.
 export function CookieConsent() {
   const [consent, setConsent] = useState<Consent | null>(null);
   const [open, setOpen] = useState(false);
@@ -132,7 +126,7 @@ export function CookieConsent() {
 
         {showDetails ? (
           <fieldset className="border-border grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-2">
-            <legend className="text-muted-foreground px-1 text-xs font-semibold uppercase tracking-wide">
+            <legend className="text-muted-foreground px-1 text-xs font-semibold tracking-wide uppercase">
               Categories
             </legend>
             <Toggle
@@ -231,9 +225,6 @@ function Toggle({ label, description, checked, disabled, onChange }: ToggleProps
   );
 }
 
-/**
- * Footer link that re-opens the cookie preferences panel.
- */
 export function CookiePreferencesLink({ className }: { className?: string }) {
   return (
     <button

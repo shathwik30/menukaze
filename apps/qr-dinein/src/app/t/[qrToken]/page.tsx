@@ -4,10 +4,6 @@ import { StartSessionForm } from './start-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * QR landing. The QR token selects the table and tenant, then existing active
- * sessions short-circuit to the shared session page.
- */
 export default async function TableLandingPage({
   params,
 }: {
@@ -31,7 +27,7 @@ export default async function TableLandingPage({
   }
 
   const restaurant = await Restaurant.findById(table.restaurantId).exec();
-  if (!restaurant || !restaurant.liveAt) {
+  if (!restaurant?.liveAt) {
     return (
       <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 p-8 text-center">
         <h1 className="text-2xl font-bold">{restaurant?.name ?? 'Restaurant'}</h1>
@@ -42,7 +38,6 @@ export default async function TableLandingPage({
     );
   }
 
-  // Concurrent scans should join the same active table session.
   const existing = await TableSession.findOne({
     restaurantId: table.restaurantId,
     tableId: table._id,

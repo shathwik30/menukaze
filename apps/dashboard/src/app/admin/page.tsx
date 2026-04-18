@@ -103,11 +103,11 @@ export default async function DashboardAdminPage() {
               'radial-gradient(ellipse 60% 40% at 15% 0%, oklch(0.885 0.100 68 / 0.25), transparent 60%), radial-gradient(ellipse 40% 30% at 85% 0%, oklch(0.850 0.085 162 / 0.18), transparent 60%)',
           }}
         />
-        <div className="relative mx-auto max-w-7xl px-6 pb-10 pt-10 sm:px-8 lg:px-10">
+        <div className="relative mx-auto max-w-7xl px-6 pt-10 pb-10 sm:px-8 lg:px-10">
           <Eyebrow tone="accent">{greeting}</Eyebrow>
           <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-foreground font-serif text-4xl font-medium leading-none tracking-tight sm:text-5xl">
+              <h1 className="text-foreground font-serif text-4xl leading-none font-medium tracking-tight sm:text-5xl">
                 Welcome back, {firstName}.
               </h1>
               <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
@@ -392,7 +392,7 @@ export default async function DashboardAdminPage() {
 function ProfileRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
-      <dt className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.12em]">
+      <dt className="text-ink-500 dark:text-ink-400 text-[11px] font-medium tracking-[0.12em] uppercase">
         {label}
       </dt>
       <dd className="text-foreground truncate text-sm">{children}</dd>

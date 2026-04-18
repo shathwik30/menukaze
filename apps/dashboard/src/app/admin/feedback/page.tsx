@@ -81,7 +81,7 @@ export default async function FeedbackPage() {
 
       {recent.length > 0 ? (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">Latest reviews</h2>
+          <h2 className="text-sm font-semibold tracking-wide uppercase">Latest reviews</h2>
           <ul className="border-border divide-border divide-y rounded-md border">
             {recent.map((entry) => (
               <li key={String(entry._id)} className="flex flex-col gap-1 p-3">

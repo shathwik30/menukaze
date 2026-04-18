@@ -5,9 +5,6 @@ import { GoLiveButton } from './go-live-button';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Final onboarding review before the restaurant starts accepting orders.
- */
 export default async function OnboardingGoLivePage() {
   const { restaurantId } = await requirePageFlag(['settings.edit_profile']);
 

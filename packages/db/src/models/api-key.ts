@@ -3,40 +3,27 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { API_KEY_ENVS, API_KEY_SCOPES, type ApiKeyEnv, type ApiKeyScope } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * API key — and, by the platform's design, a channel. Every order placed
- * through an API key is automatically tagged with that key's channel name,
- * icon, and colour, so operators can attribute revenue, KDS load, and
- * customer acquisition per integration without an extra step.
- *
- * The raw key string is shown once at creation time. We persist only its
- * SHA-256 hash for lookup at request time. The displayed `lastFour` and
- * `prefix` give operators a way to identify a key in lists.
- *
- * `scope` controls API surface access:
- *   - `read_only`: GET endpoints only
- *   - `read_write`: GET + POST (orders, sessions, etc)
- *   - `admin`: every endpoint including channels.configure equivalents
- */
+// The raw key is shown ONCE at creation. Only its SHA-256 hash is persisted
+// for request-time lookup. `prefix` + `lastFour` exist solely to help operators
+// identify a key in lists.
+// Scopes:
+//   read_only   — GET endpoints only
+//   read_write  — GET + POST (orders, sessions, …)
+//   admin       — every endpoint including channels.configure equivalents
 
 export type { ApiKeyScope, ApiKeyEnv };
 
 export interface ApiKeyDoc {
   restaurantId: Types.ObjectId;
   name: string;
-  /** Display icon key (e.g. "wordpress", "globe"). UI-defined enum. */
   icon?: string;
-  /** Tailwind colour token shown on the KDS / orders feed. */
   color?: string;
   scope: ApiKeyScope;
   env: ApiKeyEnv;
-  /** SHA-256 of the raw key string. The raw value is never stored. */
   keyHash: string;
-  /** Visible prefix shown alongside the key (`mk_live_` or `mk_test_`). */
+  /** `mk_live_` or `mk_test_`. */
   prefix: string;
-  /** Last four characters of the raw key, shown in the dashboard. */
   lastFour: string;
-  /** CORS allowlist for browser-based integrations. */
   allowedOrigins: string[];
   expiresAt?: Date;
   revokedAt?: Date;
@@ -77,10 +64,7 @@ apiKeySchema.plugin(tenantScopedPlugin);
 apiKeySchema.index({ restaurantId: 1, revokedAt: 1, createdAt: -1 });
 apiKeySchema.index({ restaurantId: 1, createdAt: -1 });
 
-/**
- * Generate a new key pair. Returns the raw key (only callers see it once)
- * and the hash + lastFour to persist. Format: `mk_{env}_{32 hex chars}`.
- */
+// Format: `mk_{env}_{24-byte base64url}`. Returns raw once; persist only hash + lastFour.
 export function generateApiKey(env: ApiKeyEnv): {
   raw: string;
   prefix: string;

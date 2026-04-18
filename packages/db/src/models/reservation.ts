@@ -2,15 +2,9 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { RESERVATION_STATUSES, type ReservationStatus } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A customer reservation. Created from the storefront booking flow or the
- * dashboard. Status flow: `pending` → `confirmed` (auto or manual) → `seated`
- * → `completed`. Either side may transition to `cancelled` or `no_show`.
- *
- * `date` is stored as an ISO date string (`YYYY-MM-DD`) in the restaurant's
- * timezone — not a UTC instant — so day-grouping in the dashboard is trivial.
- * `slotStart` and `slotEnd` are 24h `HH:mm` strings in the same timezone.
- */
+// `date`, `slotStart`, `slotEnd` are strings in the restaurant's local
+// timezone (not UTC instants) so dashboard day-grouping is trivial.
+
 export type { ReservationStatus };
 
 export interface ReservationDoc {
@@ -19,14 +13,16 @@ export interface ReservationDoc {
   email: string;
   phone?: string;
   partySize: number;
+  /** YYYY-MM-DD */
   date: string;
+  /** HH:mm */
   slotStart: string;
+  /** HH:mm */
   slotEnd: string;
   notes?: string;
   status: ReservationStatus;
-  /** Set when the booking was auto-confirmed at creation time. */
   autoConfirmed: boolean;
-  /** Set when a reminder email was sent (so the cron does not double-send). */
+  /** Set when a reminder email was sent so the cron does not double-send. */
   reminderSentAt?: Date;
   cancelReason?: string;
   createdAt: Date;

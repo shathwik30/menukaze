@@ -5,10 +5,9 @@ import { z } from 'zod';
 import { getMongoConnection, getModels, generateQrToken } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import {
-  actionError,
   invalidEntityError,
+  runRestaurantAction,
   validationError,
-  withRestaurantAction,
   type ActionResult,
 } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
@@ -29,16 +28,15 @@ const updateInput = z.object({
   zone: z.string().max(60).optional(),
 });
 
-/**
- * Dashboard table management. QR token regeneration stays separate because it
- * invalidates the physical sticker already attached to a table.
- */
+// QR regeneration is a separate action — it invalidates the printed sticker.
 export async function createTableAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = createInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
 
-  try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['tables.edit'],
+    { onError: 'Failed to create table.', onForbidden: TABLE_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
 
@@ -67,10 +65,8 @@ export async function createTableAction(raw: unknown): Promise<ActionResult<{ id
       });
       revalidatePath('/admin/tables');
       return { ok: true, data: { id: String(table._id) } };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to create table.', TABLE_PERMISSION_ERROR);
-  }
+    },
+  );
 }
 
 export async function updateTableAction(raw: unknown): Promise<ActionResult> {
@@ -80,8 +76,10 @@ export async function updateTableAction(raw: unknown): Promise<ActionResult> {
   const tableId = parseObjectId(parsed.data.id);
   if (!tableId) return invalidEntityError('table');
 
-  try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['tables.edit'],
+    { onError: 'Failed to update table.', onForbidden: TABLE_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
       const { id: _ignoredId, ...patch } = parsed.data;
@@ -101,18 +99,18 @@ export async function updateTableAction(raw: unknown): Promise<ActionResult> {
 
       revalidatePath('/admin/tables');
       return { ok: true };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to update table.', TABLE_PERMISSION_ERROR);
-  }
+    },
+  );
 }
 
 export async function deleteTableAction(id: string): Promise<ActionResult> {
   const tableId = parseObjectId(id);
   if (!tableId) return invalidEntityError('table');
 
-  try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['tables.edit'],
+    { onError: 'Failed to delete table.', onForbidden: TABLE_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
 
@@ -128,18 +126,18 @@ export async function deleteTableAction(id: string): Promise<ActionResult> {
       });
       revalidatePath('/admin/tables');
       return { ok: true };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to delete table.', TABLE_PERMISSION_ERROR);
-  }
+    },
+  );
 }
 
 export async function regenerateQrTokenAction(id: string): Promise<ActionResult> {
   const tableId = parseObjectId(id);
   if (!tableId) return invalidEntityError('table');
 
-  try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['tables.edit'],
+    { onError: 'Failed to regenerate table QR token.', onForbidden: TABLE_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Table } = getModels(conn);
       const result = await Table.updateOne(
@@ -159,8 +157,6 @@ export async function regenerateQrTokenAction(id: string): Promise<ActionResult>
 
       revalidatePath('/admin/tables');
       return { ok: true };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to regenerate table QR token.', TABLE_PERMISSION_ERROR);
-  }
+    },
+  );
 }

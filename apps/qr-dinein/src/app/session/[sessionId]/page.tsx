@@ -104,7 +104,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
             <Eyebrow tone="accent">Dine-in</Eyebrow>
-            <p className="text-foreground truncate font-serif text-lg font-medium leading-tight tracking-tight">
+            <p className="text-foreground truncate font-serif text-lg leading-tight font-medium tracking-tight">
               {restaurant.name}
             </p>
           </div>
@@ -117,7 +117,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 pb-10 pt-5 sm:px-6">
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 pt-5 pb-10 sm:px-6">
         <SessionClient
           restaurantId={String(restaurantId)}
           sessionId={String(session._id)}

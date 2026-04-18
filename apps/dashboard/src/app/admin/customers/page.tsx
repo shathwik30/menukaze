@@ -79,7 +79,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         </p>
       ) : (
         <table className="border-border w-full border text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide">
+          <thead className="bg-muted/50 text-left text-xs tracking-wide uppercase">
             <tr>
               <th className="px-3 py-2">Name / Email</th>
               <th className="px-3 py-2">First channel</th>

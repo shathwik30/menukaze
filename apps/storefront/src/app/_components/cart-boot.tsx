@@ -9,11 +9,6 @@ interface Props {
   locale: string;
 }
 
-/**
- * Binds the Zustand cart to the current restaurant at mount. If the user
- * navigates between tenants (same browser, different subdomain), the cart
- * store detects the id change and clears itself.
- */
 export function CartBoot({ restaurantId, currency, locale }: Props) {
   const setRestaurant = useCart((s) => s.setRestaurant);
   useEffect(() => {

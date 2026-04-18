@@ -1,14 +1,6 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-/**
- * Type-safe environment for the dashboard. Validation fires on any import
- * of `env` — dashboard imports it once from the root layout so a boot-time
- * mismatch surfaces before the first request.
- *
- * Set `SKIP_ENV_VALIDATION=true` to bypass (CI `lint`, `typecheck`, `build`
- * jobs don't have production secrets).
- */
 const booleanFromString = z
   .enum(['true', 'false'])
   .optional()

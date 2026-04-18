@@ -16,10 +16,6 @@ export interface SuperAdminSession {
   scopes: string[];
 }
 
-/**
- * Read the BetterAuth session, then verify the user is in the `super_admins`
- * collection. Returns null if not signed in or not a super admin.
- */
 export async function getSuperAdminSession(): Promise<SuperAdminSession | null> {
   const auth = await getAuth();
   const session = await auth.api.getSession({ headers: await headers() });
@@ -43,10 +39,6 @@ export async function getSuperAdminSession(): Promise<SuperAdminSession | null> 
   };
 }
 
-/**
- * Require a super-admin session. Redirects to /login if the user is not
- * authenticated or not in the super_admins collection.
- */
 export async function requireSuperAdmin(): Promise<SuperAdminSession> {
   const session = await getSuperAdminSession();
   if (!session) redirect('/login');

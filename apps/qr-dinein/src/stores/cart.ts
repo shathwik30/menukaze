@@ -8,11 +8,8 @@ import {
 } from '@menukaze/shared/cart-store';
 import { setCartLineNotes } from '@menukaze/shared/cart';
 
-/**
- * The QR dine-in cart is intentionally NOT persisted — each session already
- * has a server-side record of placed rounds, so the cart only needs to hold
- * the current in-progress round until the user taps "Place round".
- */
+// Intentionally NOT persisted — the session's placed rounds are the server-side
+// source of truth; this store only holds the in-progress round.
 
 export {
   cartItemCount,

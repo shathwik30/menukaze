@@ -4,33 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { computeTax, formatPickupNumber, type TaxRule } from '@menukaze/shared';
+import '@menukaze/shared/razorpay-client';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 import { createKioskOrderAction, verifyKioskPaymentAction } from '@/app/actions/kiosk';
-
-interface RazorpayOpts {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (r: {
-    razorpay_payment_id: string;
-    razorpay_order_id: string;
-    razorpay_signature: string;
-  }) => void;
-  prefill?: { name?: string };
-  modal?: { ondismiss?: () => void };
-}
-interface RazorpayInstance {
-  open: () => void;
-}
-declare global {
-  interface Window {
-    Razorpay?: new (o: RazorpayOpts) => RazorpayInstance;
-  }
-}
 
 interface Props {
   restaurantId: string;
@@ -128,7 +105,6 @@ export function CheckoutClient({
       maximumFractionDigits: 2,
     }).format(minor / 100);
 
-  // Bounce if cart is empty or no mode selected
   useEffect(() => {
     if (completingPayment) return;
     if (!orderMode || lines.length === 0) router.replace('/kiosk/menu');
@@ -223,12 +199,12 @@ export function CheckoutClient({
             Back to menu
           </button>
           <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.26em] text-emerald-700">
+            <p className="text-xs font-bold tracking-[0.26em] text-emerald-700 uppercase">
               Step 3 of 3
             </p>
             <h1 className="text-2xl font-black">Review and pay</h1>
           </div>
-          <div className="rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white">
+          <div className="rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black tracking-[0.18em] text-white uppercase">
             {orderMode === 'dine_in' ? 'Dine in' : 'Takeaway'}
           </div>
         </header>
@@ -237,7 +213,7 @@ export function CheckoutClient({
           <main className="min-h-0 overflow-y-auto p-6">
             <div className="mb-5 flex items-end justify-between">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-sm font-bold tracking-[0.22em] text-zinc-500 uppercase">
                   Your order
                 </p>
                 <h2 className="mt-1 text-4xl font-black">
@@ -280,7 +256,7 @@ export function CheckoutClient({
 
           <aside className="flex min-h-0 flex-col border-l border-zinc-200 bg-white">
             <div className="border-b border-zinc-200 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
+              <p className="text-xs font-bold tracking-[0.22em] text-zinc-500 uppercase">
                 Payment total
               </p>
               <div className="mt-4 space-y-2 text-base">
@@ -303,7 +279,7 @@ export function CheckoutClient({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <label className="block">
-                <span className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500">
+                <span className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
                   Name for pickup
                 </span>
                 <input
@@ -312,7 +288,7 @@ export function CheckoutClient({
                   onChange={(e) => setName(e.target.value)}
                   maxLength={32}
                   placeholder="Optional"
-                  className="mt-3 h-16 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-3xl font-black uppercase tracking-wide outline-none focus:border-emerald-600"
+                  className="mt-3 h-16 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-3xl font-black tracking-wide uppercase outline-none focus:border-emerald-600"
                 />
               </label>
               <p className="mt-2 text-sm font-medium text-zinc-500">

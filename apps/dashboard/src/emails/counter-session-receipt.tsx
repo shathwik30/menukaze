@@ -7,11 +7,6 @@ interface Props {
   paidAt: string;
 }
 
-/**
- * Emailed receipt for dine-in sessions settled at the counter (cash or
- * terminal). Uses plain tags + inline styles so Resend renders it
- * consistently across mail clients.
- */
 export function CounterSessionReceiptEmail({
   restaurantName,
   customerName,

@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
 import { channels } from '@menukaze/realtime';
+import '@menukaze/shared/razorpay-client';
 import Script from 'next/script';
 import {
   requestBillAction,
@@ -16,30 +17,6 @@ export interface BillLine {
   name: string;
   quantity: number;
   lineTotalLabel: string;
-}
-
-interface RazorpayOpts {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (r: {
-    razorpay_payment_id: string;
-    razorpay_order_id: string;
-    razorpay_signature: string;
-  }) => void;
-  prefill?: { name?: string; email?: string; contact?: string };
-  modal?: { ondismiss?: () => void };
-}
-interface RazorpayInstance {
-  open: () => void;
-}
-declare global {
-  interface Window {
-    Razorpay?: new (o: RazorpayOpts) => RazorpayInstance;
-  }
 }
 
 export function BillClient({
@@ -148,11 +125,7 @@ export function BillClient({
             router.refresh();
           });
         },
-        modal: {
-          ondismiss: () => {
-            /* Customer closed the modal, so leave the bill retryable. */
-          },
-        },
+        // Omitting `ondismiss` leaves the bill retryable after modal dismissal.
       });
       rzp.open();
     });

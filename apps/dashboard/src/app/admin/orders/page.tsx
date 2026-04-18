@@ -41,7 +41,7 @@ export default async function DashboardOrdersPage() {
           <Eyebrow withBar tone="accent">
             Operations · Live
           </Eyebrow>
-          <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+          <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
             Orders
           </h1>
           <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">

@@ -42,7 +42,7 @@ export function RazorpayConnectForm() {
           onChange={(event) => setKeyId(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2"
+          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
         <p className="text-muted-foreground mt-1 text-xs">
           Test-mode key IDs start with <span className="font-mono">rzp_test_</span>.
@@ -58,7 +58,7 @@ export function RazorpayConnectForm() {
           onChange={(event) => setKeySecret(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2"
+          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
         <p className="text-muted-foreground mt-1 text-xs">
           Stored AES-256-GCM envelope-encrypted. Never shown again in plaintext.

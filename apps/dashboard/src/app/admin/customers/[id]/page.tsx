@@ -76,7 +76,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       </section>
 
       <section className="border-border space-y-2 rounded-md border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Channel breakdown</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Channel breakdown</h2>
         {channelEntries.map(([channel, count]) => (
           <div key={channel} className="flex items-center justify-between text-sm">
             <span className="capitalize">{channel.replace('_', ' ')}</span>
@@ -86,7 +86,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Recent orders</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Recent orders</h2>
         {orders.length === 0 ? (
           <p className="text-muted-foreground text-sm">No order history.</p>
         ) : (
@@ -114,7 +114,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-muted-foreground text-xs uppercase tracking-wide">{label}</p>
+      <p className="text-muted-foreground text-xs tracking-wide uppercase">{label}</p>
       <p className="mt-0.5 text-sm font-medium">{value}</p>
     </div>
   );

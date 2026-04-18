@@ -1,24 +1,20 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A menu item is what a customer actually orders. Modifiers are embedded
- * (read-heavy, always fetched with the item) and snapshot at order time so
- * future menu edits never rewrite history.
- */
+// Modifiers are embedded (read-heavy, always fetched with the item).
+// Orders snapshot these at creation time so future menu edits never rewrite history.
+
 export interface ItemModifierOption {
   _id?: Types.ObjectId;
   name: string;
-  /** Extra cost in minor units. Always integer. */
   priceMinor: number;
 }
 
 export interface ItemModifierGroup {
   _id?: Types.ObjectId;
   name: string;
-  /** Customer must pick at least one option. */
   required: boolean;
-  /** Maximum number of options the customer can pick. 0 = unlimited. */
+  /** 0 = unlimited. */
   max: number;
   options: ItemModifierOption[];
 }
@@ -28,19 +24,16 @@ export interface ItemDoc {
   categoryId: Types.ObjectId;
   name: string;
   description?: string;
-  /** Always integer minor units (cents/paise/etc). */
   priceMinor: number;
-  /** ISO 4217 currency code copied from the parent restaurant for snapshot safety. */
+  /** Snapshot from the parent restaurant to keep items self-describing. */
   currency: string;
   imageUrl?: string;
   dietaryTags: string[];
   modifiers: ItemModifierGroup[];
-  /** Fixed bundle contents for combo / meal-deal items. */
   comboOf?: Types.ObjectId[];
-  /** Real-time availability toggle for hiding unavailable items. */
   soldOut: boolean;
   ageRestricted?: boolean;
-  /** Optional KDS station override. Falls back to category.stationIds. */
+  /** Override for category.stationIds. */
   stationIds?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;

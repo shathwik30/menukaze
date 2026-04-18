@@ -6,10 +6,6 @@ interface Props {
   trackingUrl?: string;
 }
 
-/**
- * Customer email for ready, delivery, and dine-in service status changes.
- * Uses plain tags and inline styles so Resend can render it consistently.
- */
 export function OrderReadyEmail({
   restaurantName,
   customerName,

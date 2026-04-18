@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         aria-atomic="true"
-        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-2 sm:bottom-6 sm:right-6"
+        className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-full max-w-sm flex-col gap-2 sm:right-6 sm:bottom-6"
       >
         {items.map((item) => (
           <ToastCard key={item.id} item={item} onDismiss={() => dismiss(item.id)} />
@@ -98,7 +98,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
         <button
           type="button"
           onClick={onDismiss}
-          className="-mr-1 -mt-1 rounded-md p-1 opacity-70 transition-opacity hover:opacity-100"
+          className="-mt-1 -mr-1 rounded-md p-1 opacity-70 transition-opacity hover:opacity-100"
           aria-label="Dismiss"
         >
           <svg

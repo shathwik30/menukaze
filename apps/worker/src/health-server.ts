@@ -38,7 +38,7 @@ async function buildHealthBody(state: WorkerHealthState): Promise<{
   status: number;
   body: HealthBody;
 }> {
-  let mongoOk = true;
+  let mongoOk: boolean;
   try {
     const conn = await getMongoConnection('live');
     mongoOk = conn.readyState === 1;
@@ -68,14 +68,7 @@ async function buildHealthBody(state: WorkerHealthState): Promise<{
   return { status: mongoOk ? 200 : 503, body };
 }
 
-/**
- * Start a tiny HTTP listener that exposes `GET /health`. Anything else
- * responds with 404. The server is stateless and does no tenant work; it
- * only reports the worker process's liveness + job cadence.
- *
- * Returns `null` when `port === 0` (disabled). Otherwise returns the
- * Server handle so the caller can close it on shutdown.
- */
+// Returns null when port === 0 (disabled for tests).
 export function startHealthServer(port: number, state: WorkerHealthState): Server | null {
   if (port === 0) return null;
 

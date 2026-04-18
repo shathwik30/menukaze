@@ -2,19 +2,15 @@
 
 import { usePinExit } from '@/hooks/use-pin-exit';
 
-/**
- * Invisible tap-zone (top-right corner) + PIN modal.
- * Mount this once in the kiosk layout so it is always present.
- */
+// Mount once in the kiosk layout to keep the exit gesture always available.
 export function PinOverlay() {
   const { showPin, pin, error, appendDigit, backspace, submitPin, dismiss } = usePinExit();
 
   return (
     <>
-      {/* Invisible 64 x 64 tap zone. 5 taps opens PIN. */}
       <div
         id="kiosk-exit-trigger"
-        className="fixed right-0 top-0 z-50 h-16 w-16 cursor-default"
+        className="fixed top-0 right-0 z-50 h-16 w-16 cursor-default"
         aria-hidden="true"
       />
 

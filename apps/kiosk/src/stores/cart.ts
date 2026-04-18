@@ -18,16 +18,13 @@ export {
 } from '@menukaze/shared/cart';
 
 interface KioskCartState extends RestaurantScopedCartState, CartLinesActionSlice {
-  /** 'dine_in' | 'takeaway' — chosen on the mode-select screen */
   orderMode: 'dine_in' | 'takeaway' | null;
   setRestaurant: (id: string, currency: string, locale: string) => void;
   setOrderMode: (mode: 'dine_in' | 'takeaway') => void;
   clear: () => void;
 }
 
-// Plain in-memory store — no persistence needed on a kiosk.
-// The state lives as long as the browser tab is open; a hard refresh
-// resets everything cleanly, which is the correct kiosk behaviour.
+// In-memory only: a hard refresh resets the kiosk cleanly, which is desired.
 export const useKioskCart = create<KioskCartState>((set, get) => ({
   restaurantId: null,
   currency: null,

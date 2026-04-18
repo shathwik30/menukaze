@@ -2,16 +2,9 @@ import 'server-only';
 import Razorpay from 'razorpay';
 import { env } from '@/env';
 
-/**
- * Verify a pair of Razorpay credentials by making the cheapest possible
- * authenticated API call: `orders.all(count: 1)`. If the keys are invalid,
- * Razorpay returns 401; if they're valid it returns an (possibly empty)
- * order list.
- *
- * Dev convenience: setting `MENUKAZE_SKIP_RAZORPAY_VERIFICATION=true` in
- * `.env.local` bypasses the API call so smoke tests can run without a real
- * Razorpay account. The prefix check still runs.
- */
+// Verifies credentials by making the cheapest authenticated Razorpay call.
+// `MENUKAZE_SKIP_RAZORPAY_VERIFICATION=true` skips the HTTP call for local
+// smoke tests; the prefix check still runs.
 
 export type VerifyRazorpayResult = { ok: true } | { ok: false; error: string };
 
@@ -27,13 +20,11 @@ export async function verifyRazorpayKeys(
   }
 
   if (env.MENUKAZE_SKIP_RAZORPAY_VERIFICATION) {
-    // Test-helper path: validate the key format without calling Razorpay.
     return { ok: true };
   }
 
   try {
     const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
-    // Smallest possible request that proves the auth header works.
     await rzp.orders.all({ count: 1 });
     return { ok: true };
   } catch (error: unknown) {

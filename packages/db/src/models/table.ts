@@ -3,27 +3,17 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { TABLE_STATUSES, type TableStatus } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A dine-in Table. Every table has a unique `qrToken` encoded in its printed
- * QR sticker; scanning the QR points the customer at
- * `{slug}.menukaze.com/t/{qrToken}` to start a dine-in session.
- *
- * Status flow: available -> occupied -> bill_requested -> paid -> available.
- * Timeout or unpaid edge cases move to needs_review.
- */
+// Status flow: available → occupied → bill_requested → paid → available.
+// Timeout / unpaid edge cases → needs_review.
+
 export type { TableStatus };
 
 export interface TableDoc {
   restaurantId: Types.ObjectId;
-  /** Sequence number for display, such as Table 1 or Table 2. Unique per restaurant. */
   number: number;
-  /** Display name. Defaults to "Table {number}" on creation; editable later. */
   name: string;
-  /** Seating capacity. Defaults to 4. */
   capacity: number;
-  /** Optional zone tag, such as indoor, outdoor, bar, or private dining. */
   zone?: string;
-  /** Random 24-char URL-safe token encoded in the printed QR sticker. */
   qrToken: string;
   status: TableStatus;
   lastReleasedAt?: Date;
@@ -31,10 +21,7 @@ export interface TableDoc {
   updatedAt: Date;
 }
 
-/**
- * Generate a cryptographically random URL-safe token for a table's QR code.
- * 18 random bytes -> 24 base64url characters -> about 144 bits of entropy.
- */
+// 18 random bytes → 24 base64url chars → ~144 bits of entropy.
 export function generateQrToken(): string {
   return randomBytes(18).toString('base64url');
 }

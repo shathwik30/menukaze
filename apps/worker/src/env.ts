@@ -19,11 +19,7 @@ export const env = createEnv({
     MENUKAZE_SKIP_EMAIL: booleanFromString,
     WORKER_SESSION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
     WORKER_WEBHOOK_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
-    /**
-     * Port for the worker's HTTP health server. Fly.io's `[checks]`
-     * block points its TCP/HTTP health check at this port. `0` disables
-     * the listener entirely (useful for tests).
-     */
+    /** Fly.io health check target. `0` disables the listener (tests). */
     WORKER_HEALTH_PORT: z.coerce.number().int().min(0).max(65535).default(8080),
   },
   runtimeEnv: process.env,

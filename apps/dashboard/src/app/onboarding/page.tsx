@@ -6,7 +6,6 @@ import { RestaurantProfileForm } from './restaurant-profile-form';
 
 export const dynamic = 'force-dynamic';
 
-/** Routes returning users to their saved onboarding step. */
 export default async function OnboardingPage() {
   const session = await requireSession();
 

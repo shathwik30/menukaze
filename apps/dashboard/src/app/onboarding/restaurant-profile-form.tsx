@@ -4,11 +4,7 @@ import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createRestaurantAction } from '@/app/actions/onboarding';
 
-/**
- * Country-derived defaults. Picking a country auto-fills the currency,
- * locale, and IANA timezone fields. Users can override locale/timezone later
- * from Settings; currency is locked at restaurant creation.
- */
+// Currency is locked at creation; locale/timezone can be overridden later.
 const COUNTRY_DEFAULTS = {
   IN: { name: 'India', currency: 'INR', locale: 'en-IN', timezone: 'Asia/Kolkata' },
   US: { name: 'United States', currency: 'USD', locale: 'en-US', timezone: 'America/Los_Angeles' },
@@ -41,7 +37,7 @@ function isCountryCode(value: string): value is CountryCode {
   return COUNTRY_CODE_SET.has(value);
 }
 
-/** Kebab-case slugify with the same rules as the slugSchema in @menukaze/shared. */
+// Matches the slugSchema rules in @menukaze/shared.
 function toSlug(value: string): string {
   return value
     .toLowerCase()
@@ -137,7 +133,7 @@ export function RestaurantProfileForm() {
             pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
             value={slug}
             onChange={(event) => onSlugChange(event.target.value)}
-            className="focus-visible:ring-ring flex-1 rounded-l-md bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+            className="focus-visible:ring-ring flex-1 rounded-l-md bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
           <span className="text-muted-foreground border-input border-l px-3 text-sm">
             .menukaze.com
@@ -245,7 +241,7 @@ function Field({
 function Derived({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-muted-foreground text-xs uppercase tracking-wide">{label}</p>
+      <p className="text-muted-foreground text-xs tracking-wide uppercase">{label}</p>
       <p className="text-foreground font-mono text-sm">{value}</p>
     </div>
   );

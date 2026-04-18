@@ -73,7 +73,7 @@ export default async function ReservationsPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 p-8">
       <header>
-        <p className="text-muted-foreground text-xs uppercase tracking-wide">Book a table</p>
+        <p className="text-muted-foreground text-xs tracking-wide uppercase">Book a table</p>
         <h1 className="text-3xl font-bold">{restaurant.name}</h1>
         <p className="text-muted-foreground mt-2 text-sm">
           Reservations of up to {settings.maxPartySize} guests. Each slot is {settings.slotMinutes}{' '}

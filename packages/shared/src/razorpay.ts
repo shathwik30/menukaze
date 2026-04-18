@@ -38,6 +38,13 @@ export interface RazorpayPaymentSignatureInput {
   keySecret: string;
 }
 
+export function readRazorpayOrderId(order: { id?: unknown }): string {
+  if (typeof order.id !== 'string' || order.id.length === 0) {
+    throw new Error('Razorpay did not return an order id.');
+  }
+  return order.id;
+}
+
 export function verifyRazorpayPaymentSignature(input: RazorpayPaymentSignatureInput): boolean {
   const expected = createHmac('sha256', input.keySecret)
     .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)

@@ -28,24 +28,10 @@ import {
 } from '@menukaze/shared';
 import {
   getRazorpayClientFromEncryptedKeys,
+  readRazorpayOrderId,
   verifyRazorpayPaymentSignature,
 } from '@menukaze/shared/razorpay';
 import { getZodErrorMessage } from '@menukaze/shared/validation';
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function readRazorpayOrderId(order: { id?: unknown }): string {
-  if (typeof order.id !== 'string' || order.id.length === 0) {
-    throw new Error('Razorpay did not return an order id.');
-  }
-  return order.id;
-}
-
-// ---------------------------------------------------------------------------
-// Create payment intent
-// ---------------------------------------------------------------------------
 
 const modifierInput = z.object({
   groupName: z.string().min(1),
@@ -220,7 +206,7 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
   const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
 
-  // Kiosk orders use a placeholder email — no receipt is sent.
+  // Kiosk orders use a placeholder email; no receipt is sent.
   const order = await Order.create({
     restaurantId,
     publicOrderId,
@@ -367,16 +353,8 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
   return { ok: true, publicOrderId: order.publicOrderId, orderId };
 }
 
-// ---------------------------------------------------------------------------
-// PIN verification (staff exit)
-// ---------------------------------------------------------------------------
-
-/**
- * Verify the PIN entered by a staff member to unlock the kiosk's exit
- * overlay. Comparison is constant-time to avoid leaking the secret one
- * digit at a time. If `KIOSK_EXIT_PIN` is not configured the action
- * always returns `{ ok: false }` — there is no insecure default.
- */
+// Constant-time compare so we don't leak the PIN one digit at a time.
+// Unconfigured KIOSK_EXIT_PIN always fails — no insecure default.
 export async function verifyKioskPinAction(pin: string): Promise<{ ok: boolean }> {
   const expected = env.KIOSK_EXIT_PIN;
   if (!expected) return { ok: false };

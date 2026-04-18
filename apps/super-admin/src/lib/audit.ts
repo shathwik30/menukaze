@@ -9,10 +9,6 @@ interface LogPlatformActionOpts {
   diff?: Record<string, unknown>;
 }
 
-/**
- * Insert a platform audit log entry. Call this inside server actions after
- * mutations to record what the super admin did.
- */
 export async function logPlatformAction(
   actorUserId: string,
   action: string,

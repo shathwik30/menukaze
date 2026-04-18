@@ -20,7 +20,6 @@ export {
 } from '@menukaze/shared/cart';
 
 interface CartState extends RestaurantScopedCartState, CartLinesActionSlice {
-  /** Bind the cart to the current restaurant. Resets the cart if the tenant changes. */
   setRestaurant: (id: string, currency: string, locale: string) => void;
   setNotes: (key: string, notes: string) => void;
   clear: () => void;

@@ -1,18 +1,12 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A category groups items within a menu, such as "Appetizers", "Mains", or "Desserts".
- * Items have a categoryId pointing here. The category's stationIds drive
- * which KDS stations the items get routed to.
- */
 export interface CategoryDoc {
   restaurantId: Types.ObjectId;
   menuId: Types.ObjectId;
   name: string;
-  /** Sort order within the parent menu. Lower = earlier. */
   order: number;
-  /** Optional KDS station routing. Empty or missing means default station. */
+  /** Empty/missing = default station. */
   stationIds?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;

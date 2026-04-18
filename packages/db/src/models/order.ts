@@ -16,21 +16,11 @@ import {
 } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A customer order is the canonical record for every purchase on the
- * platform. Orders arrive from five channels (storefront, qr_dinein, kiosk,
- * walk_in, api) and transition through a fixed status FSM driven by dashboard
- * actions, KDS taps, or webhook callbacks.
- *
- * Line items, modifiers, prices, and customer info are all **snapshotted** at
- * order creation time. A menu edit after the fact must never rewrite order
- * history. Historical receipts, analytics, and audit trails depend on an
- * immutable record of what the customer actually ordered and paid for.
- *
- * Payment state is embedded on the order (rather than a separate Payment
- * document) because every order has exactly one payment intent. Refunds land
- * as status transitions on that embedded record.
- */
+// Line items, modifiers, prices, and customer info are snapshotted at order
+// creation. A menu edit after the fact must never rewrite order history —
+// receipts, analytics, and audit depend on an immutable record.
+// Payment state is embedded (one intent per order); refunds are transitions
+// on that embedded record.
 
 export type {
   OrderChannel,
@@ -50,7 +40,6 @@ export interface OrderModifierSnapshot {
 export interface OrderLineItem {
   _id?: Types.ObjectId;
   itemId: Types.ObjectId;
-  /** Snapshot at order time. Future menu edits do not rewrite this. */
   name: string;
   priceMinor: number;
   quantity: number;
@@ -58,16 +47,13 @@ export interface OrderLineItem {
   notes?: string;
   /** (priceMinor + sum(modifier priceMinor)) * quantity */
   lineTotalMinor: number;
-  /** Station this line is routed to. Resolved at order create time from item / category station ids. */
   stationId?: Types.ObjectId;
-  /** Per-line preparation status. Defaults to `received` from the schema. */
   lineStatus?: OrderLineStatus;
 }
 
 export interface OrderStatusEvent {
   status: OrderStatus;
   at: Date;
-  /** User who performed the transition (staff members only). */
   byUserId?: Types.ObjectId;
 }
 
@@ -76,13 +62,9 @@ export interface OrderPayment {
   status: PaymentStatus;
   amountMinor: number;
   currency: string;
-  /** Human-readable payment path shown to staff and receipts. */
   methodLabel?: string;
-  /** Razorpay order id from `orders.create` (server-side, stable id). */
   razorpayOrderId?: string;
-  /** Razorpay payment id returned in the checkout success handler. */
   razorpayPaymentId?: string;
-  /** HMAC signature from Razorpay for verification. */
   razorpaySignature?: string;
   paidAt?: Date;
   failureReason?: string;
@@ -91,7 +73,6 @@ export interface OrderPayment {
 export interface OrderDoc {
   restaurantId: Types.ObjectId;
 
-  /** Human-readable short id shown to customers and on receipts. */
   publicOrderId: string;
 
   channel: OrderChannel;
@@ -116,25 +97,15 @@ export interface OrderDoc {
 
   payment: OrderPayment;
 
-  /** Set for dine-in orders (QR or walk-in). */
   tableId?: Types.ObjectId;
-  /** Set for QR dine-in orders that belong to a table session. */
   sessionId?: Types.ObjectId;
 
-  /** Estimated completion time, set when the order is confirmed. */
   estimatedReadyAt?: Date;
-  /** Stamped when the order transitions to a terminal status. */
   completedAt?: Date;
 
-  /** Operator-supplied reason for cancellation or refund. */
   cancelReason?: string;
 
-  /**
-   * Set by the QR misuse-prevention anomaly engine when an order trips a
-   * heuristic (off-hours, too-fast follow-up, volume well above table
-   * capacity). Suspicious orders surface a banner on the dashboard for
-   * manual review but still flow to the KDS.
-   */
+  /** Set by the QR anomaly engine; dashboard shows a review banner but orders still flow to KDS. */
   suspicious?: boolean;
   suspiciousReason?: string;
 
@@ -142,13 +113,10 @@ export interface OrderDoc {
   updatedAt: Date;
 }
 
-/**
- * Generate a short human-readable public id, e.g. "MK-7K9F4X".
- * 6 random bytes are mapped to 6 base32-style characters for readability.
- * Uniqueness is enforced by the unique index on (restaurantId, publicOrderId).
- */
+// Human-readable id like "MK-7K9F4X". Alphabet omits 0/O/1/I/L for legibility.
+// Uniqueness enforced by the (restaurantId, publicOrderId) unique index.
 export function generatePublicOrderId(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const bytes = randomBytes(6);
   let out = '';
   for (let i = 0; i < 6; i += 1) {

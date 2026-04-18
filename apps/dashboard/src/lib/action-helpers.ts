@@ -35,16 +35,35 @@ async function withResolvedRestaurantAction<T>(
   return handler(await accessPromise);
 }
 
-export async function withRestaurantAction<T>(
-  flags: Flag[],
-  handler: (context: RestaurantActionContext) => Promise<T>,
-): Promise<T> {
-  return withResolvedRestaurantAction(requireFlags(flags), handler);
+interface ActionMessages {
+  onError: string;
+  onForbidden?: string;
 }
 
-export async function withRestaurantAnyFlagAction<T>(
+async function runAction<R extends { ok: boolean }>(
+  accessPromise: Promise<RestaurantSessionContext & { role: string }>,
+  messages: ActionMessages,
+  handler: (context: RestaurantActionContext) => Promise<R>,
+): Promise<R | ActionFailure> {
+  try {
+    return await withResolvedRestaurantAction(accessPromise, handler);
+  } catch (error) {
+    return actionError(error, messages.onError, messages.onForbidden);
+  }
+}
+
+export function runRestaurantAction<R extends { ok: boolean }>(
   flags: Flag[],
-  handler: (context: RestaurantActionContext) => Promise<T>,
-): Promise<T> {
-  return withResolvedRestaurantAction(requireAnyFlag(flags), handler);
+  messages: ActionMessages,
+  handler: (context: RestaurantActionContext) => Promise<R>,
+): Promise<R | ActionFailure> {
+  return runAction(requireFlags(flags), messages, handler);
+}
+
+export function runRestaurantAnyFlagAction<R extends { ok: boolean }>(
+  flags: Flag[],
+  messages: ActionMessages,
+  handler: (context: RestaurantActionContext) => Promise<R>,
+): Promise<R | ActionFailure> {
+  return runAction(requireAnyFlag(flags), messages, handler);
 }

@@ -47,7 +47,6 @@ export default async function MerchantsPage({ searchParams }: Props) {
     Restaurant.countDocuments(filter).exec(),
   ]);
 
-  // Batch order counts
   const orderCounts = await Promise.all(
     restaurants.map((r) =>
       Order.countDocuments({ restaurantId: r._id }, { skipTenantGuard: true }).exec(),

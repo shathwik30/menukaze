@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { verifyKioskPinAction } from '@/app/actions/kiosk';
 
-/**
- * Returns PIN modal state. Tapping the invisible 64×64 px top-right zone
- * 5 times within 3 s opens the PIN entry overlay.
- */
+// Tapping the invisible top-right zone 5 times within 3 s opens the PIN overlay.
 export function usePinExit() {
   const [showPin, setShowPin] = useState(false);
   const [pin, setPin] = useState('');

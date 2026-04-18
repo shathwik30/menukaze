@@ -36,7 +36,7 @@ export default async function CheckoutPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-2xl px-4 pb-24 pt-10 sm:px-6 sm:pt-14">
+      <main className="mx-auto max-w-2xl px-4 pt-10 pb-24 sm:px-6 sm:pt-14">
         <header className="mb-8">
           <Eyebrow withBar tone="accent">
             Checkout

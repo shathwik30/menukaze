@@ -5,10 +5,6 @@ interface LogoMarkProps extends SVGProps<SVGSVGElement> {
   size?: number;
 }
 
-/**
- * Menukaze brand mark — a "plate" glyph: concentric circles with a notch,
- * evoking a dish and a seat at the table. Intended to scale from 16px to 64px.
- */
 export const LogoMark = forwardRef<SVGSVGElement, LogoMarkProps>(
   ({ size = 24, className, ...props }, ref) => (
     <svg

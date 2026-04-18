@@ -7,13 +7,7 @@ export const runtime = 'nodejs';
 
 const SERVICE = 'dashboard';
 
-/**
- * Liveness + readiness probe for the dashboard app. Reports an `ok` boolean
- * plus per-dependency status. MongoDB is the only critical dependency; if
- * the connection cannot be opened the endpoint returns HTTP 503.
- *
- * Designed for k8s/Fly.io/uptime monitors. No tenant context, no auth.
- */
+// Liveness + readiness probe. Mongo is the only critical dependency; 503 if it's down.
 export async function GET(): Promise<NextResponse> {
   const checks: { mongodb: 'ok' | 'error' } = { mongodb: 'ok' };
   let healthy = true;

@@ -73,7 +73,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {children}
       </select>
       <svg
-        className="text-ink-400 dark:text-ink-500 pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2"
+        className="text-ink-400 dark:text-ink-500 pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -98,7 +98,7 @@ export const Label = forwardRef<HTMLLabelElement, LabelProps>(
     <label
       ref={ref}
       className={cn(
-        'text-ink-800 dark:text-canvas-100 text-[13px] font-medium leading-none',
+        'text-ink-800 dark:text-canvas-100 text-[13px] leading-none font-medium',
         className,
       )}
       {...props}

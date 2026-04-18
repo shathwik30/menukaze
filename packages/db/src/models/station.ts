@@ -1,24 +1,13 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A KDS station. Each restaurant runs zero or more stations (grill, fry,
- * salads, drinks, bar). Items and categories may be assigned to one or more
- * stations via `stationIds`; the KDS view filters by station so the screen
- * in front of the grill only shows what the grill needs to cook.
- *
- * When a restaurant has no stations configured, the KDS shows the full feed
- * — the single-station behaviour the platform shipped with.
- */
+// When a restaurant has no stations configured, the KDS shows the full feed.
 
 export interface StationDoc {
   restaurantId: Types.ObjectId;
   name: string;
-  /** Sort order in the dashboard list. */
   order: number;
-  /** Tailwind colour token for the badge / card border on the KDS. */
   color?: string;
-  /** Optional sound preference key for the audio alert per station. */
   soundEnabled: boolean;
   archived: boolean;
   createdAt: Date;

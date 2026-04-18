@@ -195,7 +195,7 @@ export function WebhooksManager({
           </div>
 
           <fieldset>
-            <legend className="text-ink-600 dark:text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
+            <legend className="text-ink-600 dark:text-ink-400 mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
               Events ({events.length} selected)
             </legend>
             <div className="grid gap-1.5 sm:grid-cols-2">
@@ -290,7 +290,7 @@ export function WebhooksManager({
                 variant="accent"
                 size="sm"
                 onClick={copySecret}
-                className="absolute right-3 top-3"
+                className="absolute top-3 right-3"
               >
                 {copied ? 'Copied' : 'Copy'}
               </Button>
@@ -339,7 +339,7 @@ export function WebhooksManager({
                             </span>
                           ) : null}
                         </div>
-                        <p className="text-foreground mt-2 break-all font-mono text-[13px]">
+                        <p className="text-foreground mt-2 font-mono text-[13px] break-all">
                           {s.url}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1">
@@ -411,7 +411,7 @@ export function WebhooksManager({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-ink-100 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/60 border-b">
-                  <tr className="text-ink-500 text-left text-[11px] font-semibold uppercase tracking-[0.12em]">
+                  <tr className="text-ink-500 text-left text-[11px] font-semibold tracking-[0.12em] uppercase">
                     <th className="px-6 py-3">When</th>
                     <th className="px-6 py-3">Event</th>
                     <th className="px-6 py-3">Status</th>

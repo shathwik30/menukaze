@@ -1,17 +1,10 @@
-/**
- * Ably channel name builders. Every channel name in Menukaze flows through
- * one of these helpers — no raw strings allowed elsewhere. This is the only
- * way to keep server publish and browser subscribe in lockstep.
- *
- * Uses `:` as the separator so Ably namespace wildcards work in capabilities.
- *
- * Vocabulary (locked):
- *   restaurant:{id}:orders                    — every order's lifecycle
- *   restaurant:{id}:tables                    — table state changes
- *   restaurant:{id}:kds:{station}             — kitchen display station feed
- *   restaurant:{id}:sessions:{sessionId}      — customer order tracking page
- *   restaurant:{id}:super:health              — super-admin live metrics
- */
+// Channel name vocabulary (locked — browser subscribe capabilities depend on the ':' separator):
+//   restaurant:{id}:orders                    order lifecycle
+//   restaurant:{id}:tables                    table state changes
+//   restaurant:{id}:kds:{station}             kitchen display station feed
+//   restaurant:{id}:sessions:{sessionId}      customer order tracking page
+//   restaurant:{id}:order:{orderId}           single-order tracking page
+//   super:health                              super-admin live metrics
 
 const STATION_RE = /^[a-z0-9-]+$/;
 const ID_RE = /^[a-f0-9]{24}$/i;
@@ -62,11 +55,6 @@ export const channels = {
   },
 };
 
-/**
- * Wildcard patterns used when issuing Ably token requests with capability
- * scoping. The dashboard subscribes to `restaurant:{id}:*`; the customer
- * tracking page subscribes only to one specific session channel.
- */
 export const channelPatterns = {
   allRestaurant(restaurantId: string): string {
     ensureRestaurantId(restaurantId);

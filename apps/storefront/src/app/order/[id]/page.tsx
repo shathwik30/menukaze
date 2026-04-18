@@ -9,7 +9,6 @@ import { FeedbackWidget } from './feedback-widget';
 
 export const dynamic = 'force-dynamic';
 
-/** Customer confirmation and live order tracking page. */
 export default async function OrderConfirmationPage({
   params,
 }: {
@@ -66,7 +65,7 @@ export default async function OrderConfirmationPage({
         ) : null}
 
         <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">Your order</h2>
+          <h2 className="text-sm font-semibold tracking-wide uppercase">Your order</h2>
           <ul className="divide-border mt-2 divide-y">
             {order.items.map((item, i) => (
               <li key={i} className="flex items-start justify-between gap-4 py-2 text-sm">

@@ -1,19 +1,11 @@
-/**
- * BetterAuth configuration.
- *
- * BetterAuth manages identity (email/password, email verification, sessions)
- * for both staff and customer users. The multi-tenant role resolution lives
- * in `@menukaze/rbac`, NOT here — BetterAuth has no awareness of restaurants.
- *
- * Apps construct an auth instance via `createAuth()` so the same code path
- * runs against both the live and sandbox databases (selected by `dbName`).
- */
-
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { getMongoConnection, type DbName } from '@menukaze/db';
 import { captureMessage } from '@menukaze/monitoring';
 import { Resend } from 'resend';
+
+const SESSION_EXPIRES_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_REFRESH_AGE_SECONDS = 60 * 60 * 24;
 
 interface StaffInviteLookupDoc {
   email: string;
@@ -33,9 +25,7 @@ interface CreateAuthOptions {
   dbName?: DbName;
   baseURL?: string;
   trustedOrigins?: BetterAuthOptions['trustedOrigins'];
-  /** Override the secret. Falls back to BETTER_AUTH_SECRET env. */
   secret?: string;
-  /** Framework-specific plugins (Next.js apps pass `nextCookies()` here). */
   plugins?: BetterAuthOptions['plugins'];
 }
 
@@ -64,10 +54,9 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
             const escapedEmail = user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const staffInvites = db.collection<StaffInviteLookupDoc>('staff_invites');
             const users = db.collection<AuthUserWriteDoc>('user');
-            // Auto-verify email for users who have a pending staff invite.
-            // The invite email itself proves ownership — no need for a
-            // separate verification step. This is standard SaaS practice
-            // (Slack, Linear, Notion all do this).
+            // Auto-verify users arriving through a valid staff invite: the
+            // invite email already proved ownership, so a second verify step
+            // would just add friction (Slack/Linear/Notion do the same).
             const invite = await staffInvites.findOne({
               $or: [
                 { email: emailLower },
@@ -93,7 +82,6 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
     },
     emailAndPassword: {
       enabled: true,
-      // Defaults to ON for safety; local dev can opt out with the env flag.
       requireEmailVerification: process.env['MENUKAZE_REQUIRE_EMAIL_VERIFICATION'] !== 'false',
       autoSignIn: true,
       minPasswordLength: 8,
@@ -121,14 +109,14 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
       },
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 30, // 30 days
-      updateAge: 60 * 60 * 24, // refresh token if older than 1 day
+      expiresIn: SESSION_EXPIRES_SECONDS,
+      updateAge: SESSION_REFRESH_AGE_SECONDS,
     },
     advanced: {
       cookiePrefix: 'menukaze',
-      // Tie Secure-cookie behavior to the actual scheme of BETTER_AUTH_URL.
-      // `next start` forces NODE_ENV=production even in dev, so basing this
-      // on NODE_ENV would emit Secure cookies over plain HTTP and break dev.
+      // Derive from the configured URL rather than NODE_ENV: `next start` sets
+      // NODE_ENV=production even in dev, which would emit Secure cookies over
+      // plain HTTP and break sign-in.
       useSecureCookies: (opts.baseURL ?? process.env['BETTER_AUTH_URL'] ?? '').startsWith(
         'https://',
       ),

@@ -15,10 +15,6 @@ export interface CartLine {
 
 export type CartLineInput = Omit<CartLine, 'quantity'> & { quantity?: number };
 
-function normalizeCartQuantity(quantity?: number): number {
-  return quantity ?? 1;
-}
-
 function isMatchingCartLine(line: CartLine, key: string): boolean {
   return cartLineKey(line) === key;
 }
@@ -45,7 +41,7 @@ export function cartItemCount(lines: readonly Pick<CartLine, 'quantity'>[]): num
 
 export function addCartLine(lines: readonly CartLine[], input: CartLineInput): CartLine[] {
   const key = cartLineKey(input);
-  const quantity = normalizeCartQuantity(input.quantity);
+  const quantity = input.quantity ?? 1;
   const existing = lines.find((line) => isMatchingCartLine(line, key));
 
   if (!existing) {

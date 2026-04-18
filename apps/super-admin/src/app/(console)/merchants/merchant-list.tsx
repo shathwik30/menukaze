@@ -100,7 +100,7 @@ export function MerchantList({
             placeholder="Search name, slug, or email..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="border-input focus-visible:ring-ring rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2"
+            className="border-input focus-visible:ring-ring rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
           <button
             type="submit"

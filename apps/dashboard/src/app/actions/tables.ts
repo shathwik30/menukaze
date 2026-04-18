@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { generateQrToken, getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+import { runRestaurantAction, validationError } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
 
 const TABLES_PERMISSION_ERROR = 'You do not have permission to set up tables.';
@@ -25,16 +25,15 @@ export type CreateTablesStarterResult =
   | { ok: true; created: number }
   | { ok: false; error: string };
 
-/**
- * Creates the initial table set during onboarding and advances the wizard.
- */
 export async function createTablesStarterAction(raw: unknown): Promise<CreateTablesStarterResult> {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
-  try {
-    return await withRestaurantAction(['tables.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['tables.edit'],
+    { onError: 'Could not save tables.', onForbidden: TABLES_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Table } = getModels(conn);
 
@@ -87,8 +86,6 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
       } finally {
         await dbSession.endSession();
       }
-    });
-  } catch (error) {
-    return actionError(error, 'Could not save tables.', TABLES_PERMISSION_ERROR);
-  }
+    },
+  );
 }

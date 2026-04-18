@@ -1,14 +1,3 @@
-/**
- * Model registry. Each `*Model(connection)` factory returns the Mongoose model
- * registered against the given Connection (live or sandbox), creating it on
- * first call and returning the cached model on subsequent calls. This pattern
- * lets the same code run against either database without manual model
- * registration.
- *
- * As more collections are added, append
- * their exports here.
- */
-
 export { restaurantModel, type RestaurantDoc, type RestaurantModel } from './restaurant';
 export { userModel, type UserDoc, type UserModel } from './user';
 export {
@@ -162,10 +151,6 @@ import { apiKeyModel } from './api-key';
 import { webhookSubscriptionModel } from './webhook-subscription';
 import { webhookDeliveryModel } from './webhook-delivery';
 
-/**
- * Convenience accessor: `getModels(connection).Restaurant`.
- * Returns every model bound to the given connection.
- */
 export function getModels(connection: Connection) {
   return {
     Restaurant: restaurantModel(connection),

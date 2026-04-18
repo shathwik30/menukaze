@@ -103,11 +103,11 @@ Every Server Action in every app returns `ActionResult<T>` from `@menukaze/share
 ### Server-only code sits on explicit subpaths
 Modules that import Mongoose, BetterAuth, or BullMQ must live under a server-only subpath export from their package (e.g. `@menukaze/db` is server-only by design; `@menukaze/shared` is client-safe). If you're about to import a server-only module from a client component or from `packages/shared`, you're at the wrong layer — move the call to a server action or route handler.
 
-### Two APIs: public Hono v1 and internal tRPC
+### Two API surfaces: public v1 (Hono) and internal Server Actions
 - **Public API** — Hono, Node runtime, mounted as `apps/storefront/src/app/api/v1/[[...path]]/route.ts`. Served as `api.menukaze.com` via Vercel rewrite. Auth via per-tenant API keys whose prefix selects `live` vs `sandbox` DB. Rate-limited; idempotency via `apps/storefront/src/app/api/v1/_lib/idempotency.ts`.
-- **Internal API** — tRPC v11 in `packages/api`, mounted on dashboard + super-admin at `/api/trpc/[trpc]`. Used for all operator surfaces.
+- **Internal "API"** — Next.js **Server Actions** in each operator app (`apps/dashboard/src/app/actions/*`, `apps/super-admin/src/app/actions/*`). Each action is a `'use server'` function that returns `ActionResult<T>`. Auth + RBAC run through `withRestaurantAction([...flags], handler)` / `requirePageFlag([...flags])` wrappers in `lib/action-helpers.ts` and `lib/session.ts`. No tRPC — and no `packages/api`; earlier drafts planned one but the project ships Server Actions instead.
 
-Never cross-wire: the storefront/qr-dinein/kiosk clients call the public v1 API; dashboard and super-admin call tRPC.
+Never cross-wire: the storefront/qr-dinein/kiosk clients call the public v1 API; dashboard and super-admin components call server actions directly.
 
 ### Data access always goes through the tenant plugin
 Always resolve the tenant first (`resolveTenantOrNotFound` in each app's `lib/tenant`) and always use `getModels(conn)` — never `mongoose.model(...)` directly. Models are tenant-scoped by plugin; the plugin filters on `restaurantId` automatically.
@@ -116,7 +116,7 @@ Always resolve the tenant first (`resolveTenantOrNotFound` in each app's `lib/te
 Server publishes to Ably via `packages/realtime` after a mutation commits (outbox drainer in the worker). Browser subscribes via a token endpoint that restricts capabilities to allowed channels (see `apps/dashboard/src/app/admin/kds/kds-board.tsx` for the canonical subscribe pattern).
 
 ### Permissions on every server action
-Dashboard code guards every action/route with `requirePageFlag([...])` / `withRestaurantAction`. Permission flag strings live in `packages/rbac`. When you add an action, add its flag there too.
+Dashboard code guards every action/route with `requirePageFlag([...])` / `runRestaurantAction` / `runRestaurantAnyFlagAction` (`lib/action-helpers.ts`). The `run*` wrappers take `(flags, { onError, onForbidden }, handler)` and absorb the try/catch boilerplate so the handler can just `throw` or return `{ ok: false, error }`. Permission flag strings live in `packages/rbac`. When you add an action, add its flag there too.
 
 ### Design system use
 Import from `@menukaze/ui`. Use CSS custom props (`var(--mk-saffron-500)`, `var(--font-serif)`) or the Tailwind tokens (`bg-canvas-50`, `text-ink-950`, `font-serif`, `mk-nums`). Don't introduce new hex codes; extend the OKLCH ramp in `packages/ui/src/styles/globals.css` instead. Sentence case everywhere. No emoji in UI.

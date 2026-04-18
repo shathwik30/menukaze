@@ -5,9 +5,6 @@ import { TablesSetupForm } from './tables-setup-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Table setup page for the onboarding flow.
- */
 export default async function OnboardingTablesPage() {
   const { restaurantId } = await requirePageFlag(['tables.edit']);
 

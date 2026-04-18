@@ -87,7 +87,7 @@ export function TablesSetupForm() {
             required
             value={tableCount}
             onChange={(event) => setTableCount(event.target.value)}
-            className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+            className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
           <p className="text-muted-foreground mt-1 text-xs">
             We&apos;ll create tables numbered 1 through {tableCount || 'N'} with a default capacity

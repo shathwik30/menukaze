@@ -39,14 +39,14 @@ export function LoginForm({ inviteToken }: { inviteToken: string }) {
             <BrandRow size="md" className="text-canvas-50" />
             <Link
               href="https://menukaze.com"
-              className="text-ink-400 hover:text-canvas-50 text-[12px] uppercase tracking-[0.18em] transition-colors"
+              className="text-ink-400 hover:text-canvas-50 text-[12px] tracking-[0.18em] uppercase transition-colors"
             >
               ← Back to site
             </Link>
           </div>
 
           <figure className="space-y-8">
-            <blockquote className="text-canvas-50 font-serif text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight tracking-tight">
+            <blockquote className="text-canvas-50 font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-tight font-medium tracking-tight">
               &ldquo;Menukaze replaced three vendors for us &mdash; QR menus, online orders, and the
               kitchen screen. The design alone sets a new bar.&rdquo;
             </blockquote>
@@ -59,7 +59,7 @@ export function LoginForm({ inviteToken }: { inviteToken: string }) {
             </figcaption>
           </figure>
 
-          <div className="text-ink-500 flex items-center gap-5 text-[11px] uppercase tracking-[0.18em]">
+          <div className="text-ink-500 flex items-center gap-5 text-[11px] tracking-[0.18em] uppercase">
             <span>PCI-DSS</span>
             <span className="bg-ink-700 size-1 rounded-full" />
             <span>SOC 2 Type II</span>
@@ -77,7 +77,7 @@ export function LoginForm({ inviteToken }: { inviteToken: string }) {
             <Eyebrow withBar tone="accent">
               Owner &amp; staff login
             </Eyebrow>
-            <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+            <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
               Welcome back.
             </h1>
             <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">

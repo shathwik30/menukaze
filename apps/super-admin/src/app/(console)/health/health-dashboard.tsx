@@ -33,7 +33,7 @@ function MetricCard({
 }) {
   return (
     <div className="border-border rounded-lg border p-4">
-      <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{label}</p>
+      <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">{label}</p>
       <p className="mt-1 text-2xl font-bold tabular-nums">{value.toLocaleString()}</p>
       {subtitle && <p className="text-muted-foreground mt-0.5 text-xs">{subtitle}</p>}
     </div>
@@ -43,7 +43,6 @@ function MetricCard({
 export function HealthDashboard({ metrics }: { metrics: Metrics }) {
   const router = useRouter();
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 30_000);
     return () => clearInterval(interval);
@@ -51,7 +50,6 @@ export function HealthDashboard({ metrics }: { metrics: Metrics }) {
 
   return (
     <div className="space-y-6">
-      {/* Top-line metrics */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <MetricCard
           label="Active Merchants"
@@ -69,7 +67,6 @@ export function HealthDashboard({ metrics }: { metrics: Metrics }) {
         <MetricCard label="Active Sessions" value={metrics.activeSessions} />
       </div>
 
-      {/* Sparkline charts */}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="border-border rounded-lg border p-4">
           <h3 className="mb-3 text-sm font-medium">Orders (last 30 days)</h3>

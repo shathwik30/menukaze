@@ -169,7 +169,7 @@ export function MenuClient({
           variant="solid"
           size="lg"
           shape="pill"
-          className="px-5 py-2 text-sm uppercase tracking-[0.18em]"
+          className="px-5 py-2 text-sm tracking-[0.18em] uppercase"
         >
           {orderMode === 'dine_in' ? 'Dine in' : 'Takeaway'}
         </Badge>
@@ -292,12 +292,12 @@ export function MenuClient({
                         </div>
                       )}
                       {inCart > 0 && !item.soldOut ? (
-                        <span className="bg-saffron-500 absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+                        <span className="bg-saffron-500 absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
                           <span className="mk-nums font-mono tabular-nums">{inCart}</span> in order
                         </span>
                       ) : null}
                       {item.soldOut ? (
-                        <span className="bg-surface/95 text-mkrose-700 absolute inset-x-4 bottom-4 rounded-xl px-3 py-2 text-center text-sm font-semibold uppercase tracking-[0.16em] shadow-md backdrop-blur">
+                        <span className="bg-surface/95 text-mkrose-700 absolute inset-x-4 bottom-4 rounded-xl px-3 py-2 text-center text-sm font-semibold tracking-[0.16em] uppercase shadow-md backdrop-blur">
                           Sold out
                         </span>
                       ) : null}
@@ -305,7 +305,7 @@ export function MenuClient({
 
                     <div className="flex flex-1 flex-col p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-ink-950 font-serif text-xl font-medium leading-tight tracking-tight">
+                        <h3 className="text-ink-950 font-serif text-xl leading-tight font-medium tracking-tight">
                           {item.name}
                         </h3>
                         <p className="mk-nums text-ink-950 shrink-0 font-mono text-base font-semibold tabular-nums">
@@ -326,7 +326,7 @@ export function MenuClient({
 
                       <div className="mt-auto pt-4">
                         {item.soldOut ? (
-                          <span className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 flex h-14 items-center justify-center rounded-xl border text-sm font-semibold uppercase tracking-[0.14em]">
+                          <span className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 flex h-14 items-center justify-center rounded-xl border text-sm font-semibold tracking-[0.14em] uppercase">
                             Unavailable
                           </span>
                         ) : item.modifiers.length > 0 ? (
@@ -388,7 +388,7 @@ export function MenuClient({
           <div className="border-ink-100 border-b p-5">
             <Eyebrow tone="accent">Current order</Eyebrow>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-ink-950 font-serif text-5xl font-medium leading-none tracking-tight">
+              <p className="text-ink-950 font-serif text-5xl leading-none font-medium tracking-tight">
                 {itemCount}
               </p>
               <p className="text-ink-500 pb-1.5 text-sm font-medium">
@@ -419,7 +419,7 @@ export function MenuClient({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-ink-950 font-serif text-[15px] font-medium leading-tight">
+                          <p className="text-ink-950 font-serif text-[15px] leading-tight font-medium">
                             {line.name}
                           </p>
                           {line.modifiers.length > 0 ? (
@@ -492,7 +492,7 @@ export function MenuClient({
               ) : null}
               <div className="border-ink-200 flex items-end justify-between border-t pt-3 text-lg font-medium">
                 <span className="font-serif">Total</span>
-                <span className="mk-nums font-serif text-3xl font-medium tabular-nums tracking-tight">
+                <span className="mk-nums font-serif text-3xl font-medium tracking-tight tabular-nums">
                   {fmt(total)}
                 </span>
               </div>

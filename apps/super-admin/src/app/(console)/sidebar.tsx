@@ -110,7 +110,7 @@ export function Sidebar({ email, name }: SidebarProps) {
             Console
           </Badge>
         </div>
-        <p className="text-ink-500 dark:text-ink-400 mt-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
+        <p className="text-ink-500 dark:text-ink-400 mt-2 text-[11px] font-semibold tracking-[0.18em] uppercase">
           Platform super admin
         </p>
       </div>

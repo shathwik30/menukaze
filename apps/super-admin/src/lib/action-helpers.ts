@@ -19,10 +19,6 @@ export interface SuperAdminActionContext {
   userAgent: string;
 }
 
-/**
- * Wraps a server action with super-admin authentication. Extracts the caller's
- * IP and user-agent for audit logging.
- */
 export async function withSuperAdminAction<T>(
   handler: (ctx: SuperAdminActionContext) => Promise<T>,
 ): Promise<T> {

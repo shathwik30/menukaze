@@ -1,10 +1,5 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Per-restaurant subscription record. Tracks plan assignment, billing period,
- * and any per-merchant pricing overrides. Platform-level (not tenant-scoped).
- */
-
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled';
 
 export interface SubscriptionOverrides {
@@ -20,9 +15,8 @@ export interface SubscriptionDoc {
   trialEndsAt?: Date;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
-  /** Per-merchant pricing overrides. Fields present here replace the plan defaults. */
+  /** Fields present here replace the plan defaults. */
   overrides: SubscriptionOverrides;
-  /** Razorpay subscription or customer reference for auto-charge. */
   paymentMethodRef?: string;
   createdAt: Date;
   updatedAt: Date;

@@ -1,24 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { parseHost } from './host';
 
-/**
- * Edge-runtime middleware factory for the Menukaze Next.js apps.
- *
- * Handles the cross-cutting concerns every app repeats:
- *   1. Parse the request host into tenant headers (x-tenant-kind, x-tenant-slug,
- *      x-tenant-host) so server components downstream can resolve the tenant
- *      in the Node runtime (where Mongoose works).
- *   2. Mint a per-request CSP nonce and stamp it as `x-nonce`.
- *   3. Build a Content-Security-Policy header using a baseline directive map
- *      that apps can append to or replace.
- *   4. Apply the standard security headers (HSTS, X-Frame-Options,
- *      X-Content-Type-Options, Referrer-Policy).
- *
- * Each app's middleware.ts becomes a two-line consumer:
- *
- *   export const { middleware, config } = createTenantMiddleware({ ... });
- */
-
 type CspDirective =
   | 'default-src'
   | 'script-src'
@@ -50,33 +32,17 @@ const BASELINE_CSP: CspMap = {
 };
 
 const DEFAULT_MATCHER = ['/((?!_next/static|_next/image|favicon.ico).*)'];
+const HSTS_VALUE = 'max-age=63072000; includeSubDomains; preload';
 
 export interface TenantMiddlewareOptions {
-  /**
-   * Parse the request host and stamp x-tenant-* headers. Default `true`.
-   * Super-admin sets this to `false` because it isn't tenant-scoped.
-   */
+  /** Stamp x-tenant-* headers for downstream server code. Default true. Super-admin sets false. */
   parseTenant?: boolean;
-  /**
-   * If provided, replaces the entire baseline CSP directive map. Use for
-   * tightened internal apps that don't need Razorpay/Ably/image hosts.
-   */
+  /** Replaces the entire baseline CSP directive map. */
   csp?: CspMap;
-  /**
-   * Append values to specific baseline CSP directives (space-separated).
-   * Ignored if `csp` is set. Useful for adding third-party hosts to one or
-   * two directives without restating the whole policy.
-   */
+  /** Space-separated values appended to baseline directives. Ignored when `csp` is set. */
   cspAppend?: CspMap;
-  /** Include `Strict-Transport-Security`. Default `true`. */
   hsts?: boolean;
-  /** Include `X-Frame-Options: DENY`. Default `true`. */
   frameOptions?: boolean;
-  /**
-   * Next.js route matcher. Defaults to excluding `_next/static`,
-   * `_next/image`, and `favicon.ico`. Apps that also want to skip static
-   * files like robots.txt pass their own pattern here.
-   */
   matcher?: string[];
 }
 
@@ -126,15 +92,8 @@ export function createTenantMiddleware(options: TenantMiddlewareOptions = {}): {
     const response = NextResponse.next({ request: { headers: reqHeaders } });
 
     response.headers.set('Content-Security-Policy', renderCsp(cspMap, nonce));
-    if (hsts) {
-      response.headers.set(
-        'Strict-Transport-Security',
-        'max-age=63072000; includeSubDomains; preload',
-      );
-    }
-    if (frameOptions) {
-      response.headers.set('X-Frame-Options', 'DENY');
-    }
+    if (hsts) response.headers.set('Strict-Transport-Security', HSTS_VALUE);
+    if (frameOptions) response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 

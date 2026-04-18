@@ -54,7 +54,7 @@ export function AddToCartButton({
 
   if (disabled) {
     return (
-      <span className="text-ink-400 dark:text-ink-500 text-xs uppercase tracking-[0.12em]">
+      <span className="text-ink-400 dark:text-ink-500 text-xs tracking-[0.12em] uppercase">
         Unavailable
       </span>
     );
@@ -232,7 +232,7 @@ export function AddToCartButton({
                   {group.name}
                 </legend>
                 <div className="-mt-1 flex items-center justify-between gap-3">
-                  <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.14em]">
+                  <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium tracking-[0.14em] uppercase">
                     {label}
                   </p>
                   <Badge variant="subtle" size="xs">
@@ -305,7 +305,7 @@ export function AddToCartButton({
         <DialogFooter>
           <div className="flex w-full items-center justify-between gap-3">
             <div className="text-left">
-              <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.12em]">
+              <p className="text-ink-500 dark:text-ink-400 text-[11px] font-medium tracking-[0.12em] uppercase">
                 Total
               </p>
               <p className="mk-nums text-foreground font-serif text-xl font-medium">

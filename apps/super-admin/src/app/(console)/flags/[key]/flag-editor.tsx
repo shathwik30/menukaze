@@ -173,7 +173,7 @@ export function FlagEditor({ data }: { data: FlagData }) {
             placeholder="Restaurant ID"
             value={newOverrideId}
             onChange={(e) => setNewOverrideId(e.target.value)}
-            className="border-input focus-visible:ring-ring flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2"
+            className="border-input focus-visible:ring-ring flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
           <button
             disabled={busy || !newOverrideId.trim()}

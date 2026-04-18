@@ -27,22 +27,28 @@
     "@commitlint/config-conventional": "20.5.0",
     "@menukaze/prettier-config": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
-    "eslint": "9.39.4",
+    "eslint": "10.2.1",
     "husky": "9.1.7",
-    "lint-staged": "15.5.2",
-    "prettier": "3.8.2",
-    "prettier-plugin-tailwindcss": "0.6.14",
+    "lint-staged": "16.4.0",
+    "prettier": "3.8.3",
+    "prettier-plugin-tailwindcss": "0.7.2",
     "tsx": "4.21.0",
     "turbo": "2.9.6",
-    "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "typescript": "6.0.3",
+    "vitest": "4.1.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@tailwindcss/oxide",
       "esbuild",
+      "mongodb-memory-server",
       "sharp",
       "unrs-resolver"
-    ]
+    ],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "eslint": "^10.0.0"
+      }
+    }
   }
 }

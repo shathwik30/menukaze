@@ -1,25 +1,7 @@
-/**
- * Shared zod schemas for cross-package contracts.
- *
- * Schemas live here so they can be imported by:
- *   - tRPC routers (internal API input/output)
- *   - Hono routers (public /v1 API input/output via @hono/zod-validator)
- *   - Mongoose models (pre-validate hooks)
- *   - React Hook Form (zodResolver) on the client
- *
- * IMPORTANT: every schema must remain runtime-safe in the browser. No Node-only
- * imports here. The package's only runtime dep is `zod`.
- */
-
 import { z } from 'zod';
 import { CURRENCIES } from './currency';
 import { STAFF_MEMBERSHIP_STATUSES, STAFF_ROLES, type StaffRole } from './domain';
 
-// ---------------------------------------------------------------------------
-// Primitive helpers
-// ---------------------------------------------------------------------------
-
-/** A MongoDB ObjectId as a 24-char hex string. We avoid pulling bson into shared. */
 export const objectIdSchema = z.string().regex(/^[a-f0-9]{24}$/i, 'must be a 24-char hex ObjectId');
 
 export const slugSchema = z
@@ -57,10 +39,6 @@ export const geoPointSchema = z.object({
   coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
 });
 
-// ---------------------------------------------------------------------------
-// User
-// ---------------------------------------------------------------------------
-
 export const userSchema = z.object({
   _id: objectIdSchema,
   email: emailSchema,
@@ -75,15 +53,7 @@ export const userSchema = z.object({
 });
 export type User = z.infer<typeof userSchema>;
 
-// ---------------------------------------------------------------------------
-// Staff membership (user × restaurant role pairing)
-// ---------------------------------------------------------------------------
-
 export const staffRoleSchema = z.enum(STAFF_ROLES);
-/**
- * Re-export from `./domain` so Zod-validated values and the
- * compile-time `StaffRole` union stay in lock-step.
- */
 export type { StaffRole };
 
 export const staffMembershipSchema = z.object({
@@ -101,10 +71,6 @@ export const staffMembershipSchema = z.object({
   updatedAt: z.date(),
 });
 export type StaffMembership = z.infer<typeof staffMembershipSchema>;
-
-// ---------------------------------------------------------------------------
-// Restaurant tenant root
-// ---------------------------------------------------------------------------
 
 export const operatingHoursDaySchema = z.object({
   day: z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
@@ -225,10 +191,6 @@ export const restaurantSchema = z.object({
 });
 export type Restaurant = z.infer<typeof restaurantSchema>;
 
-// ---------------------------------------------------------------------------
-// Channel
-// ---------------------------------------------------------------------------
-
 export const channelTypeSchema = z.enum(['storefront', 'qr_dinein', 'kiosk', 'walk_in', 'api']);
 export type ChannelType = z.infer<typeof channelTypeSchema>;
 
@@ -250,7 +212,6 @@ export const channelSchema = z.object({
 });
 export type Channel = z.infer<typeof channelSchema>;
 
-// Public-facing input schemas (used by handlers, not models)
 export const createRestaurantInputSchema = restaurantSchema.pick({
   slug: true,
   name: true,

@@ -19,13 +19,13 @@
     "@menukaze/db": "workspace:*",
     "@menukaze/monitoring": "workspace:*",
     "@menukaze/shared": "workspace:*",
-    "better-auth": "1.5.6",
-    "resend": "4.0.1"
+    "better-auth": "1.6.5",
+    "resend": "6.12.0"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@types/node": "22.12.0",
-    "typescript": "5.9.3"
+    "typescript": "6.0.3"
   }
 }

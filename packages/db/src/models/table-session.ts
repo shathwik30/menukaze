@@ -7,20 +7,9 @@ import {
 } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A QR dine-in session. Begins when a customer scans a table QR code and
- * enters their details; ends when the bill is paid (or when a timeout
- * sweeper marks it `needs_review`). Contains zero or more rounds, each of
- * which is an `Order` document with this session's `_id` stamped on its
- * `sessionId` field.
- *
- * Session state machine:
- *   active: customers still ordering
- *   bill_requested: customer requested the bill and no more rounds are accepted
- *   paid: payment succeeded and the session is ready to close
- *   closed: terminal; table returned to available
- *   needs_review: terminal; unpaid after timeout
- */
+// Status FSM:
+//   active → bill_requested → paid → closed   (happy path)
+//   active → needs_review                     (timeout sweeper)
 
 export type TableSessionStatus = TableSessionStatusValue;
 
@@ -40,16 +29,11 @@ export interface TableSessionDoc {
     email: string;
     phone?: string;
   };
-  /** Optional participant labels for group ordering. */
   participants: TableSessionParticipant[];
 
-  /**
-   * Stable hash of the originating device (IP + UA + lang). Used to rate-limit
-   * how many sessions a single device can open across all tables in a 24h
-   * window. Set on session start by the QR misuse-prevention checks.
-   */
+  /** Stable device hash used to rate-limit sessions-per-device in 24h window. */
   deviceFingerprint?: string;
-  /** Earliest time the first round may be placed when first-order delay is on. */
+  /** Gate used when firstOrderDelayS hardening is enabled. */
   firstOrderAllowedAt?: Date;
 
   startedAt: Date;

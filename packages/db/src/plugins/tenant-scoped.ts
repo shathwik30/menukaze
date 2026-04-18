@@ -1,19 +1,9 @@
-/**
- * Mongoose plugin that enforces tenant isolation on every query.
- *
- * Every model that holds tenant-scoped data attaches this plugin. Pre-hooks on
- * find / findOne / findOneAndUpdate / updateOne / updateMany / deleteOne /
- * deleteMany / countDocuments / aggregate assert that the query has a
- * `restaurantId` filter set. If it doesn't, the operation throws
- * `TenantContextMissingError` immediately — there is no fallback to "all
- * tenants" because that would silently leak data across tenants.
- *
- * Bypassing the plugin requires passing `{ skipTenantGuard: true }` in the
- * Mongoose query options. Production code should ONLY use this from
- * super-admin handlers and cron jobs that have explicit cross-tenant intent.
- */
-
 import type { Schema, Aggregate, Query } from 'mongoose';
+
+// Every tenant-scoped query MUST carry `restaurantId` or this plugin throws —
+// there is no silent fallback to "all tenants". The only escape hatch is
+// `{ skipTenantGuard: true }` for super-admin and cron jobs that explicitly
+// intend cross-tenant reads.
 
 export class TenantContextMissingError extends Error {
   public constructor(modelName: string, op: string) {
@@ -25,7 +15,6 @@ export class TenantContextMissingError extends Error {
   }
 }
 
-/** Mongoose query options can carry an arbitrary `skipTenantGuard` flag. */
 interface TenantSkipOption {
   skipTenantGuard?: boolean;
 }
@@ -66,7 +55,6 @@ const QUERY_HOOKS = [
 ] as const;
 
 export function tenantScopedPlugin(schema: Schema): void {
-  // Every tenant-scoped collection must declare restaurantId on the schema.
   if (!schema.path('restaurantId')) {
     throw new Error(
       "[tenant-scoped] schema is missing required path 'restaurantId'. " +
@@ -86,8 +74,7 @@ export function tenantScopedPlugin(schema: Schema): void {
     });
   }
 
-  // Aggregate gets its own hook because the Mongoose `pre('aggregate', ...)`
-  // signature is different — `this` is the Aggregate, not a Query.
+  // Aggregate needs a separate hook: `this` is the Aggregate, not a Query.
   schema.pre('aggregate', async function (this: TenantGuardAggregate) {
     if (this.options?.skipTenantGuard) return;
 

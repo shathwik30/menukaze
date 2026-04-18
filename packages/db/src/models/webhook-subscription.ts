@@ -2,14 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * Customer-facing webhook subscription. Each restaurant subscribes one or
- * more HTTPS URLs to a list of event types. The platform signs every
- * delivery with HMAC-SHA256 using the subscription's `secret`.
- *
- * Disabling a subscription suspends future deliveries without deleting it
- * — useful for short maintenance windows on the receiver side.
- */
+// Platform signs every delivery with HMAC-SHA256 using the subscription's `secret`.
+// Disabling suspends future deliveries without deleting the subscription.
 
 export interface WebhookSubscriptionDoc {
   restaurantId: Types.ObjectId;

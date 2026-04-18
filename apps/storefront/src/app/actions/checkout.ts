@@ -27,6 +27,7 @@ import {
 } from '@menukaze/shared';
 import {
   getRazorpayClientFromEncryptedKeys,
+  readRazorpayOrderId,
   verifyRazorpayPaymentSignature,
 } from '@menukaze/shared/razorpay';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
@@ -59,13 +60,6 @@ const checkoutInput = z.object({
 });
 
 export type CheckoutInput = z.infer<typeof checkoutInput>;
-
-function readRazorpayOrderId(order: { id?: unknown }): string {
-  if (typeof order.id !== 'string' || order.id.length === 0) {
-    throw new Error('Razorpay did not return an order id.');
-  }
-  return order.id;
-}
 
 export type CreatePaymentIntentResult =
   | {
@@ -365,10 +359,6 @@ async function sendCheckoutEmails(
   }
 }
 
-/**
- * Rebuild pricing from the database, create the pending order, and return
- * the Razorpay payload the client needs to open Checkout.js.
- */
 export async function createPaymentIntentAction(raw: unknown): Promise<CreatePaymentIntentResult> {
   const parsed = checkoutInput.safeParse(raw);
   if (!parsed.success) {
@@ -503,10 +493,6 @@ export type VerifyPaymentResult =
   | { ok: true; publicOrderId: string }
   | { ok: false; error: string };
 
-/**
- * Verify the Razorpay signature, mark the order paid, and trigger the
- * follow-up side effects.
- */
 export async function verifyPaymentAction(raw: unknown): Promise<VerifyPaymentResult> {
   const parsed = verifyInput.safeParse(raw);
   if (!parsed.success) {

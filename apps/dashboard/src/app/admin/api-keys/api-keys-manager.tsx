@@ -209,7 +209,7 @@ export function ApiKeysManager({ keys }: { keys: KeyRow[] }) {
                 variant="accent"
                 size="sm"
                 onClick={copyKey}
-                className="absolute right-3 top-3"
+                className="absolute top-3 right-3"
               >
                 {copied ? (
                   <>

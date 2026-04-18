@@ -121,7 +121,7 @@ export function ReservationsBoard({ reservations, canEdit }: Props) {
                         · {r.partySize} guest{r.partySize === 1 ? '' : 's'}
                       </span>
                       <span
-                        className={`rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wide ${STATUS_COLORS[r.status] ?? ''}`}
+                        className={`rounded-sm px-2 py-0.5 text-[11px] tracking-wide uppercase ${STATUS_COLORS[r.status] ?? ''}`}
                       >
                         {STATUS_LABELS[r.status] ?? r.status}
                       </span>

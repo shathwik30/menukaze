@@ -5,9 +5,6 @@ import { RazorpayConnectForm } from './razorpay-connect-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Payment setup page for the onboarding flow.
- */
 export default async function OnboardingRazorpayPage() {
   const { restaurantId } = await requirePageFlag(['payments.configure']);
 

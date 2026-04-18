@@ -76,10 +76,10 @@ export function AdminShell({
         </div>
 
         <div className="border-ink-100 dark:border-ink-800 border-b px-5 py-4">
-          <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold tracking-[0.14em] uppercase">
             Workspace
           </p>
-          <p className="text-foreground mt-1 truncate font-serif text-lg font-medium leading-tight tracking-tight">
+          <p className="text-foreground mt-1 truncate font-serif text-lg leading-tight font-medium tracking-tight">
             {restaurantName}
           </p>
           <p className="text-ink-400 dark:text-ink-500 mt-0.5 truncate font-mono text-[11px]">
@@ -93,7 +93,7 @@ export function AdminShell({
             if (visibleItems.length === 0) return null;
             return (
               <div key={group.label} className="mb-6">
-                <p className="text-ink-400 dark:text-ink-500 mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em]">
+                <p className="text-ink-400 dark:text-ink-500 mb-2 px-3 text-[10px] font-semibold tracking-[0.18em] uppercase">
                   {group.label}
                 </p>
                 <ul className="space-y-0.5">

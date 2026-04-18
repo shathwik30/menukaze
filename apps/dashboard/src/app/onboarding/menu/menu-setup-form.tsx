@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createMenuStarterAction } from '@/app/actions/menu';
 
 interface ItemRow {
-  /** Stable React key that is not sent to the server. */
   rowId: number;
   name: string;
   priceMajor: string;
@@ -121,7 +120,7 @@ export function MenuSetupForm({ currency }: Props) {
               maxLength={120}
               value={categoryName}
               onChange={(event) => setCategoryName(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
             <p className="text-muted-foreground mt-1 text-xs">
               E.g. Appetizers, Mains, Desserts, Drinks.
@@ -143,7 +142,7 @@ export function MenuSetupForm({ currency }: Props) {
                     placeholder={`Item ${index + 1} name`}
                     value={item.name}
                     onChange={(event) => updateItem(item.rowId, { name: event.target.value })}
-                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   />
                 </div>
                 <div className="w-32">
@@ -155,7 +154,7 @@ export function MenuSetupForm({ currency }: Props) {
                     placeholder="Price"
                     value={item.priceMajor}
                     onChange={(event) => updateItem(item.rowId, { priceMajor: event.target.value })}
-                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-right text-sm focus-visible:outline-none focus-visible:ring-2"
+                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-right text-sm focus-visible:ring-2 focus-visible:outline-none"
                   />
                 </div>
                 <button
@@ -204,7 +203,7 @@ export function MenuSetupForm({ currency }: Props) {
               placeholder={`item,price,category,description
 Margherita,12.5,Pizza,Classic tomato
 Tiramisu,8.25,Dessert,Coffee cream`}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
           </label>
 
@@ -214,7 +213,7 @@ Tiramisu,8.25,Dessert,Coffee cream`}
               type="text"
               value={defaultCategoryName}
               onChange={(event) => setDefaultCategoryName(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2"
+              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
             <p className="text-muted-foreground mt-1 text-xs">
               Used when the CSV does not include a category column or a row leaves it blank.

@@ -5,6 +5,7 @@ import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { computeTax, type TaxRule } from '@menukaze/shared';
+import '@menukaze/shared/razorpay-client';
 import { Badge, Button, Card, FieldError, Input, Label, cn } from '@menukaze/ui';
 import { cartLineKey, cartSubtotalMinor, useCart } from '@/stores/cart';
 import {
@@ -23,31 +24,6 @@ interface Props {
   deliveryFeeMinor: number;
   estimatedPrepMinutes: number;
   taxRules: TaxRule[];
-}
-
-interface RazorpayCheckoutOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: {
-    razorpay_payment_id: string;
-    razorpay_order_id: string;
-    razorpay_signature: string;
-  }) => void;
-  prefill?: { name?: string; email?: string; contact?: string };
-  theme?: { color?: string };
-  modal?: { ondismiss?: () => void };
-}
-interface RazorpayCheckoutInstance {
-  open: () => void;
-}
-declare global {
-  interface Window {
-    Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayCheckoutInstance;
-  }
 }
 
 export function CheckoutForm({
@@ -197,7 +173,7 @@ export function CheckoutForm({
 
       <Card variant="surface" radius="lg" className="overflow-hidden">
         <div className="border-ink-100 dark:border-ink-800 flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-ink-600 dark:text-ink-400 text-sm font-semibold uppercase tracking-[0.14em]">
+          <h2 className="text-ink-600 dark:text-ink-400 text-sm font-semibold tracking-[0.14em] uppercase">
             Your order
           </h2>
           <span className="text-ink-500 dark:text-ink-400 text-sm">
@@ -279,7 +255,7 @@ export function CheckoutForm({
           ) : null}
           <div className="border-ink-200 dark:border-ink-700 mt-3 flex items-center justify-between border-t pt-3">
             <span className="font-serif text-lg font-medium">Total</span>
-            <span className="mk-nums font-serif text-2xl font-medium tabular-nums tracking-tight">
+            <span className="mk-nums font-serif text-2xl font-medium tracking-tight tabular-nums">
               {formatMoney(total)}
             </span>
           </div>
@@ -298,7 +274,7 @@ export function CheckoutForm({
 
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6">
         <fieldset>
-          <legend className="text-ink-600 dark:text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <legend className="text-ink-600 dark:text-ink-400 mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
             Order type
           </legend>
           <div className="border-ink-200 bg-canvas-100 dark:border-ink-800 dark:bg-ink-900 grid grid-cols-2 gap-2 rounded-xl border p-1">

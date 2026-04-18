@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./channels": "./src/channels.ts",
     "./events": "./src/events.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./next-token": "./src/next-token.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -20,10 +21,14 @@
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@types/node": "22.12.0",
-    "typescript": "5.9.3"
+    "typescript": "6.0.3"
   },
   "dependencies": {
+    "@menukaze/rate-limit": "workspace:*",
     "@menukaze/shared": "workspace:*",
-    "ably": "2.7.0"
+    "ably": "2.21.0"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0"
   }
 }

@@ -62,7 +62,7 @@ export function AuditTable({ rows, total, page, pageSize, actionFilter }: Props)
           placeholder="Filter by action..."
           value={filterInput}
           onChange={(e) => setFilterInput(e.target.value)}
-          className="border-input focus-visible:ring-ring rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2"
+          className="border-input focus-visible:ring-ring rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
         <button
           type="submit"
@@ -119,7 +119,7 @@ export function AuditTable({ rows, total, page, pageSize, actionFilter }: Props)
                   {expanded.has(r.id) && r.diff && (
                     <tr key={`${r.id}-diff`} className="border-border border-b">
                       <td colSpan={6} className="bg-muted/20 px-4 py-3">
-                        <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
+                        <pre className="overflow-x-auto text-xs whitespace-pre-wrap">
                           {JSON.stringify(r.diff, null, 2)}
                         </pre>
                       </td>

@@ -1,28 +1,13 @@
-/**
- * The single payment-gateway interface every adapter implements.
- *
- * The PaymentGatewayInterface is the contract for the pluggable adapter pattern
- * that lets us add new gateways without
- * touching the rest of the system. Razorpay and Cash are the launch adapters.
- */
-
 import type { CurrencyCode } from './currency';
 import type { PaymentGateway, PaymentStatus } from './domain';
-
-/** @deprecated Use {@link PaymentGateway} from `@menukaze/shared` instead. */
-export type GatewayId = PaymentGateway;
 
 export type { PaymentStatus };
 
 export interface CreateIntentInput {
-  /** Always integer minor units. Never floats. */
   amountMinor: number;
   currency: CurrencyCode;
-  /** Stable identifier the gateway echoes back so we can correlate webhooks. */
   idempotencyKey: string;
-  /** Free-form metadata stored on the gateway side. */
   metadata?: Record<string, string>;
-  /** Customer email used by gateways for receipts and fraud signals. */
   customerEmail?: string;
 }
 
@@ -40,9 +25,7 @@ export interface Payment {
   status: PaymentStatus;
   amountMinor: number;
   currency: CurrencyCode;
-  /** Card suffix, UPI VPA, wallet name, or whichever label the gateway exposes. */
   methodLabel?: string;
-  /** Gateway transaction id, useful for support / dispute correlation. */
   externalRef?: string;
   paidAt?: Date;
 }
@@ -74,10 +57,6 @@ export interface WebhookEvent {
   payload: Record<string, unknown>;
 }
 
-/**
- * Every gateway adapter implements this interface. Adapters are constructed
- * with the per-restaurant credentials (decrypted just-in-time from `restaurants.razorpayKey*Enc`).
- */
 export interface PaymentGatewayInterface {
   readonly id: PaymentGateway;
 
@@ -88,9 +67,6 @@ export interface PaymentGatewayInterface {
   getSupportedMethods(country: string): PaymentMethod[];
   getSupportedCurrencies(): CurrencyCode[];
 
-  /**
-   * Verify and parse an inbound gateway webhook. Returns the normalized event.
-   * Adapters MUST use a constant-time HMAC comparison against the gateway secret.
-   */
+  /** Adapters MUST use constant-time HMAC comparison against the gateway secret. */
   handleWebhook(rawBody: Buffer, signature: string): Promise<WebhookEvent>;
 }

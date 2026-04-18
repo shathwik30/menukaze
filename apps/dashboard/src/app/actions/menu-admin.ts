@@ -7,19 +7,12 @@ import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { APIError } from '@menukaze/shared';
 import {
-  actionError,
   invalidEntityError,
+  runRestaurantAction,
   validationError,
-  withRestaurantAction,
   type ActionResult,
 } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
-
-/**
- * Menu management actions. Each action validates input, resolves the active
- * restaurant through the shared helper, scopes writes by `restaurantId`, and
- * refreshes `/admin/menu` after a successful mutation.
- */
 
 const menuInput = z.object({
   name: z.string().min(1).max(120),
@@ -106,13 +99,7 @@ async function resolveComboItemIds(
   restaurantId: Types.ObjectId,
   comboOf: string[] | undefined,
   currentItemId?: Types.ObjectId,
-): Promise<
-  | { ok: true; ids: Types.ObjectId[] }
-  | {
-      ok: false;
-      error: string;
-    }
-> {
+): Promise<{ ok: true; ids: Types.ObjectId[] } | { ok: false; error: string }> {
   if (!comboOf || comboOf.length === 0) return { ok: true, ids: [] };
 
   const deduped = [...new Set(comboOf)];
@@ -136,13 +123,13 @@ async function resolveComboItemIds(
   return { ok: true, ids: comboIds };
 }
 
-// Menu actions
-
 export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = menuInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to create menu.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const menu = await Menu.create({ restaurantId, ...parsed.data });
@@ -158,10 +145,8 @@ export async function createMenuAction(raw: unknown): Promise<ActionResult<{ id:
       });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(menu._id) } };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to create menu.');
-  }
+    },
+  );
 }
 
 export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
@@ -171,8 +156,10 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
   const menuId = parseObjectId(parsed.data.id);
   if (!menuId) return invalidEntityError('menu');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to update menu.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu } = getModels(conn);
       const { id: _ignoredMenuId, ...patch } = parsed.data;
@@ -203,18 +190,18 @@ export async function updateMenuAction(raw: unknown): Promise<ActionResult> {
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to update menu.');
-  }
+    },
+  );
 }
 
 export async function deleteMenuAction(id: string): Promise<ActionResult> {
   const menuId = parseObjectId(id);
   if (!menuId) return invalidEntityError('menu');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to delete menu.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Menu, Category, Item } = getModels(conn);
       const categories = await Category.find({ restaurantId, menuId }).exec();
@@ -236,13 +223,9 @@ export async function deleteMenuAction(id: string): Promise<ActionResult> {
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to delete menu.');
-  }
+    },
+  );
 }
-
-// Category actions
 
 export async function createCategoryAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = categoryInput.safeParse(raw);
@@ -251,8 +234,10 @@ export async function createCategoryAction(raw: unknown): Promise<ActionResult<{
   const menuId = parseObjectId(parsed.data.menuId);
   if (!menuId) return invalidEntityError('menu');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to create category.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category, Menu } = getModels(conn);
       const menu = await Menu.findOne({ restaurantId, _id: menuId }).exec();
@@ -275,10 +260,8 @@ export async function createCategoryAction(raw: unknown): Promise<ActionResult<{
       });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(category._id) } };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to create category.');
-  }
+    },
+  );
 }
 
 export async function updateCategoryAction(raw: unknown): Promise<ActionResult> {
@@ -288,8 +271,10 @@ export async function updateCategoryAction(raw: unknown): Promise<ActionResult> 
   const categoryId = parseObjectId(parsed.data.id);
   if (!categoryId) return invalidEntityError('category');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to update category.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category } = getModels(conn);
       const { id: _ignoredCategoryId, menuId, ...patch } = parsed.data;
@@ -316,18 +301,18 @@ export async function updateCategoryAction(raw: unknown): Promise<ActionResult> 
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to update category.');
-  }
+    },
+  );
 }
 
 export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   const categoryId = parseObjectId(id);
   if (!categoryId) return invalidEntityError('category');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to delete category.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Category, Item } = getModels(conn);
       await Item.deleteMany({ restaurantId, categoryId }).exec();
@@ -343,13 +328,9 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult> {
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to delete category.');
-  }
+    },
+  );
 }
-
-// Item actions
 
 export async function createItemAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = itemInput.safeParse(raw);
@@ -358,8 +339,10 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
   const categoryId = parseObjectId(parsed.data.categoryId);
   if (!categoryId) return invalidEntityError('category');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to create item.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Category, Item } = getModels(conn);
       const restaurant = await Restaurant.findById(restaurantId).exec();
@@ -393,10 +376,8 @@ export async function createItemAction(raw: unknown): Promise<ActionResult<{ id:
       });
       revalidatePath('/admin/menu');
       return { ok: true as const, data: { id: String(item._id) } };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to create item.');
-  }
+    },
+  );
 }
 
 export async function updateItemAction(raw: unknown): Promise<ActionResult> {
@@ -406,8 +387,10 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
   const itemId = parseObjectId(parsed.data.id);
   if (!itemId) return invalidEntityError('item');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to update item.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
       const { id: _ignoredItemId, categoryId, ...patch } = parsed.data;
@@ -447,18 +430,18 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to update item.');
-  }
+    },
+  );
 }
 
 export async function deleteItemAction(id: string): Promise<ActionResult> {
   const itemId = parseObjectId(id);
   if (!itemId) return invalidEntityError('item');
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to delete item.' },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Item } = getModels(conn);
       await Item.deleteOne({ restaurantId, _id: itemId }).exec();
@@ -477,10 +460,8 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
       });
       revalidatePath('/admin/menu');
       return { ok: true as const };
-    });
-  } catch (error) {
-    return actionError(error, 'Failed to delete item.');
-  }
+    },
+  );
 }
 
 const soldOutInput = z.object({
@@ -494,30 +475,27 @@ export async function toggleItemSoldOutAction(raw: unknown): Promise<ActionResul
   const itemId = parseObjectId(parsed.data.id);
   if (!itemId) return invalidEntityError('item');
 
-  try {
-    return await withRestaurantAction(
-      ['menu.toggle_availability'],
-      async ({ restaurantId, session, role }) => {
-        const conn = await getMongoConnection('live');
-        const { Item } = getModels(conn);
-        await Item.updateOne(
-          { restaurantId, _id: itemId },
-          { $set: { soldOut: parsed.data.soldOut } },
-        ).exec();
-        await recordAudit({
-          restaurantId,
-          userId: session.user.id,
-          userEmail: session.user.email,
-          role,
-          action: parsed.data.soldOut ? 'menu.item.sold_out' : 'menu.item.back_in_stock',
-          resourceType: 'item',
-          resourceId: String(itemId),
-        });
-        revalidatePath('/admin/menu');
-        return { ok: true as const };
-      },
-    );
-  } catch (error) {
-    return actionError(error, 'Failed to toggle item availability.');
-  }
+  return runRestaurantAction(
+    ['menu.toggle_availability'],
+    { onError: 'Failed to toggle item availability.' },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Item } = getModels(conn);
+      await Item.updateOne(
+        { restaurantId, _id: itemId },
+        { $set: { soldOut: parsed.data.soldOut } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: parsed.data.soldOut ? 'menu.item.sold_out' : 'menu.item.back_in_stock',
+        resourceType: 'item',
+        resourceId: String(itemId),
+      });
+      revalidatePath('/admin/menu');
+      return { ok: true as const };
+    },
+  );
 }

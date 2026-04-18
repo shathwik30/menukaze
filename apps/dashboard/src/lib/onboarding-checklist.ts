@@ -2,14 +2,6 @@ import 'server-only';
 import type { HydratedDocument } from 'mongoose';
 import type { ItemDoc, RestaurantDoc, TableDoc } from '@menukaze/db';
 
-/**
- * Post-onboarding checklist. Critical items describe the minimum setup needed
- * before the dashboard is operational; optional items improve launch quality.
- *
- * The helper is pure: it takes already-loaded data and derives the
- * completion state. /admin does the parallel loads once and passes them in.
- */
-
 export interface ChecklistItem {
   id: string;
   label: string;
@@ -44,8 +36,8 @@ export function computeChecklist(
 ): ChecklistSummary {
   const step = restaurant.onboardingStep;
 
-  // An item is considered "tables-step complete" if either a table exists
-  // or the user has progressed past the tables step (explicit skip).
+  // Tables step counts as complete when any table exists OR the user has
+  // moved past it (explicit skip for takeaway/delivery-only operators).
   const tablesDone = tables.length > 0 || stepPast(step, 'tables');
 
   const hasImages = items.some((it) => Boolean(it.imageUrl));

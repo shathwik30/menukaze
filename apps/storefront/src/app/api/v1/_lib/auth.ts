@@ -19,11 +19,8 @@ export interface ApiKeyContext {
   channel: { id: string; name: string; icon: string | null; color: string | null };
 }
 
-/**
- * Public API errors are a subset of the canonical {@link ErrorCode} registry
- * in `@menukaze/shared`. The narrow union prevents `/api/v1/*` routes from
- * accidentally surfacing internal-only error codes (e.g. `tenant_context_missing`).
- */
+// Narrowed subset of ErrorCode so /api/v1 routes can't surface internal-only
+// codes like `tenant_context_missing`.
 export type ApiResponseError = Extract<
   ErrorCode,
   | 'invalid_request'
@@ -93,15 +90,7 @@ export function apiErrorForRequest(
   return withApiCors(request, apiError(code, message, init));
 }
 
-/**
- * Resolve the `X-Menukaze-Key` header to an active ApiKey document. Returns
- * a NextResponse on failure (caller returns it directly), or the resolved
- * context. Updates lastUsedAt + requestCount asynchronously.
- *
- * Required scopes:
- *   - GET endpoints: any
- *   - Write endpoints: read_write or admin
- */
+// Required scopes: read = any, write = read_write|admin, admin = admin.
 export async function resolveApiKey(
   request: NextRequest,
   required: 'read' | 'write' | 'admin' = 'read',
@@ -145,7 +134,6 @@ export async function resolveApiKey(
   const resourceConn = dbName === 'live' ? keyConn : await getMongoConnection(dbName);
   const { Restaurant } = getModels(resourceConn);
 
-  // Verify the restaurant still exists in the DB this key operates against.
   const restaurant = await Restaurant.findById(key.restaurantId, {
     name: 1,
     liveAt: 1,
@@ -155,7 +143,7 @@ export async function resolveApiKey(
     .exec();
   if (!restaurant) return apiErrorForRequest(request, 'not_found', 'Restaurant not found.');
 
-  // Best-effort usage update; don't await to keep the response fast.
+  // Best-effort usage update; not awaited so the response stays fast.
   void ApiKey.updateOne(
     { _id: key._id },
     { $set: { lastUsedAt: new Date() }, $inc: { requestCount: 1 } },
@@ -176,11 +164,8 @@ export async function resolveApiKey(
   };
 }
 
-/**
- * Standard CORS preflight. Allowlist is per-key, so for OPTIONS we accept
- * any origin and let the actual request handler enforce the allowlist
- * once the API key resolves.
- */
+// Preflight accepts any origin; the per-key allowlist is enforced after
+// resolveApiKey runs on the actual request.
 export function corsOptions(request?: NextRequest): NextResponse {
   const response = new NextResponse(null, { status: 204 });
   const origin = request?.headers.get('origin');

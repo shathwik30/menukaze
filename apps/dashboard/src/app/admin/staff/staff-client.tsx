@@ -106,7 +106,7 @@ function FlagChecklist({
   return (
     <div className="border-ink-200 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/50 rounded-xl border p-4">
       <div className="flex items-center gap-2">
-        <p className="text-ink-600 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.14em]">
+        <p className="text-ink-600 dark:text-ink-400 text-[11px] font-semibold tracking-[0.14em] uppercase">
           Custom permission flags
         </p>
         <Badge variant="subtle" size="xs">
@@ -119,7 +119,7 @@ function FlagChecklist({
       <div className="mt-4 space-y-4">
         {FLAG_GROUPS.map(([group, flags]) => (
           <section key={group}>
-            <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold uppercase tracking-[0.12em]">
+            <p className="text-ink-500 dark:text-ink-400 text-[11px] font-semibold tracking-[0.12em] uppercase">
               {titleCase(group)}
             </p>
             <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
@@ -324,7 +324,7 @@ function MemberRow({
             <p className="text-foreground flex items-center gap-2 font-medium">
               {member.name || member.email}
               {isCurrentUser ? (
-                <span className="text-ink-400 text-[10px] font-medium uppercase tracking-[0.14em]">
+                <span className="text-ink-400 text-[10px] font-medium tracking-[0.14em] uppercase">
                   (you)
                 </span>
               ) : null}

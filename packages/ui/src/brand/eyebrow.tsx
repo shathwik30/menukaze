@@ -26,7 +26,7 @@ export const Eyebrow = forwardRef<HTMLElement, EyebrowProps>(
       <Tag
         ref={ref as never}
         className={cn(
-          'inline-flex items-center gap-2.5 text-[11px] font-semibold uppercase leading-none tracking-[0.18em]',
+          'inline-flex items-center gap-2.5 text-[11px] leading-none font-semibold tracking-[0.18em] uppercase',
           toneClass,
           className,
         )}

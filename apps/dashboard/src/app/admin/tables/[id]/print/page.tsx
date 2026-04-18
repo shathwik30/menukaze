@@ -6,12 +6,7 @@ import { parseObjectId } from '@menukaze/db/object-id';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Minimal printable QR sticker page. Opened in a new tab from the table
- * management grid; staff then prints it on adhesive paper and sticks it on
- * the table. Using the browser's print dialog keeps this free of any PDF
- * library dependency.
- */
+// Browser-print-only to avoid pulling in a PDF library.
 export default async function PrintableQrPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const tableId = parseObjectId(id);
@@ -31,7 +26,7 @@ export default async function PrintableQrPage({ params }: { params: Promise<{ id
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-white p-8 text-black print:p-0">
       <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-zinc-300 p-8 print:border-none">
-        <p className="text-xs uppercase tracking-[0.2em]">{restaurant.name}</p>
+        <p className="text-xs tracking-[0.2em] uppercase">{restaurant.name}</p>
         <QRCodeSVG value={url} size={280} level="H" />
         <p className="text-2xl font-bold">{table.name}</p>
         <p className="text-sm text-zinc-600">Scan to order · Pay when you&apos;re done</p>

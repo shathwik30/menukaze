@@ -2,34 +2,21 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { ORDER_CHANNELS, type OrderChannel } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * Per-restaurant customer profile. Built up incrementally from every order:
- * we upsert by lower-cased email (the most reliable identifier today),
- * accumulating channel counts, lifetime order count, and revenue.
- *
- * "First channel" is stamped at create time and never changes — it is the
- * acquisition source for analytics. "Most-used channel" is derived at read
- * time from the per-channel counts.
- *
- * Phone matching is reserved for a later iteration (Step 51 turns on
- * phone-based identity once SMS is live).
- */
+// Upserted by lower-cased email on every order. firstChannel is immutable
+// (acquisition source for analytics); most-used channel is derived at read
+// time from channelCounts.
 
 export type CustomerChannel = OrderChannel;
 
 export interface CustomerDoc {
   restaurantId: Types.ObjectId;
-  /** Lower-cased canonical contact email. */
   email: string;
-  /** Last seen display name from any order. */
   name?: string;
-  /** Last seen phone, if a channel collected one. */
   phone?: string;
   firstChannel: CustomerChannel;
   channelCounts: Record<CustomerChannel, number>;
   lifetimeOrders: number;
   lifetimeRevenueMinor: number;
-  /** Snapshot of the most recent order's currency for display. */
   currency: string;
   firstOrderAt: Date;
   lastOrderAt: Date;

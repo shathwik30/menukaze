@@ -102,7 +102,7 @@ function ModeTile({
         {icon}
       </span>
       <span>
-        <span className="text-ink-950 block font-serif text-[5.5rem] font-medium leading-[0.9] tracking-tight">
+        <span className="text-ink-950 block font-serif text-[5.5rem] leading-[0.9] font-medium tracking-tight">
           {label}
         </span>
         <span className="text-ink-500 mt-5 block max-w-md text-2xl leading-snug">

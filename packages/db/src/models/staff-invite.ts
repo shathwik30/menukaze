@@ -3,15 +3,8 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { STAFF_ROLES, type StaffRole } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A pending invitation to join a restaurant's staff. Created when an owner
- * or manager invites someone by email; consumed when the invitee follows
- * the link in their email, signs in, and accepts the invite.
- *
- * Tokens are single-use: `usedAt` is stamped on accept and the invite
- * record is kept for audit. Expired or revoked invites stay in the
- * collection so the dashboard can show history.
- */
+// Tokens are single-use (`usedAt` stamped on accept). Expired / revoked rows
+// are retained so the dashboard can show history.
 
 export type { StaffRole };
 
@@ -58,10 +51,7 @@ staffInviteSchema.pre('validate', function () {
   this.email = this.email.toLowerCase();
 });
 
-/**
- * Generate a 32-byte url-safe invite token (~256 bits of entropy).
- * Long enough that brute-forcing a single invite is infeasible.
- */
+// 32 random bytes → ~256 bits of entropy. Brute-forcing a single invite is infeasible.
 export function generateInviteToken(): string {
   return randomBytes(32).toString('base64url');
 }

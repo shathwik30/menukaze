@@ -24,6 +24,10 @@ function parseMinutes(value: string): number {
   return hour * 60 + minute;
 }
 
+function isMenuScheduleDay(value: string): value is MenuScheduleDay {
+  return value in DAY_TO_INDEX;
+}
+
 function getZonedDateParts(
   date: Date,
   timeZone: string,
@@ -48,14 +52,6 @@ function getZonedDateParts(
   };
 }
 
-function includesDay(days: readonly MenuScheduleDay[], day: MenuScheduleDay): boolean {
-  return days.includes(day);
-}
-
-function isMenuScheduleDay(value: string): value is MenuScheduleDay {
-  return value in DAY_TO_INDEX;
-}
-
 function previousDay(day: MenuScheduleDay): MenuScheduleDay {
   return INDEX_TO_DAY[(DAY_TO_INDEX[day] + 6) % 7] ?? 'sun';
 }
@@ -73,18 +69,18 @@ export function isMenuScheduleActive(
   const end = parseMinutes(schedule.endTime);
 
   if (start === end) {
-    return includesDay(schedule.days, day);
+    return schedule.days.includes(day);
   }
 
   if (start < end) {
-    return includesDay(schedule.days, day) && minutes >= start && minutes < end;
+    return schedule.days.includes(day) && minutes >= start && minutes < end;
   }
 
   if (minutes >= start) {
-    return includesDay(schedule.days, day);
+    return schedule.days.includes(day);
   }
 
-  return minutes < end && includesDay(schedule.days, previousDay(day));
+  return minutes < end && schedule.days.includes(previousDay(day));
 }
 
 export function filterActiveMenus<T extends { schedule?: MenuSchedule | null }>(

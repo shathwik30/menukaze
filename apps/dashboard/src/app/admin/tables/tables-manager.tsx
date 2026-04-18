@@ -369,7 +369,7 @@ function TableCard({
     <article className="border-border rounded-lg border p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-muted-foreground text-xs uppercase tracking-wide">#{table.number}</p>
+          <p className="text-muted-foreground text-xs tracking-wide uppercase">#{table.number}</p>
           <h3 className="text-foreground text-base font-semibold">{table.name}</h3>
           <p className="text-muted-foreground text-xs">
             Seats {table.capacity}

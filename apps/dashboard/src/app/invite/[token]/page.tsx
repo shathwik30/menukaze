@@ -6,12 +6,6 @@ import { AcceptInviteForm } from './accept-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Landing page for staff invite links. Staff member clicks the URL in the
- * email; must be signed in as the invite's email; server component resolves
- * the invite, verifies freshness + email match, and renders a single
- * Accept button that calls acceptInviteAction.
- */
 export default async function AcceptInvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   if (!token || token.length < 16) redirect('/');

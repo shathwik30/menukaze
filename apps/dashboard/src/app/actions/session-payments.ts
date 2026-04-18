@@ -13,10 +13,9 @@ import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import { CounterSessionReceiptEmail } from '@/emails/counter-session-receipt';
 import {
-  actionError,
   invalidEntityError,
+  runRestaurantAnyFlagAction,
   validationError,
-  withRestaurantAnyFlagAction,
   type ActionResult,
 } from '@/lib/action-helpers';
 
@@ -271,114 +270,110 @@ export async function settleSessionAtCounterAction(raw: unknown): Promise<Action
   const sessionId = parseObjectId(parsed.data.sessionId);
   if (!sessionId) return invalidEntityError('session');
 
-  try {
-    return await withRestaurantAnyFlagAction(
-      ['payments.process'],
-      async ({ restaurantId, session, role }) => {
-        const actorUserId = parseObjectId(session.user.id);
-        if (!actorUserId) {
-          throw new Error('Unknown user.');
-        }
+  return runRestaurantAnyFlagAction(
+    ['payments.process'],
+    {
+      onError: 'Failed to settle session.',
+      onForbidden: 'You do not have permission to process payments.',
+    },
+    async ({ restaurantId, session, role }) => {
+      const actorUserId = parseObjectId(session.user.id);
+      if (!actorUserId) {
+        throw new Error('Unknown user.');
+      }
 
-        const conn = await getMongoConnection('live');
-        const { Restaurant, TableSession, Table, Order } = getModels(conn);
+      const conn = await getMongoConnection('live');
+      const { Restaurant, TableSession, Table, Order } = getModels(conn);
 
-        const tableSession = await TableSession.findOne({ restaurantId, _id: sessionId }).exec();
-        if (!tableSession) return { ok: false, error: 'Session not found.' };
-        if (tableSession.status === 'closed' || tableSession.status === 'paid') {
-          return { ok: false, error: 'This session has already been settled.' };
-        }
+      const tableSession = await TableSession.findOne({ restaurantId, _id: sessionId }).exec();
+      if (!tableSession) return { ok: false, error: 'Session not found.' };
+      if (tableSession.status === 'closed' || tableSession.status === 'paid') {
+        return { ok: false, error: 'This session has already been settled.' };
+      }
 
-        const [restaurant, rounds] = await Promise.all([
-          Restaurant.findById(restaurantId).exec(),
-          Order.find({ restaurantId, sessionId: tableSession._id }).exec(),
-        ]);
-        if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
-        if (rounds.length === 0) return { ok: false, error: 'No rounds found for this session.' };
+      const [restaurant, rounds] = await Promise.all([
+        Restaurant.findById(restaurantId).exec(),
+        Order.find({ restaurantId, sessionId: tableSession._id }).exec(),
+      ]);
+      if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+      if (rounds.length === 0) return { ok: false, error: 'No rounds found for this session.' };
 
-        const now = new Date();
-        const methodLabel = getCounterPaymentMethodLabel(parsed.data.method);
-        await markCounterRoundsPaid({
-          orderModel: Order,
-          restaurantId,
-          tableSessionId: tableSession._id,
-          actorUserId,
-          methodLabel,
-          paidAt: now,
-        });
-        await markCounterSessionPaid({
-          tableSessionModel: TableSession,
-          tableModel: Table,
-          restaurantId,
-          tableSession,
-          paidAt: now,
-        });
+      const now = new Date();
+      const methodLabel = getCounterPaymentMethodLabel(parsed.data.method);
+      await markCounterRoundsPaid({
+        orderModel: Order,
+        restaurantId,
+        tableSessionId: tableSession._id,
+        actorUserId,
+        methodLabel,
+        paidAt: now,
+      });
+      await markCounterSessionPaid({
+        tableSessionModel: TableSession,
+        tableModel: Table,
+        restaurantId,
+        tableSession,
+        paidAt: now,
+      });
 
-        const restaurantIdStr = String(restaurantId);
-        const tableIdStr = String(tableSession.tableId);
-        const sessionIdStr = String(tableSession._id);
-        const orderIds = rounds.map((round) => String(round._id));
-        await publishOrderStatusChanges(restaurantIdStr, orderIds, 'completed', now);
-        await publishTableSessionState({
-          restaurantId: restaurantIdStr,
-          tableId: tableIdStr,
-          sessionId: sessionIdStr,
-          tableStatus: 'paid',
-          tableReason: 'payment_succeeded',
-          sessionReason: 'payment_succeeded',
-          changedAt: now,
-        });
+      const restaurantIdStr = String(restaurantId);
+      const tableIdStr = String(tableSession.tableId);
+      const sessionIdStr = String(tableSession._id);
+      const orderIds = rounds.map((round) => String(round._id));
+      await publishOrderStatusChanges(restaurantIdStr, orderIds, 'completed', now);
+      await publishTableSessionState({
+        restaurantId: restaurantIdStr,
+        tableId: tableIdStr,
+        sessionId: sessionIdStr,
+        tableStatus: 'paid',
+        tableReason: 'payment_succeeded',
+        sessionReason: 'payment_succeeded',
+        changedAt: now,
+      });
 
-        await releaseCounterSession({
-          tableSessionModel: TableSession,
-          tableModel: Table,
-          restaurantId,
-          tableSession,
-          releasedAt: now,
-        });
-        await publishTableSessionState({
-          restaurantId: restaurantIdStr,
-          tableId: tableIdStr,
-          sessionId: sessionIdStr,
-          tableStatus: 'available',
-          tableReason: 'table_released',
-          sessionReason: 'closed',
-          changedAt: now,
-        });
+      await releaseCounterSession({
+        tableSessionModel: TableSession,
+        tableModel: Table,
+        restaurantId,
+        tableSession,
+        releasedAt: now,
+      });
+      await publishTableSessionState({
+        restaurantId: restaurantIdStr,
+        tableId: tableIdStr,
+        sessionId: sessionIdStr,
+        tableStatus: 'available',
+        tableReason: 'table_released',
+        sessionReason: 'closed',
+        changedAt: now,
+      });
 
-        await sendCounterReceiptEmail({
-          tableSession,
-          restaurant,
-          rounds,
-          methodLabel,
-          paidAt: now,
-        });
+      await sendCounterReceiptEmail({
+        tableSession,
+        restaurant,
+        rounds,
+        methodLabel,
+        paidAt: now,
+      });
 
-        await recordAudit({
-          restaurantId,
-          userId: session.user.id,
-          userEmail: session.user.email,
-          role,
-          action: 'session.settled_at_counter',
-          resourceType: 'table_session',
-          resourceId: sessionIdStr,
-          metadata: {
-            method: parsed.data.method,
-            orderCount: rounds.length,
-            totalMinor: rounds.reduce((sum, r) => sum + r.totalMinor, 0),
-          },
-        });
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'session.settled_at_counter',
+        resourceType: 'table_session',
+        resourceId: sessionIdStr,
+        metadata: {
+          method: parsed.data.method,
+          orderCount: rounds.length,
+          totalMinor: rounds.reduce((sum, r) => sum + r.totalMinor, 0),
+        },
+      });
 
-        revalidatePath('/admin/tables');
-        revalidatePath('/admin/orders');
-        return { ok: true };
-      },
-    );
-  } catch (error) {
-    return actionError(
-      error,
-      'Failed to settle session.',
-      'You do not have permission to process payments.',
-    );
-  }
+      revalidatePath('/admin/tables');
+      revalidatePath('/admin/orders');
+      return { ok: true };
+    },
+  );
 }

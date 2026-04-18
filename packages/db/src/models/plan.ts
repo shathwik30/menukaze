@@ -1,25 +1,16 @@
 import { Schema, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Billing plan tier. Defines pricing and feature entitlements for merchants.
- * Plans are platform-level (not tenant-scoped).
- */
-
 export interface PlanDoc {
   name: string;
-  /** Monthly subscription fee in minor currency units (cents/paise). */
   monthlyMinor: number;
-  /** Commission rate in basis points (250 = 2.5%). */
+  /** Basis points (250 = 2.50%). */
   commissionBps: number;
-  /** Flat fee per order in minor currency units. */
   flatFeeMinor: number;
-  /** Feature keys enabled by this plan (e.g. ['kiosk', 'multi_language']). */
   features: string[];
-  /** Max orders per month. Null = unlimited. */
+  /** null = unlimited. */
   orderLimit: number | null;
-  /** Free trial duration in days. 0 = no trial. */
+  /** 0 = no trial. */
   trialDays: number;
-  /** Whether this plan is available for new assignments. */
   active: boolean;
   createdAt: Date;
   updatedAt: Date;

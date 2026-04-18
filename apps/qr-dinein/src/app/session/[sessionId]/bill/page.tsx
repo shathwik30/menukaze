@@ -65,7 +65,7 @@ export default async function BillPage({ params }: { params: Promise<{ sessionId
       </header>
 
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Itemized</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Itemized</h2>
         <ul className="divide-border mt-3 divide-y text-sm">
           {lines.map((line, i) => (
             <li key={i} className="flex items-start justify-between gap-3 py-2">

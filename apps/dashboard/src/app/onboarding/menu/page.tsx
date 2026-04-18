@@ -5,9 +5,6 @@ import { MenuSetupForm } from './menu-setup-form';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Menu setup page for the onboarding flow.
- */
 export default async function OnboardingMenuPage() {
   const { restaurantId } = await requirePageFlag(['menu.edit']);
 

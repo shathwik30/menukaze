@@ -170,12 +170,6 @@ async function handleImageUpload(
   }
 }
 
-/**
- * Single-pane menu editor. All mutations go through the server actions in
- * actions/menu-admin.ts and rely on revalidatePath('/admin/menu') to
- * refresh the tree in place. Inline state is only used for transient form
- * fields (new menu name, new item details).
- */
 export function MenuManagerClient({
   menus,
   currencyLabel,
@@ -199,7 +193,7 @@ export function MenuManagerClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300 flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-[11px] font-medium">
-        <span className="mk-nums text-ink-400 font-mono text-[10px] uppercase tracking-[0.14em]">
+        <span className="mk-nums text-ink-400 font-mono text-[10px] tracking-[0.14em] uppercase">
           Currency
         </span>
         <span className="font-mono">{currencyLabel}</span>
@@ -342,7 +336,7 @@ function MenuSettingsForm({
   const [startTime, setStartTime] = useState(menu.schedule?.startTime ?? '09:00');
   const [endTime, setEndTime] = useState(menu.schedule?.endTime ?? '22:00');
 
-  // Re-sync when the RSC passes fresh props after a save + router.refresh().
+  // Re-sync local form state when the RSC sends fresh props after router.refresh().
   useEffect(() => {
     setName(menu.name);
     setOrder(String(menu.order));

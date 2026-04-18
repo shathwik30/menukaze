@@ -39,7 +39,6 @@ export default async function HealthPage() {
     Restaurant.countDocuments({ createdAt: { $gte: sevenDaysAgo } }).exec(),
     Restaurant.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }).exec(),
     TableSession.countDocuments({ status: 'active' }, { skipTenantGuard: true }).exec(),
-    // Orders per day (last 30 days)
     Order.aggregate([
       { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       {
@@ -52,7 +51,6 @@ export default async function HealthPage() {
     ])
       .option({ skipTenantGuard: true })
       .exec(),
-    // Signups per day (last 30 days)
     Restaurant.aggregate([
       { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       {

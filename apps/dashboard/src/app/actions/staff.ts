@@ -56,7 +56,7 @@ async function requireStaffFlag(flag: Flag) {
     return await requireFlags([flag]);
   } catch (error) {
     if (error instanceof PermissionDeniedError) {
-      throw new Error('You do not have permission to manage staff.');
+      throw new Error('You do not have permission to manage staff.', { cause: error });
     }
     throw error;
   }
@@ -375,10 +375,6 @@ export async function removeStaffAction(membershipId: string): Promise<ActionRes
   }
 }
 
-/**
- * Signed-in user accepts an invite token. Creates an active StaffMembership
- * bound to their user id with the role the invite specified.
- */
 export async function acceptInviteAction(
   token: string,
 ): Promise<ActionResult<{ restaurantId: string }>> {

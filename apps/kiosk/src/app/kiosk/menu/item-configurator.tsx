@@ -114,7 +114,7 @@ export function ItemConfigurator({
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
+            <p className="text-xs font-bold tracking-[0.22em] text-emerald-700 uppercase">
               Customize
             </p>
             <h2 className="mt-1 text-3xl font-black">{name}</h2>
@@ -194,7 +194,7 @@ export function ItemConfigurator({
 
         <div className="mt-5 flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Item total</p>
+            <p className="text-xs font-bold tracking-[0.2em] text-zinc-500 uppercase">Item total</p>
             <span className="font-mono text-2xl font-black">{fmt(previewTotal)}</span>
           </div>
           <button

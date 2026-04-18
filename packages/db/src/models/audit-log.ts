@@ -2,17 +2,10 @@ import { createHash } from 'node:crypto';
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * Per-restaurant immutable audit log. Every dashboard mutation that changes
- * customer-visible state, money flow, or access control is recorded here.
- *
- * Entries are linked into a hash chain: each row stores `prevHash` (the
- * `hash` of the previous row for the same restaurant) and `hash` (the SHA-256
- * of the canonical row blob including `prevHash`). A divergence in the chain
- * proves a row was altered or removed without authority. The chain is
- * scoped per restaurant so one tenant's chain doesn't get tangled with
- * another's.
- */
+// Hash chain: each row stores prevHash (the previous row's `hash` for the
+// same restaurant) and hash = SHA-256 of the canonical blob including
+// prevHash. Tampering or removal breaks the chain. Chain scope is per
+// restaurant so tenants' chains don't tangle.
 
 export interface AuditLogDoc {
   restaurantId: Types.ObjectId;

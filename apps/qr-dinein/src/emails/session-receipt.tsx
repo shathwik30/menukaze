@@ -6,11 +6,6 @@ interface Props {
   paidAt: string;
 }
 
-/**
- * Emailed receipt for a completed dine-in session. Renders the combined
- * round view (all items placed during the session) rather than a single
- * order snapshot.
- */
 export function SessionReceiptEmail({
   restaurantName,
   customerName,

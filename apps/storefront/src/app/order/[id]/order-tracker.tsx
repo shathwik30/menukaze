@@ -25,11 +25,6 @@ function stepIndex(status: OrderStatus): number {
   return idx === -1 ? 0 : idx;
 }
 
-/**
- * Subscribes to the customer order channel and renders a progress bar that
- * updates whenever the dashboard publishes a status change. Falls back to the
- * server-rendered initial status if the realtime connection never opens.
- */
 export function OrderTracker({
   restaurantId,
   orderId,
@@ -67,7 +62,7 @@ export function OrderTracker({
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Progress</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Progress</h2>
         <span className="text-muted-foreground text-xs">
           {connected ? 'Live · updating in real time' : 'Connecting…'}
         </span>

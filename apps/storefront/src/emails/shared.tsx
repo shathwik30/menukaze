@@ -1,11 +1,7 @@
 import type { ReactNode, CSSProperties } from 'react';
 
-/**
- * Plain JSX building blocks for transactional emails. We intentionally avoid
- * @react-email/components here — plain HTML tags with inline styles render
- * identically in Gmail / Outlook / Apple Mail without the extra bundle, and
- * @react-email/render happily walks a JSX tree built from native elements.
- */
+// Plain HTML + inline styles instead of @react-email/components: equivalent
+// rendering across Gmail/Outlook/Apple Mail, smaller bundle.
 
 const styles = {
   body: {

@@ -1,26 +1,17 @@
-/**
- * Predefined role-to-flag mapping. Custom roles override the flag set
- * with their own. Roles are resolved at request time by `resolveFlags`.
- *
- * `StaffRole` is re-exported from `@menukaze/shared` so the Mongoose
- * models, Zod schemas, and rbac flag tables all share a single literal
- * union.
- */
-
 import type { StaffRole } from '@menukaze/shared';
-import { ALL_FLAGS, FLAGS, isFlag, type Flag } from './flags';
+import { ALL_FLAGS, FLAGS, OWNER_ONLY_FLAGS, isFlag, type Flag } from './flags';
 
 export type { StaffRole };
 
-const f = (...flags: Flag[]): ReadonlySet<Flag> => new Set(flags);
+const flagSet = (...flags: Flag[]): ReadonlySet<Flag> => new Set(flags);
 
 const OWNER: ReadonlySet<Flag> = ALL_FLAGS;
 
 const MANAGER: ReadonlySet<Flag> = new Set<Flag>(
-  FLAGS.filter((flag) => !['api_keys.manage', 'webhooks.manage', 'billing.manage'].includes(flag)),
+  FLAGS.filter((flag) => !OWNER_ONLY_FLAGS.has(flag)),
 );
 
-const WAITER: ReadonlySet<Flag> = f(
+const WAITER: ReadonlySet<Flag> = flagSet(
   'menu.view',
   'menu.toggle_availability',
   'tables.view',
@@ -35,7 +26,7 @@ const WAITER: ReadonlySet<Flag> = f(
   'audit.view_self',
 );
 
-const KITCHEN: ReadonlySet<Flag> = f(
+const KITCHEN: ReadonlySet<Flag> = flagSet(
   'menu.view',
   'menu.toggle_availability',
   'orders.view_assigned',
@@ -45,7 +36,7 @@ const KITCHEN: ReadonlySet<Flag> = f(
   'audit.view_self',
 );
 
-const CASHIER: ReadonlySet<Flag> = f(
+const CASHIER: ReadonlySet<Flag> = flagSet(
   'menu.view',
   'tables.view',
   'reservations.view',
@@ -75,11 +66,6 @@ export interface MembershipForResolve {
   customPermissions?: readonly string[];
 }
 
-/**
- * Compute the effective flag set for a staff member.
- * - Owner / Manager / Waiter / Kitchen / Cashier: fixed sets above.
- * - Custom: use the membership's `customPermissions` filtered to known flags.
- */
 export function resolveFlags(membership: MembershipForResolve): ReadonlySet<Flag> {
   if (membership.role === 'custom') {
     const valid = new Set<Flag>();
@@ -91,17 +77,11 @@ export function resolveFlags(membership: MembershipForResolve): ReadonlySet<Flag
   return ROLE_FLAGS[membership.role];
 }
 
-/**
- * Returns true if the membership has all of the required flags.
- */
 export function hasAllFlags(membership: MembershipForResolve, required: readonly Flag[]): boolean {
   const set = resolveFlags(membership);
   return required.every((flag) => set.has(flag));
 }
 
-/**
- * Returns true if the membership has any of the required flags.
- */
 export function hasAnyFlag(membership: MembershipForResolve, required: readonly Flag[]): boolean {
   const set = resolveFlags(membership);
   return required.some((flag) => set.has(flag));

@@ -103,7 +103,7 @@ export function TabsTrigger({
         }
       }}
       className={cn(
-        'focus-visible:ring-saffron-500/50 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2',
+        'focus-visible:ring-saffron-500/50 transition-colors duration-200 focus-visible:ring-2 focus-visible:outline-none',
         baseSize,
         active ? baseActive : baseInactive,
         className,

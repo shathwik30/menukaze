@@ -33,7 +33,6 @@ export default async function InvoicesPage({ searchParams }: Props) {
     Invoice.countDocuments(filter).exec(),
   ]);
 
-  // Resolve restaurant names
   const restIds = [...new Set(invoices.map((inv) => inv.restaurantId))];
   const restaurants = restIds.length
     ? await Restaurant.find({ _id: { $in: restIds } }, { name: 1 })

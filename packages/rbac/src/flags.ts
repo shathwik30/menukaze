@@ -1,32 +1,17 @@
-/**
- * The complete permission flag registry. Every capability that crosses an
- * authorization check in the system is represented here. Roles are built by
- * picking subsets of these flags. Custom roles let restaurants build their
- * own subsets at runtime.
- *
- * Flags marked OWNER_ONLY can never be granted to a custom role. They are
- * structurally locked to the Owner so platform-critical actions cannot be
- * delegated.
- */
-
 export const FLAGS = [
-  // Menu
   'menu.view',
   'menu.edit',
   'menu.toggle_availability',
   'menu.schedule',
 
-  // Tables
   'tables.view',
   'tables.edit',
   'tables.qr_print',
 
-  // Reservations
   'reservations.view',
   'reservations.edit',
   'reservations.configure',
 
-  // Orders
   'orders.view_all',
   'orders.view_assigned',
   'orders.update_status',
@@ -34,38 +19,31 @@ export const FLAGS = [
   'orders.refund',
   'orders.create_walkin',
 
-  // KDS
   'kds.view',
   'kds.update',
   'kds.configure',
 
-  // Channels
   'channels.view',
   'channels.configure',
 
-  // Payments
   'payments.process',
   'payments.configure',
 
-  // Staff
   'staff.view',
   'staff.invite',
   'staff.edit',
   'staff.remove',
   'staff.manage_custom_roles',
 
-  // Analytics
   'analytics.view',
   'analytics.view_today_only',
   'analytics.export',
 
-  // Customers
   'customers.view',
   'customers.view_current_only',
   'customers.export',
   'customers.delete',
 
-  // Settings
   'settings.edit_profile',
   'settings.edit_hours',
   'settings.toggle_holiday',
@@ -73,12 +51,10 @@ export const FLAGS = [
   'settings.edit_branding',
   'settings.edit_notifications',
 
-  // Owner-only permissions
   'api_keys.manage',
   'webhooks.manage',
   'billing.manage',
 
-  // Audit & security
   'audit.view_self',
   'audit.view_all',
   'security.revoke_kiosk_token',
@@ -86,23 +62,17 @@ export const FLAGS = [
 
 export type Flag = (typeof FLAGS)[number];
 
-export const ALL_FLAGS = new Set<Flag>(FLAGS);
-const ALL_FLAG_VALUES: ReadonlySet<string> = new Set(FLAGS);
+export const ALL_FLAGS: ReadonlySet<Flag> = new Set(FLAGS);
 
-/**
- * Flags that can never be assigned to a Custom role. Enforced by
- * `assertCustomRoleFlags` so the UI cannot offer them and the API cannot
- * accept them.
- */
-export const OWNER_ONLY_FLAGS = new Set<Flag>([
+/** Platform-critical flags that structurally cannot be delegated to a custom role. */
+export const OWNER_ONLY_FLAGS: ReadonlySet<Flag> = new Set<Flag>([
   'api_keys.manage',
   'webhooks.manage',
   'billing.manage',
 ]);
-const OWNER_ONLY_FLAG_VALUES: ReadonlySet<string> = new Set(OWNER_ONLY_FLAGS);
 
 export function isFlag(value: unknown): value is Flag {
-  return typeof value === 'string' && ALL_FLAG_VALUES.has(value);
+  return typeof value === 'string' && (ALL_FLAGS as ReadonlySet<string>).has(value);
 }
 
 export class InvalidCustomRoleError extends Error {
@@ -112,11 +82,9 @@ export class InvalidCustomRoleError extends Error {
   }
 }
 
-/**
- * Throws if the proposed flag set contains anything OWNER_ONLY or unknown.
- * Called when a manager creates or edits a Custom role.
- */
 export function assertCustomRoleFlags(flags: readonly string[]): void {
-  const invalid = flags.filter((flag) => !isFlag(flag) || OWNER_ONLY_FLAG_VALUES.has(flag));
+  const invalid = flags.filter(
+    (flag) => !isFlag(flag) || (OWNER_ONLY_FLAGS as ReadonlySet<string>).has(flag),
+  );
   if (invalid.length > 0) throw new InvalidCustomRoleError(invalid);
 }

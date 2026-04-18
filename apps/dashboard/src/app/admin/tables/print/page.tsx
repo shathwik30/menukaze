@@ -5,12 +5,6 @@ import { requirePageFlag } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Bulk-print page for every table QR sticker in the restaurant.
- *
- * Staff can either print directly from the browser or download the generated
- * multi-table PDF from the companion route.
- */
 export default async function PrintAllTablesPage() {
   const { restaurantId } = await requirePageFlag(['tables.qr_print']);
 
@@ -55,7 +49,7 @@ export default async function PrintAllTablesPage() {
                 key={String(table._id)}
                 className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-zinc-300 p-6 text-center print:break-inside-avoid print:border-zinc-200"
               >
-                <p className="text-xs uppercase tracking-[0.2em]">{restaurant.name}</p>
+                <p className="text-xs tracking-[0.2em] uppercase">{restaurant.name}</p>
                 <QRCodeSVG value={url} size={220} level="H" />
                 <p className="text-2xl font-bold">{table.name}</p>
                 <p className="text-sm text-zinc-600">Scan to order · Pay when you&apos;re done</p>

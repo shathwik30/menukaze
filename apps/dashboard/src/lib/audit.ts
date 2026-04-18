@@ -36,11 +36,7 @@ function toIdString(value: Types.ObjectId | string): string {
   return typeof value === 'string' ? value : value.toHexString();
 }
 
-/**
- * Append a row to the per-restaurant audit log. Computes the hash chain
- * link from the most recent entry. Errors are logged but never thrown — an
- * audit miss must not break the user's primary action.
- */
+// Errors are logged but never thrown: a missed audit entry must not break the user's action.
 export async function recordAudit(input: RecordAuditInput): Promise<void> {
   try {
     const conn = await getMongoConnection('live');

@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable}`}>
       <body
-        className="bg-background text-foreground h-screen w-screen select-none overflow-hidden font-sans antialiased"
+        className="bg-background text-foreground h-screen w-screen overflow-hidden font-sans antialiased select-none"
         style={{ touchAction: 'manipulation' }}
       >
         {children}

@@ -6,10 +6,6 @@ interface AuroraBackdropProps extends HTMLAttributes<HTMLDivElement> {
   palette?: 'warm' | 'cool' | 'duo';
 }
 
-/**
- * Aurora gradient mesh — a soft, animated, atmospheric backdrop.
- * Use behind hero sections, onboarding, sign-in. Decorative only.
- */
 export const AuroraBackdrop = forwardRef<HTMLDivElement, AuroraBackdropProps>(
   ({ className, intensity = 'medium', palette = 'warm', ...props }, ref) => {
     const opacity =
@@ -29,10 +25,6 @@ export const AuroraBackdrop = forwardRef<HTMLDivElement, AuroraBackdropProps>(
 );
 AuroraBackdrop.displayName = 'AuroraBackdrop';
 
-/**
- * Refined mesh backdrop — layered radial gradients with warm saffron + neutral
- * pulls. More understated than AuroraBackdrop. Used behind marketing surfaces.
- */
 export const MeshBackdrop = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
@@ -49,7 +41,7 @@ export const MeshBackdrop = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEle
         }}
       />
       <div
-        className="absolute -bottom-32 -right-32 size-[600px] rounded-full opacity-50 blur-3xl"
+        className="absolute -right-32 -bottom-32 size-[600px] rounded-full opacity-50 blur-3xl"
         style={{
           background:
             'radial-gradient(closest-side, oklch(0.815 0.140 62 / 0.4), oklch(0.970 0.006 86 / 0))',
@@ -67,9 +59,6 @@ export const MeshBackdrop = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEle
 );
 MeshBackdrop.displayName = 'MeshBackdrop';
 
-/**
- * Fine grid backdrop — technical, precision-feeling. For data / command surfaces.
- */
 export const GridBackdrop = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement> & { variant?: 'dots' | 'lines' }

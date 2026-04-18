@@ -1,11 +1,3 @@
-/**
- * Menukaze db package — Mongoose connection wrapper, models, plugins, repos.
- *
- * Public surface for consumers (apps + other packages):
- *
- *   import { getMongoConnection, getModels, createTenantRepo } from '@menukaze/db';
- */
-
 export {
   getMongoConnection,
   getMongoConfig,

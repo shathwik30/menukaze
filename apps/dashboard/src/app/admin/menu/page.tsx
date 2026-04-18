@@ -89,7 +89,7 @@ export default async function MenuManagementPage() {
         <Eyebrow withBar tone="accent">
           Catalog
         </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
           Menu
         </h1>
         <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-xl text-sm">

@@ -1,14 +1,8 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 import { DEFAULT_PREP_MINUTES, WEEKDAYS, type Weekday } from '@menukaze/shared';
 
-/**
- * Tenant root. There is one `restaurants` document per tenant. Every other
- * tenant-scoped collection has `restaurantId` pointing here.
- *
- * Note: this collection is not decorated with `tenantScopedPlugin` because it
- * is the tenant root. Platform flows such as signup and super-admin need
- * cross-tenant restaurant lookups.
- */
+// Tenant root. Not decorated with tenantScopedPlugin — platform signup and
+// super-admin flows need cross-tenant restaurant lookups.
 
 export type RestaurantSubscriptionStatus =
   | 'trial'
@@ -56,24 +50,12 @@ export interface RestaurantDoc {
   locale: string;
   timezone: string;
 
-  /** Short marketing tagline shown on the storefront hero. */
   description?: string;
-  /** Public-facing contact email. Distinct from the owner's BetterAuth user. */
   email?: string;
 
-  /**
-   * Typical prep time in minutes, stamped into `Order.estimatedReadyAt`
-   * when a new order is created. Settings UI default: 20.
-   */
   estimatedPrepMinutes: number;
-  /** Minimum cart total (in minor units) required to check out. 0 = disabled. */
   minimumOrderMinor: number;
-  /**
-   * Flat delivery fee in minor units, added at checkout when the customer
-   * picks delivery.
-   */
   deliveryFeeMinor: number;
-  /** Inactivity timeout for QR dine-in sessions. Defaults to 3 hours. */
   dineInSessionTimeoutMinutes: number;
 
   addressStructured: {
@@ -105,15 +87,8 @@ export interface RestaurantDoc {
   razorpayKeyIdEnc?: string;
   razorpayKeySecretEnc?: string;
 
-  /**
-   * Which onboarding wizard step the restaurant is on. Advances as each step
-   * is completed; `'complete'` means onboarding is done and the user can
-   * skip the wizard entirely.
-   */
   onboardingStep: RestaurantOnboardingStep;
-  /** Set when the user clicks Go Live. Null until activation. */
   liveAt?: Date;
-  /** User has hidden the post-onboarding checklist card on /admin. */
   checklistDismissed: boolean;
 
   geofenceRadiusM: number;
@@ -125,20 +100,13 @@ export interface RestaurantDoc {
     geofenceRadiusM: number;
   };
 
-  /**
-   * Holiday mode blocks all new orders. When enabled, the storefront cart
-   * is disabled and shows the configured message.
-   */
+  /** When enabled, the storefront cart is disabled with the configured message. */
   holidayMode: {
     enabled: boolean;
     message?: string;
   };
 
-  /**
-   * Concurrent-order cap for the kitchen. When the number of active
-   * orders meets or exceeds maxConcurrentOrders, the storefront blocks
-   * new checkouts with a "running at capacity" message.
-   */
+  /** When activeOrders ≥ maxConcurrentOrders the storefront blocks new checkouts. */
   throttling: {
     enabled: boolean;
     maxConcurrentOrders: number;
@@ -158,7 +126,7 @@ export interface RestaurantDoc {
     bufferMinutes: number;
     autoConfirm: boolean;
     reminderHours: number;
-    /** ISO date strings (YYYY-MM-DD in restaurant timezone) closed to bookings. */
+    /** ISO YYYY-MM-DD strings in the restaurant's timezone. */
     blockedDates: string[];
   };
   featureFlags: Map<string, boolean>;
@@ -318,7 +286,6 @@ const restaurantSchema = new Schema<RestaurantDoc>(
   { timestamps: true, collection: 'restaurants' },
 );
 
-// Indexes (slug + customDomain are declared at field level above)
 restaurantSchema.index({ subscriptionStatus: 1 });
 restaurantSchema.index({ createdAt: -1 });
 restaurantSchema.index({ subscriptionStatus: 1, createdAt: -1 });

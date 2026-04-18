@@ -1,16 +1,3 @@
-/**
- * Real-time event payload contracts.
- *
- * Every realtime message is one of these envelopes. Server publishes are
- * typed against `RealtimeEvent`, so the browser can pattern-match on
- * `event.type` to a fully typed payload.
- *
- * The status enums (`OrderStatus`, `TableStatus`, `WaiterAlertReason`,
- * `SessionUpdateReason`, `TableStatusReason`) live in `@menukaze/shared`
- * and are re-exported here so dashboards, KDS, and customer apps can
- * import them from a single realtime module.
- */
-
 import {
   isOrderStatus,
   isTableStatus,

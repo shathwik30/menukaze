@@ -293,7 +293,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                 }}
                 className="sr-only"
               />
-              <span className="text-xs font-medium uppercase tracking-wide">
+              <span className="text-xs font-medium tracking-wide uppercase">
                 {type === 'pickup' ? 'Takeaway' : 'Dine-in'}
               </span>
             </label>
@@ -349,7 +349,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                 onChange={() => setPaymentMethod(method)}
                 className="sr-only"
               />
-              <span className="text-xs font-medium uppercase tracking-wide">
+              <span className="text-xs font-medium tracking-wide uppercase">
                 {method === 'cash' ? 'Cash' : 'Pay later'}
               </span>
             </label>
@@ -370,7 +370,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     <span className="font-mono text-xs">{formatMoney(line.lineTotalMinor)}</span>
                   </div>
                   {line.modifiers.length > 0 ? (
-                    <ul className="text-muted-foreground ml-4 mt-1 list-disc text-xs">
+                    <ul className="text-muted-foreground mt-1 ml-4 list-disc text-xs">
                       {line.modifiers.map((m, i) => (
                         <li key={`${m.groupName}-${i}`}>
                           {m.groupName}: {m.optionName}
@@ -379,7 +379,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     </ul>
                   ) : null}
                   {line.notes ? (
-                    <p className="text-muted-foreground ml-4 mt-1 text-xs italic">
+                    <p className="text-muted-foreground mt-1 ml-4 text-xs italic">
                       Note: {line.notes}
                     </p>
                   ) : null}

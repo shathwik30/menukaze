@@ -103,23 +103,23 @@ export function ConfirmClient({
 
       <main className="relative flex min-h-0 flex-col justify-between px-14 py-12">
         <div>
-          <p className="text-jade-300 inline-flex items-center gap-3 text-[13px] font-semibold uppercase tracking-[0.28em]">
+          <p className="text-jade-300 inline-flex items-center gap-3 text-[13px] font-semibold tracking-[0.28em] uppercase">
             <span className="bg-jade-400 relative inline-flex size-2 rounded-full">
               <span className="bg-jade-400 absolute inset-0 animate-ping rounded-full opacity-60" />
             </span>
             Order confirmed
           </p>
-          <h1 className="mt-5 font-serif text-[5.5rem] font-medium leading-[0.9] tracking-tight">
+          <h1 className="mt-5 font-serif text-[5.5rem] leading-[0.9] font-medium tracking-tight">
             Keep this <span className="text-saffron-400 italic">number.</span>
           </h1>
         </div>
 
         <div>
-          <p className="text-canvas-50/55 text-xl font-medium uppercase tracking-[0.22em]">
+          <p className="text-canvas-50/55 text-xl font-medium tracking-[0.22em] uppercase">
             Pickup number
           </p>
           <p
-            className="text-canvas-50 mt-6 font-serif font-medium leading-none tracking-[-0.05em]"
+            className="text-canvas-50 mt-6 font-serif leading-none font-medium tracking-[-0.05em]"
             style={{
               fontSize: 'clamp(10rem, 18vw, 18rem)',
               textShadow: '0 8px 40px oklch(0.695 0.185 48 / 0.2)',
@@ -155,7 +155,7 @@ export function ConfirmClient({
             </span>
             {STATUS_LABEL[status] ?? status}
           </div>
-          <h2 className="mt-6 font-serif text-4xl font-medium leading-tight tracking-tight">
+          <h2 className="mt-6 font-serif text-4xl leading-tight font-medium tracking-tight">
             Listen for <span className="text-saffron-700 italic">{pickupNumber}</span>
           </h2>
           <p className="text-ink-600 mt-3 text-base leading-relaxed">
@@ -166,7 +166,7 @@ export function ConfirmClient({
         </div>
 
         <div className="border-ink-100 border-b p-8">
-          <p className="text-ink-500 text-[11px] font-semibold uppercase tracking-[0.18em]">
+          <p className="text-ink-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
             Progress
           </p>
           <ol className="mt-5 space-y-3">
@@ -218,7 +218,7 @@ export function ConfirmClient({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-8">
-          <p className="text-ink-500 text-[11px] font-semibold uppercase tracking-[0.18em]">
+          <p className="text-ink-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
             Items
           </p>
           <ul className="mt-4 flex flex-col gap-2">
@@ -256,7 +256,7 @@ export function ConfirmClient({
 function InfoTile({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
-      <p className="text-canvas-50/45 text-[11px] font-semibold uppercase tracking-[0.22em]">
+      <p className="text-canvas-50/45 text-[11px] font-semibold tracking-[0.22em] uppercase">
         {label}
       </p>
       <p className="text-canvas-50 mt-2 font-serif text-2xl font-medium">{value}</p>

@@ -1,15 +1,10 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * Post-order customer feedback. One feedback per order. Rating 1–5 + an
- * optional free-text comment. Surfaced on the dashboard and aggregated by
- * the analytics module.
- */
-
 export interface FeedbackDoc {
   restaurantId: Types.ObjectId;
   orderId: Types.ObjectId;
+  /** 1-5 */
   rating: number;
   comment?: string;
   customerEmail?: string;

@@ -1,16 +1,12 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Platform super-admin. A separate collection from User and StaffMembership
- * so that a compromised staff account cannot escalate to platform admin.
- *
- * The first super-admin is seeded via manual DB insert:
- *   db.super_admins.insertOne({ userId: ObjectId("..."), scopes: ["*"] })
- */
+// Separate from User / StaffMembership so a compromised staff account
+// cannot escalate to platform admin. Seed the first row manually:
+//   db.super_admins.insertOne({ userId: ObjectId("..."), scopes: ["*"] })
 
 export interface SuperAdminDoc {
   userId: Types.ObjectId;
-  /** Granular scopes for future RBAC. `['*']` = full access. */
+  /** `['*']` = full access. */
   scopes: string[];
   createdAt: Date;
   updatedAt: Date;

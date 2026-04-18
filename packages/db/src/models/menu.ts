@@ -2,19 +2,11 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { WEEKDAYS, type Weekday } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-/**
- * A menu is the top-level container for a restaurant's offerings, such as
- * "Breakfast Menu", "Lunch Menu", "Weekend Brunch". A restaurant has at
- * least one menu and may schedule multiple menus to swap by time of day.
- *
- * Categories live under a menu; items live under a category.
- */
 export interface MenuDoc {
   restaurantId: Types.ObjectId;
   name: string;
-  /** Sort order within the restaurant's menu list. Lower = earlier. */
   order: number;
-  /** Optional schedule. Empty means the menu is always active. */
+  /** Empty = always active. */
   schedule?: {
     days: Weekday[];
     startTime: string;

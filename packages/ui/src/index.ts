@@ -1,20 +1,5 @@
-/**
- * Menukaze UI — "Atelier" design system.
- *
- * Apps consume this package via:
- *   import { Button, Card, ... } from '@menukaze/ui';
- *   import '@menukaze/ui/styles.css';
- *
- * Fonts are loaded in each app's layout.tsx via next/font/google:
- *   const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
- *   const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces' });
- *   const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
- *   <html className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable}`}>
- */
-
 export { cn } from './lib/cn';
 
-// Primitives
 export { Button, buttonVariants, type ButtonProps } from './components/button';
 export {
   Card,
@@ -56,7 +41,6 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs';
 export { Container, PageHeader, Section } from './components/page';
 export { Kbd } from './components/kbd';
 
-// Brand components
 export { LogoMark, Wordmark, BrandRow } from './brand/logo';
 export { AuroraBackdrop, MeshBackdrop, GridBackdrop } from './brand/aurora';
 export { Eyebrow } from './brand/eyebrow';

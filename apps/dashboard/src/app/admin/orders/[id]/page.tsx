@@ -51,7 +51,7 @@ export default async function DashboardOrderDetailPage({
       </header>
 
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Status</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Status</h2>
         <p className="text-muted-foreground mt-1 text-xs">
           {order.channel} · {order.type} · {order.payment.status}
           {order.payment.methodLabel ? ` · ${order.payment.methodLabel}` : ''}
@@ -78,7 +78,7 @@ export default async function DashboardOrderDetailPage({
       </section>
 
       <section className="border-border rounded-lg border p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Items</h2>
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Items</h2>
         <ul className="divide-border mt-3 divide-y text-sm">
           {order.items.map((item, i) => (
             <li key={i} className="flex items-start justify-between gap-4 py-2">

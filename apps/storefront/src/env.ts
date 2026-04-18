@@ -13,11 +13,7 @@ export const env = createEnv({
     MONGODB_DB_LIVE: z.string().min(1).default('menukaze_live'),
     ENCRYPTION_KEY: z.string().min(32),
     ABLY_API_KEY: z.string().min(1),
-    /**
-     * Upstash REST endpoint + token for /api/v1/* rate limiting and the
-     * Ably token endpoint's per-IP throttle. Both optional — if either
-     * is missing the limiters are no-ops.
-     */
+    // Rate-limiters are no-ops when either Upstash var is missing.
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),

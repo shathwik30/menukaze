@@ -6,11 +6,6 @@ export interface SupportRecipientsResult {
   recipients: string[];
 }
 
-/**
- * Resolve the restaurant contact email plus active owner/manager emails.
- * Used for operational alerts where a timeout or payment issue needs staff
- * attention outside the live dashboard session.
- */
 export async function getRestaurantSupportRecipients(
   connection: Connection,
   restaurantId: Types.ObjectId,

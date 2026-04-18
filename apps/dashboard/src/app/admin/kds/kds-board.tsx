@@ -72,12 +72,7 @@ const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: str
   ready: { next: 'completed', label: 'Complete' },
 };
 
-/**
- * Kitchen urgency thresholds, in minutes. A ticket picks up a warm amber
- * "Hot" accent once it has sat long enough to matter, and a rose "Late"
- * accent once it is genuinely overdue. Left-edge color mirrors the pill
- * so the ticket can be read from a distance on a wall-mounted display.
- */
+// Ticket age thresholds in minutes that drive the Hot / Late accents.
 const AGE_HOT_MIN = 5;
 const AGE_LATE_MIN = 10;
 
@@ -168,9 +163,7 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
     };
   }, [restaurantId, router, chime]);
 
-  // Keyboard shortcut: `S` toggles sound alerts. Skipped while the user is
-  // typing in any input / textarea / contenteditable so it never steals keys
-  // from search or notes fields.
+  // `S` toggles sound; skipped while the user is in an editable field.
   useEffect(() => {
     function onKey(event: KeyboardEvent): void {
       if (event.key !== 's' && event.key !== 'S') return;
@@ -329,7 +322,7 @@ function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
             soundEnabled ? 'bg-jade-500' : 'bg-ink-300 dark:bg-ink-600',
           )}
         />
-        <span className="font-mono uppercase tracking-[0.14em]">
+        <span className="font-mono tracking-[0.14em] uppercase">
           {soundEnabled ? 'Sound on' : 'Muted'}
         </span>
       </div>
@@ -395,7 +388,7 @@ function Column({
           <span aria-hidden className={cn('size-2 rounded-full', toneStyles.accent)} />
           <h2
             className={cn(
-              'text-[11px] font-semibold uppercase tracking-[0.18em]',
+              'text-[11px] font-semibold tracking-[0.18em] uppercase',
               toneStyles.heading,
             )}
           >
@@ -469,7 +462,7 @@ function Ticket({
     >
       <header className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/70 flex items-start justify-between gap-2 border-b px-4 py-3">
         <div className="min-w-0">
-          <p className="mk-nums text-foreground font-mono text-3xl font-semibold leading-none tracking-tight">
+          <p className="mk-nums text-foreground font-mono text-3xl leading-none font-semibold tracking-tight">
             #{pickupNumber}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -503,7 +496,7 @@ function Ticket({
           {severity !== 'ok' ? (
             <span
               className={cn(
-                'text-[10px] font-semibold uppercase leading-none tracking-[0.14em]',
+                'text-[10px] leading-none font-semibold tracking-[0.14em] uppercase',
                 severity === 'hot' && 'text-saffron-700 dark:text-saffron-300',
                 severity === 'late' && 'text-mkrose-700 dark:text-mkrose-300',
               )}
@@ -546,7 +539,7 @@ function Ticket({
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
-                      'text-foreground font-serif text-base font-medium leading-tight',
+                      'text-foreground font-serif text-base leading-tight font-medium',
                       isReady && 'line-through',
                     )}
                   >

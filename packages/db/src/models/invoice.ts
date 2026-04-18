@@ -1,10 +1,5 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Platform-generated invoice for a restaurant's billing period.
- * Covers subscription fee + commission on orders. Platform-level (not tenant-scoped).
- */
-
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void';
 
 export interface InvoiceLineItem {
@@ -21,7 +16,7 @@ export interface DunningAttempt {
 
 export interface InvoiceDoc {
   restaurantId: Types.ObjectId;
-  /** Human-readable invoice number, e.g. "INV-2026-0001". */
+  /** e.g. "INV-2026-0001" */
   number: string;
   lineItems: InvoiceLineItem[];
   totalMinor: number;

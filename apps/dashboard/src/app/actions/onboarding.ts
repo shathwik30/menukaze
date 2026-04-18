@@ -4,12 +4,7 @@ import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { APIError, slugSchema } from '@menukaze/shared';
-import {
-  actionError,
-  validationError,
-  withRestaurantAction,
-  type ActionResult,
-} from '@/lib/action-helpers';
+import { runRestaurantAction, validationError, type ActionResult } from '@/lib/action-helpers';
 import { requireSession } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 
@@ -36,7 +31,6 @@ export type CreateRestaurantResult =
   | { ok: true; restaurantId: string }
   | { ok: false; error: string };
 
-/** Creates the restaurant and owner membership atomically for a new account. */
 export async function createRestaurantAction(raw: unknown): Promise<CreateRestaurantResult> {
   const session = await requireSession();
   if (session.restaurantId) {
@@ -52,7 +46,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
   const conn = await getMongoConnection('live');
   const { Restaurant, StaffMembership } = getModels(conn);
 
-  // Give users a clear duplicate-slug error before the transaction starts.
+  // Cheap pre-check avoids an opaque duplicate-key error later in the transaction.
   const existing = await Restaurant.findOne({ slug: input.slug }, { _id: 1 }).exec();
   if (existing) {
     return { ok: false, error: `The subdomain "${input.slug}" is already taken.` };
@@ -133,40 +127,32 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
   }
 }
 
-/**
- * Advance the wizard from the staff-invites step to go-live. Inviting team
- * members is optional during onboarding — the user can skip and add staff
- * later from `/admin/staff`.
- */
 export async function completeStaffStepAction(): Promise<ActionResult> {
-  try {
-    return await withRestaurantAction(
-      ['settings.edit_profile'],
-      async ({ restaurantId, session, role }) => {
-        const conn = await getMongoConnection('live');
-        const { Restaurant } = getModels(conn);
-        const restaurant = await Restaurant.findById(restaurantId).exec();
-        if (!restaurant) throw new Error('Restaurant not found.');
-        if (restaurant.onboardingStep !== 'staff') {
-          throw new Error('This restaurant has already moved past the staff step.');
-        }
-        await Restaurant.updateOne(
-          { _id: restaurantId },
-          { $set: { onboardingStep: 'go-live' } },
-        ).exec();
-        await recordAudit({
-          restaurantId,
-          userId: session.user.id,
-          userEmail: session.user.email,
-          role,
-          action: 'onboarding.staff.skipped',
-          resourceType: 'restaurant',
-          resourceId: String(restaurantId),
-        });
-        return { ok: true };
-      },
-    );
-  } catch (error) {
-    return actionError(error, 'Failed to advance onboarding.');
-  }
+  return runRestaurantAction(
+    ['settings.edit_profile'],
+    { onError: 'Failed to advance onboarding.' },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) throw new Error('Restaurant not found.');
+      if (restaurant.onboardingStep !== 'staff') {
+        throw new Error('This restaurant has already moved past the staff step.');
+      }
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { onboardingStep: 'go-live' } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'onboarding.staff.skipped',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+      });
+      return { ok: true };
+    },
+  );
 }

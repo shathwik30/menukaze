@@ -1,23 +1,17 @@
 import { Schema, type Types, type Model, type Connection, type HydratedDocument } from 'mongoose';
 
-/**
- * Promotional discount code. Applied at subscription checkout to reduce
- * the merchant's bill. Platform-level (not tenant-scoped).
- */
-
 export type PromoCodeType = 'percentage' | 'flat';
 
 export interface PromoCodeDoc {
-  /** Unique code (stored uppercase). */
   code: string;
   type: PromoCodeType;
-  /** Discount value — percent (0-100) for 'percentage', minor units for 'flat'. */
+  /** Percent (0-100) when type=percentage; minor units when type=flat. */
   value: number;
-  /** Max number of redemptions. Null = unlimited. */
+  /** null = unlimited. */
   maxUses: number | null;
   currentUses: number;
   expiresAt?: Date;
-  /** Restrict to specific plans. Empty = applies to all plans. */
+  /** Empty = applies to all plans. */
   planIds: Types.ObjectId[];
   active: boolean;
   createdAt: Date;

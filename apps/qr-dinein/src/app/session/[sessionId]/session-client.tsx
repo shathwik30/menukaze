@@ -256,7 +256,7 @@ export function SessionClient({
                   {rounds.length} round{rounds.length === 1 ? '' : 's'} ordered
                 </p>
               </div>
-              <span className="mk-nums text-foreground font-serif text-xl font-medium tabular-nums tracking-tight">
+              <span className="mk-nums text-foreground font-serif text-xl font-medium tracking-tight tabular-nums">
                 {totalLabel}
               </span>
             </div>
@@ -311,7 +311,7 @@ export function SessionClient({
                     type="button"
                     onClick={() => setActiveMenuId(menu.id)}
                     className={cn(
-                      'whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                      'rounded-full px-3.5 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors',
                       active
                         ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
                         : 'bg-canvas-200 text-ink-600 hover:bg-canvas-300 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
@@ -353,7 +353,7 @@ export function SessionClient({
                         ) : null}
                         <div className="min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-foreground font-serif text-[15px] font-medium leading-tight">
+                            <p className="text-foreground font-serif text-[15px] leading-tight font-medium">
                               {item.name}
                             </p>
                           </div>
@@ -411,14 +411,14 @@ export function SessionClient({
                   {cartItemCount(cartLines)} item{cartItemCount(cartLines) === 1 ? '' : 's'}
                 </p>
               </div>
-              <span className="mk-nums text-foreground font-serif text-2xl font-medium tabular-nums tracking-tight">
+              <span className="mk-nums text-foreground font-serif text-2xl font-medium tracking-tight tabular-nums">
                 {subtotalLabel}
               </span>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-col gap-1">
-              <label className="text-ink-500 dark:text-ink-400 text-[11px] font-medium uppercase tracking-[0.14em]">
+              <label className="text-ink-500 dark:text-ink-400 text-[11px] font-medium tracking-[0.14em] uppercase">
                 Who is this round for?
               </label>
               <Input

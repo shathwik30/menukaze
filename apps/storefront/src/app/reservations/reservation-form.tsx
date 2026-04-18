@@ -147,7 +147,7 @@ export function ReservationForm({
                   />
                   <span className="font-medium">{option.slotStart}</span>
                   {option.hasBookings ? (
-                    <span className="text-[10px] uppercase tracking-wide opacity-70">Limited</span>
+                    <span className="text-[10px] tracking-wide uppercase opacity-70">Limited</span>
                   ) : null}
                 </label>
               );

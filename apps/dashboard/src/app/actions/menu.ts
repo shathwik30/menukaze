@@ -4,7 +4,7 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { actionError, validationError, withRestaurantAction } from '@/lib/action-helpers';
+import { runRestaurantAction, validationError } from '@/lib/action-helpers';
 import { parseMenuCsvImport } from '@/lib/menu-import';
 import { recordAudit } from '@/lib/audit';
 
@@ -12,7 +12,7 @@ const MENU_PERMISSION_ERROR = 'You do not have permission to set up the menu.';
 
 const itemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  /** User-entered major-unit price; stored as integer minor units. */
+  /** Major units (user entry). Converted to integer minor units on save. */
   priceMajor: z.number().nonnegative().finite(),
   description: z.string().trim().max(1000).optional(),
 });
@@ -46,16 +46,15 @@ function majorToMinor(major: number, currency: string): number {
   return Math.round(major * 10 ** decimals);
 }
 
-/**
- * Creates the first menu tree during onboarding and advances the wizard.
- */
 export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuStarterResult> {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error, 'Invalid form data.');
   const input = parsed.data;
 
-  try {
-    return await withRestaurantAction(['menu.edit'], async ({ restaurantId, session, role }) => {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Could not create the menu.', onForbidden: MENU_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant, Menu, Category, Item } = getModels(conn);
 
@@ -111,7 +110,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
             );
             if (!category) throw new APIError('internal_error');
             const categoryIdLocal = category._id;
-            if (!firstCategoryId) firstCategoryId = categoryIdLocal;
+            firstCategoryId ??= categoryIdLocal;
 
             const itemDocs = categoryInput.items.map((it) => ({
               restaurantId,
@@ -161,8 +160,6 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
       } finally {
         await dbSession.endSession();
       }
-    });
-  } catch (error) {
-    return actionError(error, 'Could not create the menu.', MENU_PERMISSION_ERROR);
-  }
+    },
+  );
 }
