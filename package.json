@@ -29,7 +29,7 @@
     "@menukaze/vitest-config": "workspace:*",
     "eslint": "9.39.4",
     "husky": "9.1.7",
-    "lint-staged": "15.5.2",
+    "lint-staged": "16.4.0",
     "prettier": "3.8.2",
     "prettier-plugin-tailwindcss": "0.6.14",
     "tsx": "4.21.0",
