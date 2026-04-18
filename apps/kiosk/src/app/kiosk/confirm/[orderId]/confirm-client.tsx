@@ -64,7 +64,9 @@ export function ConfirmClient({
       if (!isOrderStatusChangedEvent(msg.data)) return;
       if (msg.data.orderId === orderId) setStatus(msg.data.status);
     };
-    channel.subscribe(handler).catch(() => {});
+    channel.subscribe(handler).catch(() => {
+      client.close();
+    });
     return () => {
       channel.unsubscribe(handler);
       client.close();

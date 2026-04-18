@@ -648,15 +648,24 @@ The Storefront API is the backbone of the platform. Every customer-facing experi
 
 ### Order Payload
 
-```json
+```http
 POST /v1/orders
+X-Menukaze-Key: mk_live_xxxx
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+```
+
+```json
 {
   "items": [...],
   "customer": { "email": "john@example.com", "phone": "+1234567890" },
   "type": "delivery"
 }
+```
 
 Response:
+
+```json
 {
   "id": "ord_456",
   "channel": { "id": "ch_partner_site", "name": "Our WordPress Site", "type": "api" },

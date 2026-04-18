@@ -1,12 +1,12 @@
 import { type NextRequest } from 'next/server';
 import { getModels, getMongoConnection } from '@menukaze/db';
-import { apiError, corsOptions, jsonOk, resolveApiKey } from '../_lib/auth';
+import { apiError, corsOptions, jsonOk, resolveApiKey, withApiCors } from '../_lib/auth';
 import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-export async function OPTIONS(): Promise<Response> {
-  return corsOptions();
+export async function OPTIONS(request: NextRequest): Promise<Response> {
+  return corsOptions(request);
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
@@ -15,39 +15,45 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const rl = await rateLimitFor(ctx, 'v1:restaurant');
   if (!rl.ok) {
-    return apiError('rate_limit_exceeded', 'Rate limit exceeded. See Retry-After.', {
-      headers: rateLimitHeaders(rl),
-    });
+    return withApiCors(
+      request,
+      apiError('rate_limit_exceeded', 'Rate limit exceeded. See Retry-After.', {
+        headers: rateLimitHeaders(rl),
+      }),
+    );
   }
   const rateHeaders = rateLimitHeaders(rl);
 
-  const conn = await getMongoConnection('live');
+  const conn = await getMongoConnection(ctx.dbName);
   const { Restaurant } = getModels(conn);
   const restaurant = await Restaurant.findById(ctx.restaurantId).lean().exec();
-  if (!restaurant) return apiError('not_found', 'Restaurant not found.');
+  if (!restaurant) return withApiCors(request, apiError('not_found', 'Restaurant not found.'));
 
-  return jsonOk(
-    {
-      id: String(restaurant._id),
-      slug: restaurant.slug,
-      name: restaurant.name,
-      description: restaurant.description ?? null,
-      country: restaurant.country,
-      currency: restaurant.currency,
-      locale: restaurant.locale,
-      timezone: restaurant.timezone,
-      address: restaurant.addressStructured,
-      phone: restaurant.phone ?? null,
-      email: restaurant.email ?? null,
-      logo_url: restaurant.logoUrl ?? null,
-      hours: restaurant.hours,
-      holiday_mode: restaurant.holidayMode ?? { enabled: false },
-      estimated_prep_minutes: restaurant.estimatedPrepMinutes,
-      minimum_order_minor: restaurant.minimumOrderMinor,
-      delivery_fee_minor: restaurant.deliveryFeeMinor,
-      is_live: Boolean(restaurant.liveAt),
-      api_version: 'v1',
-    },
-    { headers: rateHeaders },
+  return withApiCors(
+    request,
+    jsonOk(
+      {
+        id: String(restaurant._id),
+        slug: restaurant.slug,
+        name: restaurant.name,
+        description: restaurant.description ?? null,
+        country: restaurant.country,
+        currency: restaurant.currency,
+        locale: restaurant.locale,
+        timezone: restaurant.timezone,
+        address: restaurant.addressStructured,
+        phone: restaurant.phone ?? null,
+        email: restaurant.email ?? null,
+        logo_url: restaurant.logoUrl ?? null,
+        hours: restaurant.hours,
+        holiday_mode: restaurant.holidayMode ?? { enabled: false },
+        estimated_prep_minutes: restaurant.estimatedPrepMinutes,
+        minimum_order_minor: restaurant.minimumOrderMinor,
+        delivery_fee_minor: restaurant.deliveryFeeMinor,
+        is_live: Boolean(restaurant.liveAt),
+        api_version: 'v1',
+      },
+      { headers: rateHeaders },
+    ),
   );
 }

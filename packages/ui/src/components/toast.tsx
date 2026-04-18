@@ -124,8 +124,8 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) {
     return {
-      toast: () => {},
-      dismiss: () => {},
+      toast: (input) => void input,
+      dismiss: (id) => void id,
     } as ToastContextValue;
   }
   return ctx;

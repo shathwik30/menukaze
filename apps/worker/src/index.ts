@@ -1,9 +1,17 @@
 import type { Server } from 'node:http';
 import { closeAllConnections } from '@menukaze/db';
+import {
+  captureException,
+  captureMessage,
+  configureMonitoringFromEnv,
+  flushMonitoring,
+} from '@menukaze/monitoring';
 import { env } from './env';
 import { startHealthServer, type WorkerHealthState } from './health-server';
 import { sweepTimedOutSessions } from './session-sweeper';
 import { drainWebhookOutbox } from './webhook-drainer';
+
+configureMonitoringFromEnv({ service: 'worker', environment: env.NODE_ENV });
 
 const healthState: WorkerHealthState = {
   startedAt: new Date(),
@@ -24,14 +32,11 @@ let webhookTimer: NodeJS.Timeout | null = null;
 let healthServer: Server | null = null;
 
 function log(message: string, extra?: Record<string, unknown>): void {
-  const entry = {
-    level: 'info',
-    time: new Date().toISOString(),
+  captureMessage(message, 'info', {
+    surface: 'worker',
     service: 'worker',
-    message,
     ...(extra ?? {}),
-  };
-  process.stdout.write(JSON.stringify(entry) + '\n');
+  });
 }
 
 function errorMessage(error: unknown): string {
@@ -49,6 +54,10 @@ async function runSweep(): Promise<void> {
       log('timed out sessions swept', { scanned: result.scanned, expired: result.expired });
     }
   } catch (error) {
+    captureException(error, {
+      surface: 'worker:sessions',
+      message: 'timed out session sweep failed',
+    });
     log('timed out session sweep failed', { error: errorMessage(error) });
   } finally {
     sweepInFlight = false;
@@ -66,6 +75,7 @@ async function runWebhookDrain(): Promise<void> {
       log('webhook outbox drained', { ...result });
     }
   } catch (error) {
+    captureException(error, { surface: 'worker:webhooks', message: 'webhook drain failed' });
     log('webhook drain failed', { error: errorMessage(error) });
   } finally {
     webhookInFlight = false;
@@ -88,12 +98,14 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (webhookTimer) clearInterval(webhookTimer);
   await closeHealthServer();
   await closeAllConnections().catch((error: unknown) => {
+    captureException(error, { surface: 'worker:shutdown', message: 'connection shutdown failed' });
     log('worker connection shutdown failed', { error: errorMessage(error) });
   });
   log('shutdown received', {
     signal,
     uptimeMs: Date.now() - healthState.startedAt.getTime(),
   });
+  await flushMonitoring();
   process.exit(0);
 }
 

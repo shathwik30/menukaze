@@ -1,6 +1,6 @@
 'use server';
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -26,7 +26,10 @@ import {
   resolvePrimaryStationId,
   validateModifierSelection,
 } from '@menukaze/shared';
-import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
+import {
+  getRazorpayClientFromEncryptedKeys,
+  verifyRazorpayPaymentSignature,
+} from '@menukaze/shared/razorpay';
 import { getZodErrorMessage } from '@menukaze/shared/validation';
 
 // ---------------------------------------------------------------------------
@@ -301,11 +304,14 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
   const razorpay = getRazorpayClientFromEncryptedKeys(restaurant, envelopeDecrypt);
   if (!razorpay) return { ok: false, error: 'Restaurant payments unavailable.' };
 
-  const expected = createHmac('sha256', razorpay.keySecret)
-    .update(`${order.payment.razorpayOrderId}|${input.razorpayPaymentId}`)
-    .digest('hex');
+  const signatureValid = verifyRazorpayPaymentSignature({
+    razorpayOrderId: order.payment.razorpayOrderId,
+    razorpayPaymentId: input.razorpayPaymentId,
+    razorpaySignature: input.razorpaySignature,
+    keySecret: razorpay.keySecret,
+  });
 
-  if (expected !== input.razorpaySignature) {
+  if (!signatureValid) {
     await Order.updateOne(
       { restaurantId: order.restaurantId, _id: order._id },
       { $set: { 'payment.status': 'failed', 'payment.failureReason': 'signature_mismatch' } },

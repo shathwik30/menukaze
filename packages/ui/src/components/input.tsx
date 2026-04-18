@@ -18,7 +18,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     <input
       ref={ref}
       type={type}
-      aria-invalid={invalid || undefined}
+      aria-invalid={invalid === true ? true : undefined}
       className={cn(
         fieldBase,
         invalid && 'border-mkrose-500 focus:border-mkrose-500 focus:ring-mkrose-500/15',
@@ -39,7 +39,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     <textarea
       ref={ref}
       rows={rows}
-      aria-invalid={invalid || undefined}
+      aria-invalid={invalid === true ? true : undefined}
       className={cn(
         fieldBase,
         'min-h-[80px] resize-y leading-relaxed',
@@ -61,7 +61,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     <div className="relative">
       <select
         ref={ref}
-        aria-invalid={invalid || undefined}
+        aria-invalid={invalid === true ? true : undefined}
         className={cn(
           fieldBase,
           'appearance-none pr-10 [&::-ms-expand]:hidden',

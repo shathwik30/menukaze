@@ -14,7 +14,7 @@ Run through every item before cutting the first production deployment. Tick each
 - [ ] **gitleaks clean** — `gitleaks detect --source . --no-git` exits 0. Install: `brew install gitleaks`.
 - [ ] **Webhook HMAC rejection** — craft a request to `/api/webhooks/razorpay/{restaurantId}` with a bad `X-Razorpay-Signature` header. Response must be 400.
 - [ ] **Audit log hash chain** — if audit logging is in place, run the verifier script and confirm no divergence.
-- [ ] **`pnpm audit --audit-level=high`** — 0 high-severity vulnerabilities. Run with `--registry=https://registry.npmjs.org`.
+- [ ] **Dependency vulnerability scan** — GitHub Actions `Dependency Scan` (OSV Scanner) passes for `pnpm-lock.yaml`. For a local cross-check, run OSV Scanner against the lockfile.
 - [ ] **Razorpay webhook bad-sig test** — repeat the webhook test above specifically with Razorpay's test webhook tool; ensure a mismatched signature is rejected.
 - [ ] **All env vars loaded from environment** — grep the production build for hardcoded API keys: `grep -r "rzp_live\|sk_live\|rk_live" apps/ packages/ --include="*.ts" --include="*.tsx"` → 0 results.
 
@@ -63,8 +63,8 @@ Run against the **staging** database — never against production.
 
 ## 5. Observability Dry-Run
 
-- [ ] **Sentry** — trigger a deliberate 500 error on staging (e.g., pass an invalid ObjectId to an API route). Within 2 minutes, verify the error appears in the Sentry project dashboard with a stack trace.
-- [ ] **Axiom logs** — force a log line on staging (e.g., restart the worker and look for "worker ready"). Confirm the line appears in Axiom under the correct dataset.
+- [ ] **Error events** — trigger a deliberate 500 error on staging (e.g., pass an invalid ObjectId to an API route). Within 2 minutes, verify the event appears in the configured monitoring sink with a stack trace or digest.
+- [ ] **Axiom logs** — set `AXIOM_TOKEN` and `AXIOM_DATASET`, restart the worker, and look for "worker ready". Confirm the line appears in Axiom under the correct dataset.
 - [ ] **OpenTelemetry trace** — place a test order on staging. Open Axiom OTEL and confirm an HTTP span exists for the checkout request.
 - [ ] **Webhook delivery log** — subscribe a test endpoint (e.g., `requestbin`) to `order.created`. Place a test order. Confirm the delivery attempt is logged in the dashboard webhook log with status 200.
 - [ ] **Webhook failure log** — change the test endpoint to a URL that returns 500. Place an order. Confirm the delivery log records a failure and a retry is scheduled.

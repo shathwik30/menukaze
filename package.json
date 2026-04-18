@@ -14,9 +14,10 @@
     "lint": "pnpm exec eslint . --max-warnings=0",
     "lint:fix": "pnpm exec eslint . --fix",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check && pnpm typecheck && pnpm build && pnpm lint",
+    "verify": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "db:seed": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/seed.ts'",
     "prepare": "husky"
@@ -25,6 +26,7 @@
     "@commitlint/cli": "20.5.0",
     "@commitlint/config-conventional": "20.5.0",
     "@menukaze/prettier-config": "workspace:*",
+    "@menukaze/vitest-config": "workspace:*",
     "eslint": "9.39.4",
     "husky": "9.1.7",
     "lint-staged": "15.5.2",
@@ -32,7 +34,8 @@
     "prettier-plugin-tailwindcss": "0.6.14",
     "tsx": "4.21.0",
     "turbo": "2.9.6",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

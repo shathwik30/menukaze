@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Eyebrow, Input, cn } from '@menukaze/ui';
 import { AddToCartButton } from './add-to-cart-button';
 
@@ -64,37 +64,46 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
 
   return (
     <div className="flex flex-col gap-8">
-      {menus.length > 1 ? (
-        <nav
-          aria-label="Menus"
-          className="border-ink-100 bg-canvas-50/85 dark:border-ink-800 dark:bg-ink-950/85 sticky top-0 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur-md sm:mx-0 sm:px-0"
+      {menus.length > 1 || visibleCategories.length > 1 ? (
+        <div
+          className={cn(
+            'sticky top-0 z-20 -mx-4 flex flex-col backdrop-blur-md sm:mx-0',
+            'bg-canvas-50/85 dark:bg-ink-950/85 border-ink-100 dark:border-ink-800',
+            'border-b',
+          )}
         >
-          {menus.map((menu) => {
-            const active = menu.id === activeMenuId;
-            return (
-              <button
-                key={menu.id}
-                type="button"
-                onClick={() => setActiveMenuId(menu.id)}
-                className={cn(
-                  'relative -mb-px whitespace-nowrap px-1 py-3.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'text-ink-950 dark:text-canvas-50'
-                    : 'text-ink-500 hover:text-ink-900 dark:text-ink-400 dark:hover:text-canvas-100',
-                )}
-              >
-                {menu.name}
-                <span
-                  aria-hidden
-                  className={cn(
-                    'bg-ink-950 dark:bg-canvas-50 absolute inset-x-0 -bottom-px h-[2px] transition-transform duration-300',
-                    active ? 'scale-x-100' : 'scale-x-0',
-                  )}
-                />
-              </button>
-            );
-          })}
-        </nav>
+          {menus.length > 1 ? (
+            <nav aria-label="Menus" className="flex gap-1 overflow-x-auto px-4 sm:px-0">
+              {menus.map((menu) => {
+                const active = menu.id === activeMenuId;
+                return (
+                  <button
+                    key={menu.id}
+                    type="button"
+                    onClick={() => setActiveMenuId(menu.id)}
+                    className={cn(
+                      'relative -mb-px whitespace-nowrap px-1 py-3.5 text-sm font-medium transition-colors',
+                      active
+                        ? 'text-ink-950 dark:text-canvas-50'
+                        : 'text-ink-500 hover:text-ink-900 dark:text-ink-400 dark:hover:text-canvas-100',
+                    )}
+                  >
+                    {menu.name}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'bg-ink-950 dark:bg-canvas-50 absolute inset-x-0 -bottom-px h-[2px] transition-transform duration-300',
+                        active ? 'scale-x-100' : 'scale-x-0',
+                      )}
+                    />
+                  </button>
+                );
+              })}
+            </nav>
+          ) : null}
+
+          {visibleCategories.length > 1 ? <CategoryChipNav categories={visibleCategories} /> : null}
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -188,6 +197,82 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
           ));
         })()}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Horizontally-scrolling category chips. Click jumps to that category's
+ * section; active chip is whichever section is currently closest to the top
+ * of the viewport. Hidden when only a single category is visible.
+ */
+function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
+  const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? '');
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) {
+          const id = visible[0].target.id.replace(/^category-/, '');
+          setActiveId(id);
+        }
+      },
+      { rootMargin: '-40% 0px -50% 0px', threshold: 0 },
+    );
+    for (const category of categories) {
+      const el = document.getElementById(`category-${category.id}`);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [categories]);
+
+  // Keep the active chip scrolled into view in the horizontal strip.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !activeId) return;
+    const chip = list.querySelector<HTMLButtonElement>(`[data-category-id="${activeId}"]`);
+    chip?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeId]);
+
+  function jumpTo(id: string): void {
+    const el = document.getElementById(`category-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  return (
+    <div
+      ref={listRef}
+      role="tablist"
+      aria-label="Categories"
+      className="-mx-4 flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+    >
+      {categories.map((category) => {
+        const active = category.id === activeId;
+        return (
+          <button
+            key={category.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-category-id={category.id}
+            onClick={() => jumpTo(category.id)}
+            className={cn(
+              'shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors',
+              active
+                ? 'bg-ink-950 border-ink-950 text-canvas-50 dark:bg-canvas-50 dark:border-canvas-50 dark:text-ink-950'
+                : 'border-ink-200 text-ink-600 hover:border-ink-300 hover:text-ink-950 dark:border-ink-700 dark:text-ink-300 dark:hover:border-ink-600 dark:hover:text-canvas-50 bg-surface',
+            )}
+          >
+            {category.name}
+          </button>
+        );
+      })}
     </div>
   );
 }

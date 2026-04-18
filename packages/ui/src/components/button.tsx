@@ -54,15 +54,18 @@ export interface ButtonProps
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, full, loading, disabled, children, ...props }, ref) => {
+    const isLoading = loading === true;
+    const isDisabled = disabled === true || isLoading;
+
     return (
       <button
         ref={ref}
         className={cn(buttonVariants({ variant, size, full }), className)}
-        disabled={disabled || loading}
-        aria-busy={loading || undefined}
+        disabled={isDisabled}
+        aria-busy={isLoading ? true : undefined}
         {...props}
       >
-        {loading ? (
+        {isLoading ? (
           <svg className="animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
             <path

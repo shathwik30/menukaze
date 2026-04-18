@@ -1,6 +1,5 @@
 'use server';
 
-import { createHmac } from 'node:crypto';
 import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
@@ -40,7 +39,10 @@ import {
   type TableStatusReason,
   type WaiterAlertReason,
 } from '@menukaze/shared';
-import { getRazorpayClientFromEncryptedKeys } from '@menukaze/shared/razorpay';
+import {
+  getRazorpayClientFromEncryptedKeys,
+  verifyRazorpayPaymentSignature,
+} from '@menukaze/shared/razorpay';
 import { sendTransactionalEmail } from '@menukaze/shared/transactional-email';
 import { getZodErrorMessage } from '@menukaze/shared/validation';
 import { SessionNeedsReviewEmail } from '@/emails/session-needs-review';
@@ -1156,10 +1158,27 @@ export async function verifySessionPaymentAction(
   const razorpay = getRazorpayClientFromEncryptedKeys(restaurant, envelopeDecrypt);
   if (!razorpay) return { ok: false, error: 'Payments unavailable.' };
 
-  const expected = createHmac('sha256', razorpay.keySecret)
-    .update(`${parsed.data.razorpayOrderId}|${parsed.data.razorpayPaymentId}`)
-    .digest('hex');
-  if (expected !== parsed.data.razorpaySignature) {
+  const billOrder = await Order.findOne(
+    {
+      restaurantId: session.restaurantId,
+      sessionId: session._id,
+      'payment.razorpayOrderId': parsed.data.razorpayOrderId,
+    },
+    { _id: 1 },
+  )
+    .lean()
+    .exec();
+  if (!billOrder) {
+    return { ok: false, error: 'Payment session did not match this bill.' };
+  }
+
+  const signatureValid = verifyRazorpayPaymentSignature({
+    razorpayOrderId: parsed.data.razorpayOrderId,
+    razorpayPaymentId: parsed.data.razorpayPaymentId,
+    razorpaySignature: parsed.data.razorpaySignature,
+    keySecret: razorpay.keySecret,
+  });
+  if (!signatureValid) {
     return { ok: false, error: 'Payment signature did not match.' };
   }
 

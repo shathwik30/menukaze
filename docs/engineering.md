@@ -1081,16 +1081,16 @@ Responses include `Retry-After` when 429.
 
 ## 18. Idempotency
 
-Middleware on all public-API writes:
+Middleware on public-API writes:
 
-1. Read `Idempotency-Key`. Required on `POST /v1/orders` and `POST /v1/payments/intents`.
-2. `scope = restaurantId + ':' + apiKeyId + ':' + key`.
-3. Lookup `idempotency_records` by `scope`.
+1. Read `Idempotency-Key`. Required on public write endpoints.
+2. `scope = dbName + ':' + restaurantId + ':' + apiKeyId + ':' + routeId + ':' + key`.
+3. Lookup `api_idempotency_records` by `scope`.
 4. Same scope + matching `requestHash` → return stored response.
 5. Same scope + different hash → 409 `idempotency_conflict`.
-6. New scope → reserve row inside the handler's transaction → run handler → store response → return.
+6. New scope → reserve a pending record → run handler → store response → return.
 
-TTL index 24 h on `createdAt`.
+TTL index 24 h on `expiresAt`.
 
 ---
 
@@ -1124,8 +1124,8 @@ Workbox service worker per app:
 
 ## 21. Observability
 
-- **Sentry**: one project per app and the worker. `beforeSend` strips PII (email, phone). Perf 10% sample. Session replay only on dashboard/super-admin, masked.
-- **Axiom**: structured JSON via `pino`. Every log has `requestId`, `restaurantId`, `userId?`, `apiKeyId?`.
+- **Monitoring facade**: `@menukaze/monitoring` is the only call-site API. It writes structured JSON locally, is safe in browser error boundaries, and can be replaced with a Sentry sink through `setMonitoringSink`.
+- **Axiom**: set `AXIOM_TOKEN`, `AXIOM_DATASET`, and optionally `AXIOM_DOMAIN` to forward server-side events over HTTP ingest. Each Next app registers the sink through `src/instrumentation.ts`; the worker configures it on boot and flushes on shutdown.
 - **OpenTelemetry**: auto-instrumented HTTP, Mongoose, Redis, BullMQ. Traces to Axiom OTEL endpoint. Custom span makers for tRPC + Hono.
 - **Vercel Analytics**: web vitals on storefront + dashboard.
 - **Better Uptime**: 1-min pings on every public endpoint, public status page.
@@ -1147,7 +1147,7 @@ Workbox service worker per app:
 - **Webhook verification**: `crypto.timingSafeEqual` for every inbound gateway signature.
 - **Audit log tamper evidence**: hash chain (`prevHash`) + monotonic `seq`; daily cron verifies the chain and alerts on divergence.
 - **Encryption**: Atlas encryption at rest; app-level AES-256-GCM envelope encryption on `razorpayKeySecretEnc` and `webhooks.secret`.
-- **Dependency scanning**: `pnpm audit` in CI + Dependabot weekly + Sentry's dependency vulnerability alerts.
+- **Dependency scanning**: OSV Scanner in CI against `pnpm-lock.yaml`, GitHub code scanning upload, Dependabot weekly for npm and GitHub Actions, and gitleaks for secret scanning.
 - **Secure SDLC**: no direct pushes to `main`; PR + review required; required CI checks on merge.
 
 ---
@@ -1242,7 +1242,7 @@ Conventions to follow so the codebase stays consistent and reviewable.
 - Any side effect that crosses Mongo's boundary (Ably publish, webhook, email, Resend, UploadThing write) goes through `event_outbox` + drainer. **Never** publish directly from a handler — you lose atomicity.
 
 ### 24.5 Idempotency
-- Every public write accepts `Idempotency-Key`. The two required endpoints (`POST /v1/orders`, `POST /v1/payments/intents`) **reject** requests that omit it.
+- Every public write accepts `Idempotency-Key`. Implemented write endpoints reject requests that omit it.
 - BullMQ jobs are idempotent — jobs re-run on worker restart must produce the same result.
 
 ### 24.6 Error envelope
@@ -1766,4 +1766,3 @@ Once in production, these run forever — set them up now so they exist when you
 **Verification — always green**: the platform should have a green dashboard, working backups, a runnable rollback, and a current cost under the §3.1 budget at all times.
 
 ---
-

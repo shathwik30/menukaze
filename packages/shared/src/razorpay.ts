@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import Razorpay from 'razorpay';
 
 export interface EncryptedRazorpayCredentials {
@@ -28,4 +29,24 @@ export function getRazorpayClientFromEncryptedKeys(
     keyId,
     keySecret,
   };
+}
+
+export interface RazorpayPaymentSignatureInput {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+  keySecret: string;
+}
+
+export function verifyRazorpayPaymentSignature(input: RazorpayPaymentSignatureInput): boolean {
+  const expected = createHmac('sha256', input.keySecret)
+    .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
+    .digest('hex');
+
+  const expectedBytes = Buffer.from(expected, 'hex');
+  const providedBytes = Buffer.from(input.razorpaySignature, 'hex');
+
+  if (providedBytes.length !== expectedBytes.length) return false;
+
+  return timingSafeEqual(providedBytes, expectedBytes);
 }

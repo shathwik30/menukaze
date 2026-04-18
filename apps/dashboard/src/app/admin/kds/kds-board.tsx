@@ -10,7 +10,7 @@ import {
   type OrderStatus,
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
-import { Badge, Button, EmptyState, cn, type BadgeProps } from '@menukaze/ui';
+import { Badge, Button, EmptyState, Kbd, cn, type BadgeProps } from '@menukaze/ui';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { advanceOrderLinesAction } from '@/app/actions/stations';
 
@@ -71,6 +71,23 @@ const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: str
   preparing: { next: 'ready', label: 'Mark ready' },
   ready: { next: 'completed', label: 'Complete' },
 };
+
+/**
+ * Kitchen urgency thresholds, in minutes. A ticket picks up a warm amber
+ * "Hot" accent once it has sat long enough to matter, and a rose "Late"
+ * accent once it is genuinely overdue. Left-edge color mirrors the pill
+ * so the ticket can be read from a distance on a wall-mounted display.
+ */
+const AGE_HOT_MIN = 5;
+const AGE_LATE_MIN = 10;
+
+type AgeSeverity = 'ok' | 'hot' | 'late';
+
+function ageSeverity(ageMinutes: number): AgeSeverity {
+  if (ageMinutes >= AGE_LATE_MIN) return 'late';
+  if (ageMinutes >= AGE_HOT_MIN) return 'hot';
+  return 'ok';
+}
 
 function useNewOrderChime(enabled: boolean): () => void {
   const ctxRef = useRef<AudioContext | null>(null);
@@ -150,6 +167,22 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
       client.close();
     };
   }, [restaurantId, router, chime]);
+
+  // Keyboard shortcut: `S` toggles sound alerts. Skipped while the user is
+  // typing in any input / textarea / contenteditable so it never steals keys
+  // from search or notes fields.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent): void {
+      if (event.key !== 's' && event.key !== 'S') return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      setSoundEnabled((v) => !v);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const grouped = useMemo(() => {
     const buckets: Record<'received' | 'preparing' | 'ready', KdsCard[]> = {
@@ -274,7 +307,44 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
           stationFilter={stationFilter ?? null}
         />
       </div>
+
+      <KdsShortcutsFooter soundEnabled={soundEnabled} />
     </div>
+  );
+}
+
+function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
+  return (
+    <footer className="border-ink-100 bg-canvas-50 text-ink-500 dark:border-ink-800 dark:bg-ink-900/60 dark:text-ink-400 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-2xl border px-4 py-2.5 text-[11px]">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <ShortcutHint keys={['Tab']} label="Move focus" />
+        <ShortcutHint keys={['Enter']} label="Advance focused ticket" />
+        <ShortcutHint keys={['S']} label="Toggle sound" />
+      </div>
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cn(
+            'size-1.5 rounded-full',
+            soundEnabled ? 'bg-jade-500' : 'bg-ink-300 dark:bg-ink-600',
+          )}
+        />
+        <span className="font-mono uppercase tracking-[0.14em]">
+          {soundEnabled ? 'Sound on' : 'Muted'}
+        </span>
+      </div>
+    </footer>
+  );
+}
+
+function ShortcutHint({ keys, label }: { keys: string[]; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {keys.map((k) => (
+        <Kbd key={k}>{k}</Kbd>
+      ))}
+      <span>{label}</span>
+    </span>
   );
 }
 
@@ -382,17 +452,19 @@ function Ticket({
   }, []);
 
   const ageMinutes = Math.floor((Date.now() - new Date(card.createdAt).getTime()) / 60_000);
-  const ageSeverity = ageMinutes < 5 ? 'ok' : ageMinutes < 10 ? 'warn' : 'danger';
+  const severity = ageSeverity(ageMinutes);
   const action = STAGE_ACTIONS[card.status];
   const pickupNumber = formatPickupNumber(card.publicOrderId);
 
   return (
     <article
       className={cn(
-        'bg-surface dark:bg-ink-900 overflow-hidden rounded-xl border shadow-sm transition-shadow',
+        'bg-surface dark:bg-ink-900 overflow-hidden rounded-xl border border-l-[3px] shadow-sm transition-shadow',
         card.suspicious
           ? 'border-saffron-400 ring-saffron-200 dark:ring-saffron-500/30 ring-2'
           : 'border-ink-100 dark:border-ink-800',
+        severity === 'hot' && 'border-l-saffron-500 dark:border-l-saffron-400',
+        severity === 'late' && 'border-l-mkrose-500 dark:border-l-mkrose-400',
       )}
     >
       <header className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/70 flex items-start justify-between gap-2 border-b px-4 py-3">
@@ -415,18 +487,31 @@ function Ticket({
             <span className="text-ink-500 dark:text-ink-400">{card.type.replace('_', ' ')}</span>
           </div>
         </div>
-        <span
-          className={cn(
-            'mk-nums rounded-full px-2 py-1 font-mono text-xs font-medium tabular-nums',
-            ageSeverity === 'ok' && 'bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300',
-            ageSeverity === 'warn' &&
-              'bg-saffron-100 text-saffron-900 dark:bg-saffron-500/15 dark:text-saffron-200',
-            ageSeverity === 'danger' &&
-              'bg-mkrose-100 text-mkrose-900 dark:bg-mkrose-500/15 dark:text-mkrose-200',
-          )}
-        >
-          {ageMinutes}m
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={cn(
+              'mk-nums rounded-full px-2 py-1 font-mono text-xs font-medium tabular-nums',
+              severity === 'ok' && 'bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300',
+              severity === 'hot' &&
+                'bg-saffron-100 text-saffron-900 dark:bg-saffron-500/15 dark:text-saffron-200',
+              severity === 'late' &&
+                'bg-mkrose-100 text-mkrose-900 dark:bg-mkrose-500/15 dark:text-mkrose-200',
+            )}
+          >
+            {ageMinutes}m
+          </span>
+          {severity !== 'ok' ? (
+            <span
+              className={cn(
+                'text-[10px] font-semibold uppercase leading-none tracking-[0.14em]',
+                severity === 'hot' && 'text-saffron-700 dark:text-saffron-300',
+                severity === 'late' && 'text-mkrose-700 dark:text-mkrose-300',
+              )}
+            >
+              {severity === 'hot' ? 'Hot' : 'Late'}
+            </span>
+          ) : null}
+        </div>
       </header>
 
       {card.suspicious ? (

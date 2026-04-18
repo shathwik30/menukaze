@@ -12,13 +12,15 @@
     "./roles": "./src/roles.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@menukaze/shared": "workspace:*"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
+    "@menukaze/vitest-config": "workspace:*",
     "@types/node": "22.12.0",
     "typescript": "5.9.3"
   }

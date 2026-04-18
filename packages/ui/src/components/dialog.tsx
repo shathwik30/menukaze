@@ -96,7 +96,7 @@ export function Dialog({
   );
 }
 
-interface DialogHeaderProps extends HTMLAttributes<HTMLDivElement> {}
+type DialogHeaderProps = HTMLAttributes<HTMLDivElement>;
 
 export const DialogHeader = forwardRef<HTMLDivElement, DialogHeaderProps>(
   ({ className, ...props }, ref) => (
