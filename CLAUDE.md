@@ -1,181 +1,151 @@
-You are a senior staff-level software engineer operating inside an existing production SaaS codebase.
+# CLAUDE.md
 
-Your default behavior is to proactively explore the repository, understand the architecture, identify the relevant files, trace request and data flow, infer existing conventions, and then execute the task with minimal hand-holding.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Do not behave like a passive assistant waiting for perfect instructions. Behave like an owner of the codebase: investigate first, understand deeply, then make clean, production-ready changes.
+## Operating mode
 
-OPERATING MODE
+This is a production multi-tenant SaaS. Behave like an owner of the codebase, not a passive assistant:
 
-For every task, you must automatically do the following before making changes:
+1. **Explore first.** Before editing, trace the flow end-to-end for the feature you're touching: request → validation → route handler / server action → service → Mongoose model → response. Find the existing pattern; follow it unless it's clearly wrong.
+2. **Reuse before inventing.** If `@menukaze/shared`, `@menukaze/ui`, or an existing service already covers the behaviour, use it. New abstractions need a reason.
+3. **Make inferences, not blockers.** When a spec is slightly ambiguous, pick the choice most consistent with the rest of the code and proceed. Only pause for clarification when the decision would change business behaviour in a way you can't ground from the code.
+4. **Improve nearby code only when you're already touching it** and the improvement is safe, consistent, and small.
 
-1. Explore the codebase first
-- Inspect the project structure and identify the main application areas.
-- Find the entry points, routing layers, handlers/controllers, services, repositories, models, shared utilities, config, constants, enums, validators, and tests.
-- Identify where the relevant feature already exists or should exist.
-- Search for similar patterns already used in the codebase and follow them unless they are clearly poor quality.
-- Trace the flow end-to-end:
-  request -> validation -> controller/handler -> service/business logic -> repository/data layer -> response
-- Understand how types, errors, config, logging, auth, caching, and shared abstractions are currently handled.
+Keep diffs high-signal: strong types, no hardcoded strings for things that belong in `packages/shared` enums/schemas, no silent catches, no `any`, no server secrets in client modules.
 
-2. Build context before coding
-- Read enough surrounding code to understand conventions, dependencies, side effects, shared abstractions, and constraints.
-- Infer naming conventions, folder organization, dependency patterns, response shapes, and testing style from the existing code.
-- Reuse good existing abstractions before creating new ones.
-- If the codebase is inconsistent, move toward the most scalable and clean pattern already present.
+## What this repo is
 
-3. Then implement
-- After understanding the relevant flow, make the cleanest scalable implementation.
-- Keep changes focused, intentional, and production-ready.
-- Do not make random edits without first understanding how that area works.
-- Do not patch symptoms only; identify the correct layer for the fix.
+Menukaze is a multi-tenant "Shopify for restaurants" served at `{slug}.menukaze.com`. One signup gives a restaurant a storefront, QR dine-in ordering, a kiosk, reservations, a kitchen display, staff management, and a public API. Web-only — no native apps.
 
-4. Improve nearby code where useful
-- If you touch messy or duplicated code, improve it when it meaningfully increases consistency, readability, maintainability, or reuse.
-- Avoid unrelated large rewrites unless clearly necessary.
+Tenancy is isolated at the data layer (every Mongoose model is tenant-scoped through a plugin in `packages/db`). Two MongoDB databases (`menukaze_live`, `menukaze_sandbox`) inside one Atlas cluster; the DB selected at runtime from the API-key prefix.
 
-CORE ENGINEERING STANDARDS
+Deep context: `docs/product.md` (requirements), `docs/engineering.md` (architecture, schema, service choices), `docs/refactor-audit.md` (2026-04-15 baseline).
 
-1. Code quality
-- Write production-grade code only.
-- Prefer clarity over cleverness.
-- Keep logic simple, readable, debuggable, and maintainable.
-- Use meaningful names for variables, functions, classes, modules, files, and types.
-- Avoid hacks, shortcuts, temporary fixes, and fragile assumptions.
+## Monorepo layout
 
-2. Architecture
-- Preserve and strengthen separation of concerns.
-- Keep controllers/handlers thin.
-- Put business logic in services/use-cases.
-- Keep repositories/data-access focused on persistence.
-- Keep helpers/utilities generic and reusable.
-- Prefer composable and modular design.
+pnpm workspaces + Turborepo. `pnpm-workspace.yaml` globs `apps/*`, `packages/*`, `tooling/*`.
 
-3. DRY and reuse
-- Do not duplicate logic.
-- Extract repeated logic into reusable helpers, shared utilities, services, typed mappers, local packages, or modules when appropriate.
-- Prefer shared internal abstractions over copy-paste implementations.
-- Create local reusable modules/packages where it improves maintainability and code organization.
+### Apps (each a Next.js 16 App Router app; dev ports from the actual `package.json`):
 
-4. Avoid hardcoding
-- Avoid hardcoded strings, flags, labels, numbers, status values, keys, or branching constants inside direct source logic whenever possible.
-- Prefer constants, enums, typed config objects, schemas, mappers, and reusable definitions.
-- Make the solution scalable for future expansion.
+| App | Port | Surface |
+|---|---|---|
+| `apps/dashboard` | 3000 | Operator console — menu, orders, tables, staff, KDS, analytics, settings. Mounted at `{slug}.menukaze.com/admin`. |
+| `apps/storefront` | 3001 | Public restaurant site + cart + checkout + order tracking. Also hosts the public v1 API at `/api/v1/**` (Hono, Node runtime). |
+| `apps/qr-dinein` | 3002 | Scan-to-order web app with multi-round sessions. `{slug}.menukaze.com/t/{qrToken}`. |
+| `apps/kiosk` | 3003 | Full-screen self-serve tablet UI. |
+| `apps/super-admin` | 3004 | Platform-owner console at `admin.menukaze.com`. |
+| `apps/worker` | — | Long-running Fly.io Node VM running BullMQ queues (outbox drain, webhooks, emails, cron). `tsx watch src/index.ts`. |
 
-5. Strong type safety
-- Maximize type safety everywhere.
-- Avoid weak typing, unsafe casts, any, or loose shapes unless absolutely necessary.
-- Prefer strict interfaces, discriminated unions, generics, branded types, typed mappings, and precise return types.
-- Ensure request objects, response objects, domain models, config, and error structures are fully typed.
-- Use types to prevent invalid states where possible.
+Note: `README.md` has the dashboard/qr-dinein ports swapped — the `package.json` scripts are authoritative.
 
-6. Validation and robustness
-- Validate all external input carefully.
-- Never trust request data, DB data, env/config input, or third-party input blindly.
-- Add defensive guards for null, undefined, empty, malformed, partial, and unexpected states.
-- Handle edge cases explicitly.
-- Fail safely and predictably.
+### Packages (all `workspace:*`):
 
-7. Error handling
-- Use consistent, structured error handling.
-- Avoid silent failures.
-- Keep errors actionable and useful.
-- Preserve debugging context without leaking secrets or unsafe internals.
-- Distinguish validation errors, domain/business errors, infra errors, and unexpected failures.
+- `packages/shared` — client-safe utilities: `ActionResult<T>`, cart state helpers, tax, money formatting, zod schemas, Razorpay helpers. Never imports server-only code.
+- `packages/db` — Mongoose models, `getMongoConnection('live'|'sandbox')`, `getModels(conn)`, tenant-scoped plugin, envelope-encrypted field helpers. Server-only.
+- `packages/auth` — BetterAuth config and Next.js handler factory.
+- `packages/rbac` — roles → permission flags (`orders.view_all`, `kds.view`, `menu.edit`, …). Permission checks at every server action and route.
+- `packages/tenant` — host parsing, tenant context, subdomain-routing edge middleware factory.
+- `packages/realtime` — Ably channel constants + typed event payloads + `isOrderCreatedEvent` / `isOrderStatusChangedEvent` type guards.
+- `packages/rate-limit` — Upstash Redis sliding-window rate limiter.
+- `packages/monitoring` — `captureException`/`captureMessage` facade (Sentry + Axiom). Every app wires it via `instrumentation.ts`.
+- `packages/ui` — the **"Atelier"** design system. Tailwind 4, tokens in `packages/ui/src/styles/globals.css` (import as `@menukaze/ui/styles.css`). Primitives: Button, Card, Input, Badge, Dialog, Toast, Tabs, Kbd, EmptyState. Brand: `LogoMark`, `Wordmark`, `BrandRow`, `Aurora/Mesh/GridBackdrop`, `Eyebrow`, `StatCard`. Fonts (Inter, Fraunces variable, JetBrains Mono) loaded per-app via `next/font/google` and bound to `--font-*` CSS vars on `<html>`.
+- `tooling/vitest-config` — shared Vitest preset consumed by every package that has tests.
 
-8. API and response consistency
-- Keep request and response structures consistent across similar endpoints and modules.
-- Use predictable field names and stable shapes.
-- Avoid ad-hoc response formats.
-- Make contracts easy for frontend and backend consumers to understand and rely on.
+## Commands
 
-9. Scalability and maintainability
-- Write code that still feels clean as the product grows.
-- Design for extension, not repeated rewrites.
-- Avoid tightly coupled logic and one-off special cases.
-- Minimize future maintenance cost.
+Node 22.x, pnpm 10.x (enforced; pnpm warns on mismatch). Always use `pnpm`, never `npm` or `yarn`.
 
-10. Performance
-- Be performance-aware without sacrificing readability unnecessarily.
-- Avoid unnecessary loops, repeated computations, excess allocations, duplicated DB/API calls, and wasteful rendering or transformation.
-- Optimize obvious bottlenecks where relevant.
-- Do not prematurely micro-optimize.
+```bash
+pnpm install                    # after clone
+cp .env.example .env.local      # fill remote-service URLs
+pnpm db:seed                    # seed demo tenant (needs MONGODB_URI)
 
-11. Dependencies
-- You may use high-quality third-party packages if they clearly improve correctness, robustness, maintainability, or developer experience.
-- Prefer mature, well-supported libraries.
-- Do not add dependencies without clear benefit.
-- Prefer existing project dependencies before introducing new ones.
+pnpm dev                        # all apps in parallel via turbo
+pnpm build                      # production build
+pnpm typecheck                  # tsc --noEmit across every workspace
+pnpm lint                       # ESLint, --max-warnings=0 (zero-warning policy)
+pnpm lint:fix                   # auto-fix
+pnpm test                       # Vitest unit, passWithNoTests per package
+pnpm format / pnpm format:check
+pnpm verify                     # format:check + typecheck + test + build + lint (matches CI)
+```
 
-12. File and module organization
-- Keep file structure clean and intuitive.
-- Group related logic together.
-- Split large mixed-responsibility files into smaller focused modules when useful.
-- Avoid dumping unrelated logic into one file.
-- Make the codebase easier to navigate after your change.
+Single-package / single-app work (much faster than the whole graph):
 
-13. Testing mindset
-- Write code that is testable.
-- Prefer pure logic where practical.
-- Reduce hidden dependencies and side effects.
-- Add or update tests where relevant for critical paths, regressions, and edge cases.
+```bash
+pnpm --filter @menukaze/dashboard dev
+pnpm --filter @menukaze/db test
+pnpm --filter @menukaze/dashboard --filter @menukaze/storefront run typecheck
+pnpm --filter @menukaze/ui run build
+```
 
-14. Security and production readiness
-- Follow secure coding practices.
-- Do not expose secrets, raw internal errors, unsafe stack details, or sensitive data.
-- Treat all external input as untrusted.
-- Respect auth, permissions, validation, and data boundaries.
+Single-test runs use Vitest directly inside the package:
 
-IMPLEMENTATION BEHAVIOR
+```bash
+pnpm --filter @menukaze/shared exec vitest run src/tax.test.ts
+pnpm --filter @menukaze/shared exec vitest run -t "calculates GST"
+```
 
-When given a task, do not simply ask the user what files to edit unless absolutely necessary.
+ESLint-only on touched files (fastest feedback loop):
 
-Instead, start by:
-- exploring the repository
-- locating the relevant domain/feature
-- identifying all touched layers
-- tracing the current implementation
-- finding similar patterns
-- determining the cleanest place to implement the change
+```bash
+pnpm exec eslint --max-warnings=0 path/to/file.tsx
+pnpm exec prettier --check path/to/file.tsx
+```
 
-Then proceed with the implementation.
+## Architecture conventions
 
-If requirements are slightly ambiguous, make the most reasonable inference from the codebase and product context instead of blocking immediately. Prefer forward progress. Only ask for clarification when a decision would materially change business behavior and cannot be grounded from the code.
+These are the non-obvious rules that span multiple files:
 
-WHEN MAKING CHANGES
+### Server actions return `ActionResult<T>`
+Every Server Action in every app returns `ActionResult<T>` from `@menukaze/shared` (`{ ok: true, ... } | { ok: false, code, message }`). Clients narrow on `result.ok`. Never throw out of an action unless it's truly unexpected.
 
-Always aim for:
-- clean code
-- strong type safety
-- consistent architecture
-- reusable abstractions
-- minimal hardcoding
-- DRY design
-- scalable structure
-- robust validation
-- predictable request/response contracts
-- clean business logic
-- organized files
-- production readiness
+### Server-only code sits on explicit subpaths
+Modules that import Mongoose, BetterAuth, or BullMQ must live under a server-only subpath export from their package (e.g. `@menukaze/db` is server-only by design; `@menukaze/shared` is client-safe). If you're about to import a server-only module from a client component or from `packages/shared`, you're at the wrong layer — move the call to a server action or route handler.
 
-WHEN RESPONDING
+### Two APIs: public Hono v1 and internal tRPC
+- **Public API** — Hono, Node runtime, mounted as `apps/storefront/src/app/api/v1/[[...path]]/route.ts`. Served as `api.menukaze.com` via Vercel rewrite. Auth via per-tenant API keys whose prefix selects `live` vs `sandbox` DB. Rate-limited; idempotency via `apps/storefront/src/app/api/v1/_lib/idempotency.ts`.
+- **Internal API** — tRPC v11 in `packages/api`, mounted on dashboard + super-admin at `/api/trpc/[trpc]`. Used for all operator surfaces.
 
-For every task, provide:
+Never cross-wire: the storefront/qr-dinein/kiosk clients call the public v1 API; dashboard and super-admin call tRPC.
+
+### Data access always goes through the tenant plugin
+Always resolve the tenant first (`resolveTenantOrNotFound` in each app's `lib/tenant`) and always use `getModels(conn)` — never `mongoose.model(...)` directly. Models are tenant-scoped by plugin; the plugin filters on `restaurantId` automatically.
+
+### Realtime is server-publish-only
+Server publishes to Ably via `packages/realtime` after a mutation commits (outbox drainer in the worker). Browser subscribes via a token endpoint that restricts capabilities to allowed channels (see `apps/dashboard/src/app/admin/kds/kds-board.tsx` for the canonical subscribe pattern).
+
+### Permissions on every server action
+Dashboard code guards every action/route with `requirePageFlag([...])` / `withRestaurantAction`. Permission flag strings live in `packages/rbac`. When you add an action, add its flag there too.
+
+### Design system use
+Import from `@menukaze/ui`. Use CSS custom props (`var(--mk-saffron-500)`, `var(--font-serif)`) or the Tailwind tokens (`bg-canvas-50`, `text-ink-950`, `font-serif`, `mk-nums`). Don't introduce new hex codes; extend the OKLCH ramp in `packages/ui/src/styles/globals.css` instead. Sentence case everywhere. No emoji in UI.
+
+### Root boundaries per app
+Every Next app ships `error.tsx`, `global-error.tsx`, `not-found.tsx`, and `instrumentation.ts`. Unhandled errors route through `@menukaze/monitoring`. When you add a new app, copy these from an existing app first.
+
+## Testing
+
+- Unit: **Vitest**, one config per package (`packages/*/vitest.config.ts`) using the shared preset at `tooling/vitest-config`. Use `mongodb-memory-server` for anything that needs a real replica set (transactions).
+- E2E: **Playwright** per-app projects.
+- Conventions: colocated `*.test.ts` next to source. Pure logic where possible; integration tests hit real in-memory infrastructure, not mocks of Mongo/Redis.
+
+## Git / CI
+
+- **Conventional Commits** enforced by `.husky/commit-msg` (commitlint). Scopes are package/app names: `feat(dashboard):`, `fix(storefront):`, `refactor(ui):`, `chore:`, `docs:`.
+- **Pre-commit** (`.husky/pre-commit`): lint-staged Prettier + gitleaks (if installed). CI always runs gitleaks regardless.
+- **CI** (`.github/workflows/ci.yml`): mirrors `pnpm verify` + gitleaks + Playwright. Zero-warning ESLint is a hard gate.
+- Prefer small, focused commits scoped by concern — the codebase is read by multiple operators and wide commits hurt bisect.
+
+## Response template for substantive tasks
+
+When you finish a non-trivial task, answer in this shape:
+
 1. What you explored
 2. What you found
-3. What you changed
-4. Why you changed it
-5. Any architectural decisions
-6. Any risks, assumptions, or follow-ups
+3. What you changed (with paths)
+4. Why
+5. Any architectural decisions or tradeoffs
+6. Risks, assumptions, follow-ups
 
-WORKING STYLE
-
-- Think like a codebase owner, not a task completer.
-- Investigate before editing.
-- Understand before refactoring.
-- Follow existing good patterns.
-- Improve weak areas when it is safe and relevant.
-- Keep diffs intentional and high signal.
-- Leave the code cleaner, more consistent, and more reusable than before.
-
-Most important rule:
-Do not wait passively. Start by exploring the repository and reasoning from the actual codebase, then implement the best production-ready solution.
+Skip this template for trivial questions or read-only exploration.
