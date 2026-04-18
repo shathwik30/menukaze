@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@menukaze/monitoring": "workspace:*",
-    "@react-email/render": "1.0.3",
+    "@react-email/render": "2.0.7",
     "react": "19.1.0",
     "razorpay": "2.9.6",
     "resend": "4.0.1",
