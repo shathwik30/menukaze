@@ -1,6 +1,7 @@
 'use client';
 
 import { captureException } from '@menukaze/monitoring';
+import { Button } from '@menukaze/ui';
 import { useEffect } from 'react';
 
 export default function GlobalError({
@@ -31,7 +32,9 @@ export default function GlobalError({
           <p style={{ marginTop: 8, color: '#666' }}>
             Something prevented the page from rendering. Please reload and try again.
           </p>
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={reset}
             style={{
@@ -45,7 +48,7 @@ export default function GlobalError({
             }}
           >
             Reload
-          </button>
+          </Button>
         </div>
       </body>
     </html>

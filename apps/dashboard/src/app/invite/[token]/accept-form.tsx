@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button, FieldError } from '@menukaze/ui';
 import { acceptInviteAction } from '@/app/actions/staff';
 
 export function AcceptInviteForm({ token }: { token: string }) {
@@ -25,16 +26,10 @@ export function AcceptInviteForm({ token }: { token: string }) {
       }}
       className="mt-4 flex flex-col gap-3"
     >
-      <button
-        type="submit"
-        disabled={isPending}
-        className="bg-primary text-primary-foreground h-10 rounded-md px-4 text-sm font-medium disabled:opacity-50"
-      >
-        {isPending ? 'Joining…' : 'Accept invite'}
-      </button>
-      {error ? (
-        <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
-      ) : null}
+      <Button type="submit" disabled={isPending} loading={isPending}>
+        Accept invite
+      </Button>
+      {error ? <FieldError>{error}</FieldError> : null}
     </form>
   );
 }

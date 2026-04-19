@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input } from '@menukaze/ui';
 import { useState, useTransition } from 'react';
 import {
   deleteCustomerDataAction,
@@ -70,7 +71,7 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <label className="flex flex-1 flex-col gap-1 text-sm">
               <span className="font-medium">Customer email</span>
-              <input
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -79,14 +80,16 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
                 autoComplete="off"
               />
             </label>
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={onExport}
               disabled={!email || exporting}
               className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium disabled:opacity-50"
             >
               {exporting ? 'Exporting…' : 'Export JSON'}
-            </button>
+            </Button>
           </div>
           {exportStatus.kind === 'success' ? (
             <p className="text-sm text-emerald-600">{exportStatus.message}</p>
@@ -110,7 +113,7 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Customer email</span>
-              <input
+              <Input
                 type="email"
                 value={deleteEmail}
                 onChange={(e) => setDeleteEmail(e.target.value)}
@@ -123,7 +126,7 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
               <span className="font-medium">
                 Type <code className="font-mono">DELETE</code> to confirm
               </span>
-              <input
+              <Input
                 type="text"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
@@ -131,14 +134,16 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
                 autoComplete="off"
               />
             </label>
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={onDelete}
               disabled={!deleteEmail || confirm !== 'DELETE' || deleting}
               className="inline-flex h-9 w-fit items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
               {deleting ? 'Anonymising…' : 'Anonymise data'}
-            </button>
+            </Button>
           </div>
           {deleteStatus.kind === 'success' ? (
             <p className="text-sm text-emerald-600">{deleteStatus.message}</p>

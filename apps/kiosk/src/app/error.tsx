@@ -1,6 +1,7 @@
 'use client';
 
 import { captureException } from '@menukaze/monitoring';
+import { Button } from '@menukaze/ui';
 import { useEffect } from 'react';
 
 export default function KioskError({
@@ -21,13 +22,9 @@ export default function KioskError({
         <p className="text-muted-foreground mt-4 text-lg">
           Please try again, or ask a staff member for help.
         </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="bg-primary text-primary-foreground mt-8 rounded-lg px-8 py-4 text-lg font-medium"
-        >
+        <Button type="button" onClick={reset} size="xl" className="mt-8">
           Try again
-        </button>
+        </Button>
       </div>
     </main>
   );

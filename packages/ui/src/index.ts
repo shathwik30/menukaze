@@ -1,6 +1,8 @@
 export { cn } from './lib/cn';
 
 export { Button, buttonVariants, type ButtonProps } from './components/button';
+export { Checkbox, Radio, type CheckboxProps, type RadioProps } from './components/checkbox';
+export { Switch, type SwitchProps } from './components/switch';
 export {
   Card,
   CardHeader,
@@ -25,6 +27,23 @@ export {
 export { Badge, badgeVariants, type BadgeProps } from './components/badge';
 export { Separator } from './components/separator';
 export { Skeleton } from './components/skeleton';
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from './components/table';
+export {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+  alertVariants,
+  type AlertProps,
+} from './components/alert';
 export {
   Dialog,
   DialogHeader,

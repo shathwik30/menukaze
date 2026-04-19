@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input } from '@menukaze/ui';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -57,19 +58,21 @@ export function AuditTable({ rows, total, page, pageSize, actionFilter }: Props)
         }}
         className="flex gap-2"
       >
-        <input
+        <Input
           type="text"
           placeholder="Filter by action..."
           value={filterInput}
           onChange={(e) => setFilterInput(e.target.value)}
           className="border-input focus-visible:ring-ring rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="submit"
           className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium"
         >
           Filter
-        </button>
+        </Button>
       </form>
 
       <div className="border-border overflow-x-auto rounded-lg border">
@@ -138,20 +141,24 @@ export function AuditTable({ rows, total, page, pageSize, actionFilter }: Props)
             Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="plain"
+              size="none"
               disabled={page <= 1}
               onClick={() => navigate({ page: String(page - 1) })}
               className="border-input rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
+              size="none"
               disabled={page >= totalPages}
               onClick={() => navigate({ page: String(page + 1) })}
               className="border-input rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}

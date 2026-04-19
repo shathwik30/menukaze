@@ -22,8 +22,10 @@ const buttonVariants = cva(
           'bg-mkrose-600 text-white hover:bg-mkrose-700 active:bg-mkrose-800 shadow-[0_6px_16px_-4px_oklch(0.535_0.200_24/0.35)] active:translate-y-px',
         glass:
           'mk-glass text-ink-950 hover:bg-white/90 dark:text-canvas-50 dark:hover:bg-ink-800/80 border',
+        plain: 'bg-transparent text-inherit shadow-none hover:bg-transparent active:bg-transparent',
       },
       size: {
+        none: 'h-auto rounded-none p-0 text-inherit',
         xs: 'h-7 rounded-md px-2.5 text-xs gap-1.5',
         sm: 'h-8 rounded-md px-3 text-sm',
         md: 'h-10 rounded-lg px-4 text-sm',

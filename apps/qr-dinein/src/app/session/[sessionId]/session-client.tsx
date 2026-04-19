@@ -306,10 +306,12 @@ export function SessionClient({
               {menus.map((menu) => {
                 const active = menu.id === activeMenuId;
                 return (
-                  <button
+                  <Button
                     key={menu.id}
                     type="button"
                     onClick={() => setActiveMenuId(menu.id)}
+                    variant="plain"
+                    size="none"
                     className={cn(
                       'rounded-full px-3.5 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors',
                       active
@@ -318,7 +320,7 @@ export function SessionClient({
                     )}
                   >
                     {menu.name}
-                  </button>
+                  </Button>
                 );
               })}
             </nav>
@@ -458,25 +460,29 @@ export function SessionClient({
                         ) : null}
                       </div>
                       <div className="border-ink-200 bg-surface dark:border-ink-700 dark:bg-ink-800 inline-flex items-center rounded-full border p-0.5">
-                        <button
+                        <Button
                           type="button"
                           onClick={() => decrementLine(key)}
+                          variant="plain"
+                          size="none"
                           className="text-ink-600 hover:bg-canvas-100 dark:text-ink-300 dark:hover:bg-ink-700 flex size-6 items-center justify-center rounded-full transition-colors"
                           aria-label="Decrease"
                         >
                           −
-                        </button>
+                        </Button>
                         <span className="mk-nums w-5 text-center text-xs font-medium tabular-nums">
                           {line.quantity}
                         </span>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => incrementLine(key)}
+                          variant="plain"
+                          size="none"
                           className="text-ink-600 hover:bg-canvas-100 dark:text-ink-300 dark:hover:bg-ink-700 flex size-6 items-center justify-center rounded-full transition-colors"
                           aria-label="Increase"
                         >
                           +
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <Input

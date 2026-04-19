@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
 import { isOrderStatusChangedEvent, type OrderStatus } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
-import { cn } from '@menukaze/ui';
+import { Button, cn } from '@menukaze/ui';
 
 const RESET_AFTER_MS = 120_000;
 
@@ -240,13 +240,15 @@ export function ConfirmClient({
           <p className="text-ink-500 mb-3 text-center text-xs font-medium">
             New order screen in <span className="mk-nums tabular-nums">{countdown}s</span>
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => router.replace('/kiosk')}
-            className="bg-ink-950 text-canvas-50 hover:bg-ink-900 active:bg-ink-800 h-16 w-full rounded-2xl font-serif text-xl font-medium transition-colors"
+            size="2xl"
+            full
+            className="h-16 rounded-2xl font-serif text-xl font-medium"
           >
             Start new order
-          </button>
+          </Button>
         </div>
       </aside>
     </div>

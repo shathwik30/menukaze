@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { computeTax, formatPickupNumber, type TaxRule } from '@menukaze/shared';
 import '@menukaze/shared/razorpay-client';
+import { Button, FieldError, Input, Label } from '@menukaze/ui';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 import { createKioskOrderAction, verifyKioskPaymentAction } from '@/app/actions/kiosk';
@@ -37,39 +38,47 @@ function NameKeyboard({
       {rows.map((row) => (
         <div key={row.join('')} className="grid grid-cols-10 gap-2">
           {row.map((key) => (
-            <button
+            <Button
               key={key}
               type="button"
               onClick={() => onLetter(key)}
-              className="h-12 rounded-lg bg-zinc-100 text-lg font-black text-zinc-950 active:bg-zinc-200"
+              variant="secondary"
+              size="lg"
+              className="h-12 text-lg font-black text-zinc-950 active:bg-zinc-200"
             >
               {key}
-            </button>
+            </Button>
           ))}
         </div>
       ))}
       <div className="grid grid-cols-[1fr_2fr_1fr] gap-2">
-        <button
+        <Button
           type="button"
           onClick={onClear}
-          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          variant="secondary"
+          size="lg"
+          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
         >
           Clear
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onSpace}
-          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          variant="secondary"
+          size="lg"
+          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
         >
           Space
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onBack}
-          className="h-12 rounded-lg bg-zinc-100 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          variant="secondary"
+          size="lg"
+          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
         >
           Delete
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -191,13 +200,15 @@ export function CheckoutClient({
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <div className="grid h-screen grid-rows-[88px_minmax(0,1fr)] bg-zinc-50 text-zinc-950">
         <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6">
-          <button
+          <Button
             type="button"
             onClick={() => router.push('/kiosk/menu')}
-            className="h-14 rounded-lg border border-zinc-300 px-5 text-lg font-bold text-zinc-700 active:bg-zinc-100"
+            variant="outline"
+            size="xl"
+            className="h-14 text-lg font-bold text-zinc-700 active:bg-zinc-100"
           >
             Back to menu
-          </button>
+          </Button>
           <div className="text-center">
             <p className="text-xs font-bold tracking-[0.26em] text-emerald-700 uppercase">
               Step 3 of 3
@@ -279,10 +290,10 @@ export function CheckoutClient({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <label className="block">
-                <span className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
+                <Label className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
                   Name for pickup
-                </span>
-                <input
+                </Label>
+                <Input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -305,9 +316,9 @@ export function CheckoutClient({
               </div>
 
               {error ? (
-                <p className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
+                <FieldError className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
                   {error}
-                </p>
+                </FieldError>
               ) : null}
 
               {pendingReference ? (
@@ -330,14 +341,18 @@ export function CheckoutClient({
                   Minimum order is {fmt(minimumOrderMinor)}.
                 </p>
               ) : null}
-              <button
+              <Button
                 type="button"
                 disabled={submitting || !razorpayReady || belowMinimum || itemCount === 0}
                 onClick={() => void pay()}
-                className="h-16 w-full rounded-lg bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400 disabled:bg-zinc-200 disabled:text-zinc-500"
+                variant="accent"
+                size="2xl"
+                full
+                loading={submitting}
+                className="h-16 bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400 disabled:bg-zinc-200 disabled:text-zinc-500"
               >
-                {submitting ? 'Processing payment' : `Pay ${fmt(total)}`}
-              </button>
+                Pay {fmt(total)}
+              </Button>
               <p className="mt-3 text-center text-xs font-medium text-zinc-500">
                 A pickup number appears after payment. Keep it visible for collection.
               </p>

@@ -7,6 +7,18 @@ import {
   type ReservationSettings,
   type RestaurantHourEntry,
 } from '@menukaze/shared';
+import {
+  Button,
+  Card,
+  FieldError,
+  FieldHint,
+  Input,
+  Label,
+  Radio,
+  Select,
+  Textarea,
+  cn,
+} from '@menukaze/ui';
 import { createReservationAction } from '@/app/actions/reservation';
 
 interface Props {
@@ -83,136 +95,124 @@ export function ReservationForm({
   };
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="border-border bg-background flex flex-col gap-4 rounded-md border p-5"
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Date</span>
-          <select
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setSlot('');
-            }}
-            className="border-border h-10 rounded-md border px-3 text-sm"
-          >
-            {availableDates.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
+    <Card className="p-5">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <Label>Date</Label>
+            <Select
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setSlot('');
+              }}
+            >
+              {availableDates.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <Label>Guests</Label>
+            <Select value={partySize} onChange={(e) => setPartySize(Number(e.target.value))}>
+              {partyOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </div>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium">Time</legend>
+          {slots.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No slots available on that date.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {slots.map((option) => {
+                const value = `${option.slotStart}|${option.slotEnd}`;
+                const checked = slot === value;
+                return (
+                  <label
+                    key={value}
+                    className={cn(
+                      'border-border flex cursor-pointer flex-col items-center justify-center rounded-md border p-2 text-xs transition-colors',
+                      checked ? 'bg-foreground text-background' : 'hover:bg-muted',
+                    )}
+                  >
+                    <Radio
+                      name="slot"
+                      value={value}
+                      checked={checked}
+                      onChange={() => setSlot(value)}
+                      className="sr-only"
+                    />
+                    <span className="font-medium">{option.slotStart}</span>
+                    {option.hasBookings ? (
+                      <span className="text-[10px] tracking-wide uppercase opacity-70">
+                        Limited
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </fieldset>
+
+        <label className="flex flex-col gap-1.5 text-sm">
+          <Label>Name</Label>
+          <Input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+          />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Guests</span>
-          <select
-            value={partySize}
-            onChange={(e) => setPartySize(Number(e.target.value))}
-            className="border-border h-10 rounded-md border px-3 text-sm"
-          >
-            {partyOptions.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <Label>Email</Label>
+          <Input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
         </label>
-      </div>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <Label>
+            Phone <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            autoComplete="tel"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <Label>
+            Notes <span className="text-muted-foreground">(allergies, occasion, etc.)</span>
+          </Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            maxLength={500}
+          />
+        </label>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Time</legend>
-        {slots.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No slots available on that date.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {slots.map((option) => {
-              const value = `${option.slotStart}|${option.slotEnd}`;
-              const checked = slot === value;
-              return (
-                <label
-                  key={value}
-                  className={`border-border flex cursor-pointer flex-col items-center justify-center rounded-md border p-2 text-xs ${
-                    checked ? 'bg-foreground text-background' : 'hover:bg-muted'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="slot"
-                    value={value}
-                    checked={checked}
-                    onChange={() => setSlot(value)}
-                    className="sr-only"
-                  />
-                  <span className="font-medium">{option.slotStart}</span>
-                  {option.hasBookings ? (
-                    <span className="text-[10px] tracking-wide uppercase opacity-70">Limited</span>
-                  ) : null}
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </fieldset>
+        {error ? <FieldError>{error}</FieldError> : null}
+        {success ? <FieldHint className="text-emerald-600">{success}</FieldHint> : null}
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Name</span>
-        <input
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="border-border h-10 rounded-md border px-3 text-sm"
-          autoComplete="name"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Email</span>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border-border h-10 rounded-md border px-3 text-sm"
-          autoComplete="email"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">
-          Phone <span className="text-muted-foreground">(optional)</span>
-        </span>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="border-border h-10 rounded-md border px-3 text-sm"
-          autoComplete="tel"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">
-          Notes <span className="text-muted-foreground">(allergies, occasion, etc.)</span>
-        </span>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          maxLength={500}
-          className="border-border rounded-md border px-3 py-2 text-sm"
-        />
-      </label>
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 inline-flex h-11 items-center justify-center rounded-md text-sm font-semibold disabled:opacity-50"
-      >
-        {submitting ? 'Sending…' : 'Request reservation'}
-      </button>
-    </form>
+        <Button type="submit" disabled={submitting} loading={submitting} className="mt-2" full>
+          Request reservation
+        </Button>
+      </form>
+    </Card>
   );
 }

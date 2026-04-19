@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Checkbox, Input, Textarea } from '@menukaze/ui';
 import { useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -208,7 +209,7 @@ function InputRow({
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="text-foreground">{label}</span>
-      <input
+      <Input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -220,13 +221,15 @@ function InputRow({
 
 function SaveButton({ pending }: { pending: boolean }) {
   return (
-    <button
+    <Button
+      variant="plain"
+      size="none"
       type="submit"
       disabled={pending}
       className="bg-primary text-primary-foreground mt-2 h-9 self-start rounded-md px-4 text-sm font-medium disabled:opacity-50"
     >
       Save
-    </button>
+    </Button>
   );
 }
 
@@ -276,7 +279,7 @@ function ProfileSection({
         <InputRow label="Name" value={name} onChange={setName} />
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-foreground">Description (shown on storefront hero)</span>
-          <textarea
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -355,7 +358,7 @@ function DeliverySection({
       >
         <label className="flex items-center gap-3 text-sm">
           <span className="w-48">Estimated prep time (minutes)</span>
-          <input
+          <Input
             type="number"
             min="1"
             max="600"
@@ -366,7 +369,7 @@ function DeliverySection({
         </label>
         <label className="flex items-center gap-3 text-sm">
           <span className="w-48">Minimum order (0 = disabled)</span>
-          <input
+          <Input
             type="number"
             step="0.01"
             min="0"
@@ -377,7 +380,7 @@ function DeliverySection({
         </label>
         <label className="flex items-center gap-3 text-sm">
           <span className="w-48">Delivery fee (flat)</span>
-          <input
+          <Input
             type="number"
             step="0.01"
             min="0"
@@ -424,8 +427,7 @@ function HoursSection({
           <div key={h.day} className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground w-10 uppercase">{DAY_LABEL[h.day]}</span>
             <label className="flex items-center gap-1 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={!h.closed}
                 onChange={(e) => {
                   const next = [...hours];
@@ -435,7 +437,7 @@ function HoursSection({
               />
               Open
             </label>
-            <input
+            <Input
               type="time"
               value={h.open}
               disabled={h.closed}
@@ -447,7 +449,7 @@ function HoursSection({
               className="border-input bg-background h-8 rounded-md border px-2 text-xs disabled:opacity-50"
             />
             <span className="text-muted-foreground">→</span>
-            <input
+            <Input
               type="time"
               value={h.close}
               disabled={h.closed}
@@ -490,7 +492,7 @@ function QrDineInSection({
       >
         <label className="flex items-center gap-3 text-sm">
           <span className="w-52">Session timeout (minutes)</span>
-          <input
+          <Input
             type="number"
             min="30"
             max="720"
@@ -531,12 +533,12 @@ function HolidaySection({
         className="flex flex-col gap-3"
       >
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           Block new orders (storefront shows holiday message)
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span>Holiday message (optional)</span>
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="border-input bg-background h-20 rounded-md border px-3 py-2 text-sm"
@@ -569,12 +571,12 @@ function ThrottlingSection({
         className="flex flex-col gap-3"
       >
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           Cap active orders when the kitchen is busy
         </label>
         <label className="flex items-center gap-2 text-sm">
           <span>Max concurrent orders</span>
-          <input
+          <Input
             type="number"
             min="1"
             max="500"
@@ -620,7 +622,7 @@ function BrandingSection({
       >
         <label className="flex items-center gap-3 text-sm">
           <span>Header color</span>
-          <input
+          <Input
             type="color"
             value={headerColor}
             onChange={(e) => setHeaderColor(e.target.value)}
@@ -631,7 +633,7 @@ function BrandingSection({
         <InputRow label="Footer text" value={footerText} onChange={setFooterText} />
         <label className="flex flex-col gap-1 text-sm">
           <span>Social URLs (one per line)</span>
-          <textarea
+          <Textarea
             value={socialsCsv}
             onChange={(e) => setSocialsCsv(e.target.value)}
             className="border-input bg-background h-20 rounded-md border px-3 py-2 font-mono text-sm"
@@ -664,8 +666,7 @@ function NotificationsSection({
       >
         {(['email', 'dashboard', 'sound'] as const).map((key) => (
           <label key={key} className="flex items-center gap-2 text-sm capitalize">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={prefs[key]}
               onChange={(e) => setPrefs({ ...prefs, [key]: e.target.checked })}
             />
@@ -724,7 +725,7 @@ function TaxRulesSection({
         {rules.map((rule, i) => (
           <div key={i} className="border-border flex flex-col gap-2 rounded-md border p-3">
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 placeholder="Name (e.g. GST)"
                 value={rule.name}
@@ -732,7 +733,7 @@ function TaxRulesSection({
                 className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
                 required
               />
-              <input
+              <Input
                 type="number"
                 placeholder="%"
                 value={rule.percent}
@@ -743,24 +744,25 @@ function TaxRulesSection({
                 className="border-input bg-background w-20 rounded-md border px-3 py-1.5 text-sm"
                 required
               />
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 onClick={() => removeRule(i)}
                 className="text-destructive text-sm hover:underline"
               >
                 Remove
-              </button>
+              </Button>
             </div>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={rule.inclusive}
                   onChange={(e) => updateRule(i, { inclusive: e.target.checked })}
                 />
                 Inclusive (tax already in price)
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="Receipt label (optional)"
                 value={rule.label ?? ''}
@@ -770,13 +772,15 @@ function TaxRulesSection({
             </div>
           </div>
         ))}
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="button"
           onClick={addRule}
           className="w-fit rounded-md border px-3 py-1.5 text-sm"
         >
           + Add tax rule
-        </button>
+        </Button>
         <SaveButton pending={pending} />
       </form>
     </Section>

@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { Avatar, BrandRow, cn } from '@menukaze/ui';
+import { usePathname } from 'next/navigation';
+import { Avatar, BrandRow, Button, cn } from '@menukaze/ui';
 
 export interface NavGroup {
   label: string;
@@ -42,14 +42,16 @@ export function AdminShell({
     <div className="bg-canvas-100 text-foreground dark:bg-ink-950 flex min-h-screen">
       {/* Mobile top bar */}
       <div className="border-ink-100 bg-surface/80 dark:border-ink-900 dark:bg-ink-900/80 fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b px-4 backdrop-blur-md lg:hidden">
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="button"
           onClick={() => setMobileOpen(true)}
           className="border-ink-200 text-ink-700 hover:bg-canvas-100 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800 inline-flex size-9 items-center justify-center rounded-lg border"
           aria-label="Open navigation"
         >
           <MenuIcon />
-        </button>
+        </Button>
         <BrandRow size="sm" />
         <div className="w-9" />
       </div>
@@ -65,14 +67,16 @@ export function AdminShell({
       >
         <div className="border-ink-100 dark:border-ink-800 flex h-16 shrink-0 items-center justify-between border-b px-5">
           <BrandRow size="sm" />
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={() => setMobileOpen(false)}
             className="text-ink-500 hover:bg-canvas-100 dark:hover:bg-ink-800 rounded-md p-1 lg:hidden"
             aria-label="Close navigation"
           >
             <CloseIcon />
-          </button>
+          </Button>
         </div>
 
         <div className="border-ink-100 dark:border-ink-800 border-b px-5 py-4">
@@ -149,14 +153,16 @@ export function AdminShell({
               <p className="text-ink-500 dark:text-ink-400 truncate text-[11px]">{userEmail}</p>
             </div>
             <form action={signOutAction}>
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 type="submit"
                 className="text-ink-500 hover:bg-canvas-100 hover:text-ink-950 dark:hover:bg-ink-800 dark:hover:text-canvas-50 rounded-md p-1.5 transition-colors"
                 aria-label="Sign out"
                 title="Sign out"
               >
                 <SignOutIcon />
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -164,7 +170,9 @@ export function AdminShell({
 
       {/* Backdrop for mobile */}
       {mobileOpen ? (
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="button"
           className="bg-ink-950/40 fixed inset-0 z-30 backdrop-blur-sm lg:hidden"
           aria-label="Close navigation"

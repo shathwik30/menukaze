@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Avatar, BrandRow, Badge, cn } from '@menukaze/ui';
+import { Avatar, Badge, BrandRow, Button, cn } from '@menukaze/ui';
 import { signOutAction } from '@/app/actions/auth';
 
 interface NavItem {
@@ -155,7 +155,9 @@ export function Sidebar({ email, name }: SidebarProps) {
             <p className="text-ink-500 dark:text-ink-400 truncate text-[11px]">{email}</p>
           </div>
           <form action={signOutAction}>
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="submit"
               className="text-ink-500 hover:bg-canvas-100 hover:text-ink-950 dark:hover:bg-ink-800 dark:hover:text-canvas-50 rounded-md p-1.5 transition-colors"
               aria-label="Sign out"
@@ -175,7 +177,7 @@ export function Sidebar({ email, name }: SidebarProps) {
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" x2="9" y1="12" y2="12" />
               </svg>
-            </button>
+            </Button>
           </form>
         </div>
       </div>

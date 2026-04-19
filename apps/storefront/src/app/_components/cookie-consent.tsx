@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Button, Card, Switch } from '@menukaze/ui';
 
 const CONSENT_COOKIE = 'mk_consent';
 const CONSENT_VERSION = 1;
@@ -103,7 +104,7 @@ export function CookieConsent() {
   };
 
   return (
-    <div
+    <Card
       role="dialog"
       aria-modal="false"
       aria-labelledby="cookie-consent-title"
@@ -159,43 +160,33 @@ export function CookieConsent() {
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {!showDetails ? (
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setDraft(consent ?? DEFAULT_CONSENT);
                 setShowDetails(true);
               }}
-              className="text-muted-foreground hover:text-foreground text-sm underline-offset-2 hover:underline"
+              variant="link"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
             >
               Customize
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
-            onClick={rejectNonEssential}
-            className="border-border hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm"
-          >
+          <Button type="button" onClick={rejectNonEssential} variant="outline" size="sm">
             Reject non-essential
-          </button>
+          </Button>
           {showDetails ? (
-            <button
-              type="button"
-              onClick={saveCustom}
-              className="border-border hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm"
-            >
+            <Button type="button" onClick={saveCustom} variant="outline" size="sm">
               Save preferences
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
-            onClick={acceptAll}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
-          >
+          <Button type="button" onClick={acceptAll} size="sm">
             Accept all
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -210,12 +201,11 @@ interface ToggleProps {
 function Toggle({ label, description, checked, disabled, onChange }: ToggleProps) {
   return (
     <label className="hover:bg-muted/40 flex items-start gap-3 rounded-md p-2">
-      <input
-        type="checkbox"
+      <Switch
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 h-4 w-4"
+        className="mt-1"
       />
       <span className="flex flex-col">
         <span className="font-medium">{label}</span>
@@ -227,12 +217,14 @@ function Toggle({ label, description, checked, disabled, onChange }: ToggleProps
 
 export function CookiePreferencesLink({ className }: { className?: string }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={() => window.dispatchEvent(new Event(PREFS_EVENT))}
+      variant="link"
+      size="none"
       className={className ?? 'hover:text-foreground underline-offset-2 hover:underline'}
     >
       Cookie preferences
-    </button>
+    </Button>
   );
 }

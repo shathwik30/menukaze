@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Checkbox, Input, Textarea } from '@menukaze/ui';
 import { useEffect, useState, useTransition, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
@@ -259,7 +260,9 @@ export function MenuManagerClient({
               </p>
             </div>
             {canEdit ? (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 disabled={isPending}
                 onClick={() => {
@@ -272,7 +275,7 @@ export function MenuManagerClient({
                 className="text-mkrose-600 dark:text-mkrose-400 text-xs font-medium underline-offset-4 hover:underline"
               >
                 Delete menu
-              </button>
+              </Button>
             ) : null}
           </header>
 
@@ -368,13 +371,13 @@ function MenuSettingsForm({
       className="bg-muted mt-3 flex flex-col gap-3 rounded-md p-3"
     >
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="border-input bg-background h-8 rounded-md border px-2 text-xs"
         />
-        <input
+        <Input
           type="number"
           min="0"
           value={order}
@@ -384,11 +387,7 @@ function MenuSettingsForm({
       </div>
 
       <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={scheduled}
-          onChange={(e) => setScheduled(e.target.checked)}
-        />
+        <Checkbox checked={scheduled} onChange={(e) => setScheduled(e.target.checked)} />
         Restrict this menu to scheduled hours
       </label>
 
@@ -397,23 +396,19 @@ function MenuSettingsForm({
           <div className="flex flex-wrap gap-2 text-xs">
             {DAY_LABELS.map(([day, label]) => (
               <label key={day} className="flex items-center gap-1">
-                <input
-                  type="checkbox"
-                  checked={days.includes(day)}
-                  onChange={() => toggleDay(day)}
-                />
+                <Checkbox checked={days.includes(day)} onChange={() => toggleDay(day)} />
                 {label}
               </label>
             ))}
           </div>
           <div className="flex gap-2">
-            <input
+            <Input
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               className="border-input bg-background h-8 rounded-md border px-2 text-xs"
             />
-            <input
+            <Input
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
@@ -423,13 +418,15 @@ function MenuSettingsForm({
         </>
       ) : null}
 
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={pending || !name.trim()}
         className="border-input h-8 self-start rounded-md border px-3 text-xs disabled:opacity-50"
       >
         Save menu settings
-      </button>
+      </Button>
     </form>
   );
 }
@@ -452,20 +449,22 @@ function CreateMenuForm({
       }}
       className="border-border flex items-center gap-2 rounded-lg border border-dashed p-3"
     >
-      <input
+      <Input
         type="text"
         placeholder="New menu name (e.g. Dinner)"
         value={name}
         onChange={(e) => setName(e.target.value)}
         className="border-input bg-background h-9 flex-1 rounded-md border px-3 text-sm"
       />
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={pending || !name.trim()}
         className="bg-primary text-primary-foreground h-9 rounded-md px-3 text-sm font-medium disabled:opacity-50"
       >
         Add menu
-      </button>
+      </Button>
     </form>
   );
 }
@@ -490,7 +489,7 @@ function CreateCategoryForm({
       }}
       className="mt-3 flex items-center gap-2"
     >
-      <input
+      <Input
         type="text"
         placeholder="New category (e.g. Starters)"
         value={name}
@@ -498,13 +497,15 @@ function CreateCategoryForm({
         className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-xs"
         data-menu={menuId}
       />
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={pending || !name.trim()}
         className="border-input h-8 rounded-md border px-2 text-xs disabled:opacity-50"
       >
         Add
-      </button>
+      </Button>
     </form>
   );
 }
@@ -546,26 +547,30 @@ function CategoryBlock({
             }}
             className="flex flex-1 items-center gap-2"
           >
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-xs"
             />
-            <input
+            <Input
               type="number"
               value={order}
               onChange={(e) => setOrder(e.target.value)}
               className="border-input bg-background h-8 w-20 rounded-md border px-2 text-xs"
             />
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="submit"
               disabled={pending || !name.trim()}
               className="border-input h-8 rounded-md border px-2 text-xs disabled:opacity-50"
             >
               Save
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={() => {
                 setEditing(false);
@@ -575,7 +580,7 @@ function CategoryBlock({
               className="text-xs underline"
             >
               Cancel
-            </button>
+            </Button>
           </form>
         ) : (
           <>
@@ -585,14 +590,18 @@ function CategoryBlock({
             </div>
             {canEdit ? (
               <div className="flex items-center gap-3">
-                <button
+                <Button
+                  variant="plain"
+                  size="none"
                   type="button"
                   onClick={() => setEditing(true)}
                   className="text-xs underline"
                 >
                   Edit
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="plain"
+                  size="none"
                   type="button"
                   disabled={pending}
                   onClick={() => {
@@ -603,7 +612,7 @@ function CategoryBlock({
                   className="text-destructive text-xs underline"
                 >
                   Delete category
-                </button>
+                </Button>
               </div>
             ) : null}
           </>
@@ -691,14 +700,14 @@ function ItemCreateRow({
       className="bg-muted mt-3 flex flex-col gap-2 rounded-md p-2"
     >
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-        <input
+        <Input
           type="text"
           placeholder="Item name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="border-input bg-background h-8 rounded-md border px-2 text-xs"
         />
-        <input
+        <Input
           type="number"
           step="0.01"
           min="0"
@@ -707,15 +716,17 @@ function ItemCreateRow({
           onChange={(e) => setPriceMajor(e.target.value)}
           className="border-input bg-background h-8 w-24 rounded-md border px-2 text-xs"
         />
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="submit"
           disabled={pending || !name.trim() || !priceMajor}
           className="border-input h-8 rounded-md border px-3 text-xs disabled:opacity-50"
         >
           Add item
-        </button>
+        </Button>
       </div>
-      <input
+      <Input
         type="text"
         placeholder="Description (optional)"
         value={description}
@@ -727,7 +738,7 @@ function ItemCreateRow({
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-xs">
             Dietary tags (comma-separated)
-            <input
+            <Input
               type="text"
               value={dietaryTags}
               onChange={(e) => setDietaryTags(e.target.value)}
@@ -737,7 +748,7 @@ function ItemCreateRow({
           </label>
           <label className="flex flex-col gap-1 text-xs">
             Upload image
-            <input
+            <Input
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) =>
@@ -756,9 +767,15 @@ function ItemCreateRow({
           {imageUrl ? (
             <div className="flex items-center gap-3">
               <img src={imageUrl} alt="" className="h-16 w-16 rounded-md border object-cover" />
-              <button type="button" onClick={() => setImageUrl('')} className="text-xs underline">
+              <Button
+                variant="plain"
+                size="none"
+                type="button"
+                onClick={() => setImageUrl('')}
+                className="text-xs underline"
+              >
                 Remove image
-              </button>
+              </Button>
             </div>
           ) : null}
           <div className="flex flex-col gap-2 text-xs">
@@ -766,8 +783,7 @@ function ItemCreateRow({
             <div className="grid gap-2 sm:grid-cols-2">
               {availableItems.map((choice) => (
                 <label key={choice.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={comboOf.includes(choice.id)}
                     onChange={() => setComboOf((prev) => toggleComboId(prev, choice.id))}
                   />
@@ -781,7 +797,7 @@ function ItemCreateRow({
           </div>
           <label className="flex flex-col gap-1 text-xs">
             Modifiers JSON
-            <textarea
+            <Textarea
               value={modifierJson}
               onChange={(e) => setModifierJson(e.target.value)}
               rows={6}
@@ -868,7 +884,9 @@ function ItemRow({
         </div>
         <span className="text-foreground shrink-0 font-mono text-xs">{item.priceLabel}</span>
         {canToggleAvailability ? (
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             disabled={pending}
             onClick={() =>
@@ -877,14 +895,22 @@ function ItemRow({
             className="text-xs underline"
           >
             {item.soldOut ? 'Restock' : 'Sold out'}
-          </button>
+          </Button>
         ) : null}
         {canEdit ? (
           <>
-            <button type="button" onClick={() => setEditing(true)} className="text-xs underline">
+            <Button
+              variant="plain"
+              size="none"
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs underline"
+            >
               Edit
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               disabled={pending}
               onClick={() => {
@@ -895,7 +921,7 @@ function ItemRow({
               className="text-destructive text-xs underline"
             >
               Delete
-            </button>
+            </Button>
           </>
         ) : null}
       </li>
@@ -932,13 +958,13 @@ function ItemRow({
         className="flex flex-col gap-3"
       >
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="border-input bg-background h-8 rounded-md border px-2 text-xs"
           />
-          <input
+          <Input
             type="number"
             step="0.01"
             min="0"
@@ -947,14 +973,14 @@ function ItemRow({
             className="border-input bg-background h-8 w-24 rounded-md border px-2 text-xs"
           />
         </div>
-        <input
+        <Input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description"
           className="border-input bg-background h-8 rounded-md border px-2 text-xs"
         />
-        <input
+        <Input
           type="text"
           value={dietaryTags}
           onChange={(e) => setDietaryTags(e.target.value)}
@@ -964,7 +990,7 @@ function ItemRow({
         <div className="flex flex-col gap-2 rounded-md border border-dashed border-zinc-300 p-3">
           <label className="flex flex-col gap-1 text-xs">
             Upload image
-            <input
+            <Input
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) =>
@@ -983,9 +1009,15 @@ function ItemRow({
           {imageUrl ? (
             <div className="flex items-center gap-3">
               <img src={imageUrl} alt="" className="h-16 w-16 rounded-md border object-cover" />
-              <button type="button" onClick={() => setImageUrl('')} className="text-xs underline">
+              <Button
+                variant="plain"
+                size="none"
+                type="button"
+                onClick={() => setImageUrl('')}
+                className="text-xs underline"
+              >
                 Remove image
-              </button>
+              </Button>
             </div>
           ) : null}
           <div className="flex flex-col gap-2 text-xs">
@@ -993,8 +1025,7 @@ function ItemRow({
             <div className="grid gap-2 sm:grid-cols-2">
               {comboChoices.map((choice) => (
                 <label key={choice.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={comboOf.includes(choice.id)}
                     onChange={() => setComboOf((prev) => toggleComboId(prev, choice.id))}
                   />
@@ -1008,7 +1039,7 @@ function ItemRow({
           </div>
           <label className="flex flex-col gap-1 text-xs">
             Modifiers JSON
-            <textarea
+            <Textarea
               value={modifierJson}
               onChange={(e) => setModifierJson(e.target.value)}
               rows={6}
@@ -1022,14 +1053,18 @@ function ItemRow({
           </p>
         ) : null}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="submit"
             disabled={pending}
             className="bg-primary text-primary-foreground h-8 rounded-md px-3 text-xs disabled:opacity-50"
           >
             Save
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={() => {
               setEditing(false);
@@ -1045,7 +1080,7 @@ function ItemRow({
             className="border-input h-8 rounded-md border px-3 text-xs"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </li>

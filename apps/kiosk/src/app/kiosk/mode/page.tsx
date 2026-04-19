@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Eyebrow } from '@menukaze/ui';
+import { Button, Eyebrow } from '@menukaze/ui';
 import { useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 
@@ -18,10 +18,12 @@ export default function ModeSelectPage() {
   return (
     <main className="bg-canvas-50 text-ink-950 flex h-screen flex-col">
       <header className="border-ink-100 bg-surface flex h-24 shrink-0 items-center justify-between border-b px-10">
-        <button
+        <Button
           type="button"
           onClick={() => router.push('/kiosk')}
-          className="border-ink-200 bg-surface text-ink-700 active:bg-canvas-200 flex h-16 items-center gap-2 rounded-2xl border px-6 text-lg font-medium transition-colors"
+          variant="outline"
+          size="2xl"
+          className="text-ink-700 active:bg-canvas-200"
         >
           <svg
             viewBox="0 0 24 24"
@@ -36,7 +38,7 @@ export default function ModeSelectPage() {
             <path d="m15 18-6-6 6-6" />
           </svg>
           Back
-        </button>
+        </Button>
         <div className="text-center">
           <Eyebrow tone="accent">Step 1 of 3</Eyebrow>
           <h1 className="text-ink-950 mt-2 font-serif text-4xl font-medium tracking-tight">
@@ -91,9 +93,11 @@ function ModeTile({
   const activeBorder = tone === 'jade' ? 'active:border-jade-500' : 'active:border-saffron-500';
 
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
+      variant="plain"
+      size="none"
       className={`border-ink-100 bg-surface group flex min-h-0 flex-col justify-between rounded-3xl border-2 p-10 text-left shadow-sm transition-all duration-200 hover:shadow-xl active:scale-[0.99] ${activeBorder}`}
     >
       <span
@@ -126,7 +130,7 @@ function ModeTile({
           <path d="M5 12h14M13 5l7 7-7 7" />
         </svg>
       </span>
-    </button>
+    </Button>
   );
 }
 

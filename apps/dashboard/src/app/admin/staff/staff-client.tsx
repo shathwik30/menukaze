@@ -12,12 +12,13 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
+  cn,
   EmptyState,
   FieldError,
   Input,
   Label,
   Select,
-  cn,
 } from '@menukaze/ui';
 import {
   inviteStaffAction,
@@ -160,8 +161,7 @@ function FlagChecklist({
                         </svg>
                       ) : null}
                     </span>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       className="sr-only"
                       checked={active}
                       disabled={disabled}

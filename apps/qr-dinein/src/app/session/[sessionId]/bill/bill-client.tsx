@@ -6,6 +6,7 @@ import * as Ably from 'ably';
 import { channels } from '@menukaze/realtime';
 import '@menukaze/shared/razorpay-client';
 import Script from 'next/script';
+import { Button, Card, FieldError } from '@menukaze/ui';
 import {
   requestBillAction,
   requestCounterPaymentAction,
@@ -133,109 +134,109 @@ export function BillClient({
 
   if (paid) {
     return (
-      <section className="border-border rounded-lg border p-6 text-center">
+      <Card className="p-6 text-center">
         <h2 className="text-xl font-bold">Thanks for dining with us!</h2>
         <p className="text-muted-foreground mt-2 text-sm">
           Your receipt is on its way. You&apos;re all set to leave.
         </p>
-      </section>
+      </Card>
     );
   }
 
   if (status === 'needs_review') {
     return (
-      <section className="border-border rounded-lg border p-5">
+      <Card className="p-5">
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-900">
           This session timed out with payment still pending. A waiter needs to help complete the
           bill.
         </p>
-        <button
+        <Button
           type="button"
           disabled={isPending}
           onClick={requestAssistance}
-          className="border-input mt-4 h-10 w-full rounded-md border text-sm font-semibold disabled:opacity-50"
+          variant="outline"
+          full
+          className="mt-4"
         >
           {assistanceRequested ? 'Assistance requested ✓' : 'Request assistance'}
-        </button>
-        {error ? (
-          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-sm">
-            {error}
-          </p>
-        ) : null}
-      </section>
+        </Button>
+        {error ? <FieldError className="mt-3">{error}</FieldError> : null}
+      </Card>
     );
   }
 
   if (counterRequested) {
     return (
-      <section className="border-border rounded-lg border p-5">
+      <Card className="p-5">
         <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Counter payment requested. A waiter or cashier will help complete this bill using cash or
           the card terminal.
         </p>
-        <button
+        <Button
           type="button"
           disabled={isPending}
           onClick={requestAssistance}
-          className="border-input mt-4 h-10 w-full rounded-md border text-sm font-semibold disabled:opacity-50"
+          variant="outline"
+          full
+          className="mt-4"
         >
           {assistanceRequested ? 'Assistance requested ✓' : 'Request assistance again'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           disabled={isPending}
           onClick={() => setCounterRequested(false)}
-          className="border-input mt-2 h-10 w-full rounded-md border text-sm font-semibold disabled:opacity-50"
+          variant="outline"
+          full
+          className="mt-2"
         >
           Switch back to online payment
-        </button>
-        {error ? (
-          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-sm">
-            {error}
-          </p>
-        ) : null}
-      </section>
+        </Button>
+        {error ? <FieldError className="mt-3">{error}</FieldError> : null}
+      </Card>
     );
   }
 
   return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-      <section className="border-border rounded-lg border p-5">
+      <Card className="p-5">
         <p className="text-muted-foreground text-xs">
           Tap Pay to settle the bill via Razorpay. If the payment fails, retry or request assistance
           for cash / terminal checkout.
         </p>
-        <button
+        <Button
           type="button"
           disabled={isPending}
           onClick={pay}
-          className="bg-primary text-primary-foreground mt-4 h-11 w-full rounded-md text-sm font-semibold disabled:opacity-50"
+          loading={isPending}
+          full
+          className="mt-4"
         >
-          {isPending ? 'Processing…' : `Pay ${totalLabel}`}
-        </button>
-        <button
+          Pay {totalLabel}
+        </Button>
+        <Button
           type="button"
           disabled={isPending}
           onClick={payAtCounter}
-          className="border-input mt-2 h-10 w-full rounded-md border text-sm font-semibold disabled:opacity-50"
+          variant="outline"
+          full
+          className="mt-2"
         >
           {assistanceRequested ? 'Counter payment requested ✓' : 'Pay at counter'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           disabled={isPending}
           onClick={requestAssistance}
-          className="border-input mt-2 h-10 w-full rounded-md border text-sm font-semibold disabled:opacity-50"
+          variant="outline"
+          full
+          className="mt-2"
         >
           Request assistance
-        </button>
-        {error ? (
-          <p className="bg-destructive/10 text-destructive mt-3 rounded-md px-3 py-2 text-sm">
-            {error}
-          </p>
-        ) : null}
-      </section>
+        </Button>
+        {error ? <FieldError className="mt-3">{error}</FieldError> : null}
+      </Card>
       <p className="text-muted-foreground mt-2 text-[11px]">
         Paying {restaurantName} · Razorpay test mode
       </p>

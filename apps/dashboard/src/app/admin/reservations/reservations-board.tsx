@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@menukaze/ui';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateReservationStatusAction } from '@/app/actions/reservations';
@@ -145,7 +146,9 @@ export function ReservationsBoard({ reservations, canEdit }: Props) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {actions.map((a) => (
-                      <button
+                      <Button
+                        variant="plain"
+                        size="none"
                         key={a.status}
                         type="button"
                         onClick={() => onTransition(r.id, a.status)}
@@ -159,7 +162,7 @@ export function ReservationsBoard({ reservations, canEdit }: Props) {
                         }
                       >
                         {isPending ? '…' : a.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </li>

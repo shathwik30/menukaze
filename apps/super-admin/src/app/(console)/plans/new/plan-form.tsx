@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input } from '@menukaze/ui';
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPlanAction } from '@/app/actions/plans';
@@ -70,7 +71,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Plan name</span>
-        <input
+        <Input
           type="text"
           required
           maxLength={120}
@@ -83,7 +84,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Monthly fee (minor units)</span>
-          <input
+          <Input
             type="number"
             required
             min={0}
@@ -95,7 +96,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Commission (basis points)</span>
-          <input
+          <Input
             type="number"
             required
             min={0}
@@ -111,7 +112,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Flat fee per order (minor units)</span>
-          <input
+          <Input
             type="number"
             required
             min={0}
@@ -123,7 +124,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Trial days</span>
-          <input
+          <Input
             type="number"
             required
             min={0}
@@ -136,7 +137,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Features (comma-separated)</span>
-        <input
+        <Input
           type="text"
           value={features}
           onChange={(e) => setFeatures(e.target.value)}
@@ -147,7 +148,7 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Order limit (empty = unlimited)</span>
-        <input
+        <Input
           type="number"
           min={0}
           value={orderLimit}
@@ -158,13 +159,15 @@ export function PlanForm({ initial, planId }: PlanFormProps) {
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={busy}
         className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-6 text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
       >
         {busy ? 'Saving...' : planId ? 'Update Plan' : 'Create Plan'}
-      </button>
+      </Button>
     </form>
   );
 }

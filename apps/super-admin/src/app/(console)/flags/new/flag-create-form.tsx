@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input, Textarea } from '@menukaze/ui';
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { createFlagAction } from '@/app/actions/flags';
@@ -33,7 +34,7 @@ export function FlagCreateForm() {
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Key</span>
-        <input
+        <Input
           type="text"
           required
           maxLength={120}
@@ -50,7 +51,7 @@ export function FlagCreateForm() {
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Display name</span>
-        <input
+        <Input
           type="text"
           required
           maxLength={200}
@@ -63,7 +64,7 @@ export function FlagCreateForm() {
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Description (optional)</span>
-        <textarea
+        <Textarea
           maxLength={1000}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -74,13 +75,15 @@ export function FlagCreateForm() {
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={busy}
         className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-6 text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
       >
         {busy ? 'Creating...' : 'Create Flag'}
-      </button>
+      </Button>
     </form>
   );
 }

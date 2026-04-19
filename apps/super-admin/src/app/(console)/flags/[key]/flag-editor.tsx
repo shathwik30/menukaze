@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button, Checkbox, Input, cn } from '@menukaze/ui';
 import {
-  toggleGlobalFlagAction,
-  setFlagOverrideAction,
-  updateFlagPlanGatesAction,
   deleteFlagAction,
+  setFlagOverrideAction,
+  toggleGlobalFlagAction,
+  updateFlagPlanGatesAction,
 } from '@/app/actions/flags';
-import { cn } from '@menukaze/ui';
 
 interface Override {
   restaurantId: string;
@@ -108,7 +108,9 @@ export function FlagEditor({ data }: { data: FlagData }) {
               {data.globallyEnabled ? 'Enabled for all merchants' : 'Disabled globally'}
             </p>
           </div>
-          <button
+          <Button
+            variant="plain"
+            size="none"
             disabled={busy}
             onClick={handleToggleGlobal}
             className={cn(
@@ -122,7 +124,7 @@ export function FlagEditor({ data }: { data: FlagData }) {
                 data.globallyEnabled ? 'translate-x-5' : 'translate-x-0',
               )}
             />
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -140,7 +142,9 @@ export function FlagEditor({ data }: { data: FlagData }) {
                   <span className="text-muted-foreground ml-2 font-mono text-xs">{o.slug}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
+                    variant="plain"
+                    size="none"
                     disabled={busy}
                     onClick={() => handleToggleOverride(o.restaurantId, o.enabled)}
                     className={cn(
@@ -154,34 +158,38 @@ export function FlagEditor({ data }: { data: FlagData }) {
                         o.enabled ? 'translate-x-4' : 'translate-x-0',
                       )}
                     />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="plain"
+                    size="none"
                     disabled={busy}
                     onClick={() => handleRemoveOverride(o.restaurantId)}
                     className="text-destructive text-xs hover:underline disabled:opacity-50"
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             placeholder="Restaurant ID"
             value={newOverrideId}
             onChange={(e) => setNewOverrideId(e.target.value)}
             className="border-input focus-visible:ring-ring flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
-          <button
+          <Button
+            variant="plain"
+            size="none"
             disabled={busy || !newOverrideId.trim()}
             onClick={handleAddOverride}
             className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50"
           >
             Add Override
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -194,8 +202,7 @@ export function FlagEditor({ data }: { data: FlagData }) {
         <div className="space-y-2">
           {data.allPlans.map((p) => (
             <label key={p.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={gatedPlanIds.has(p.id)}
                 onChange={(e) => handlePlanGateChange(p.id, e.target.checked)}
                 disabled={busy}
@@ -216,27 +223,33 @@ export function FlagEditor({ data }: { data: FlagData }) {
         {confirmDelete ? (
           <div className="flex items-center gap-2">
             <p className="text-sm">Delete this flag permanently?</p>
-            <button
+            <Button
+              variant="plain"
+              size="none"
               disabled={busy}
               onClick={handleDelete}
               className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
             >
               {busy ? 'Deleting...' : 'Confirm Delete'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
+              size="none"
               onClick={() => setConfirmDelete(false)}
               className="border-input rounded-md border px-3 py-1.5 text-sm"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
+          <Button
+            variant="plain"
+            size="none"
             onClick={() => setConfirmDelete(true)}
             className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
           >
             Delete Flag
-          </button>
+          </Button>
         )}
       </section>
     </div>

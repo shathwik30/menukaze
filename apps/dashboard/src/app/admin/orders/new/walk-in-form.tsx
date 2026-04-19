@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input, Radio, Select, Textarea } from '@menukaze/ui';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { computeTax, type TaxRule } from '@menukaze/shared';
@@ -224,7 +225,9 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
         {categories.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 key={c.id}
                 type="button"
                 onClick={() => setActiveCategoryId(c.id)}
@@ -235,7 +238,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                 }`}
               >
                 {c.name}
-              </button>
+              </Button>
             ))}
           </div>
         ) : null}
@@ -248,7 +251,9 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
           <ul className="grid gap-2 sm:grid-cols-2">
             {visibleCategoryItems.map((item) => (
               <li key={item.id}>
-                <button
+                <Button
+                  variant="plain"
+                  size="none"
                   type="button"
                   onClick={() => addSimpleItem(item)}
                   disabled={item.soldOut}
@@ -263,7 +268,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     ) : null}
                   </span>
                   <span className="font-mono text-xs">{item.priceLabel}</span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -282,8 +287,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                 orderType === type ? 'bg-accent' : 'hover:bg-muted/40'
               }`}
             >
-              <input
-                type="radio"
+              <Radio
                 name="type"
                 value={type}
                 checked={orderType === type}
@@ -303,7 +307,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
         {orderType === 'dine_in' ? (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Table</span>
-            <select
+            <Select
               value={tableId}
               onChange={(e) => setTableId(e.target.value)}
               className="border-border h-9 rounded-md border px-2 text-sm"
@@ -315,7 +319,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                   {t.status !== 'available' ? ` · ${t.status.replace('_', ' ')}` : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         ) : null}
 
@@ -323,7 +327,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
           <span className="font-medium">
             Customer name <span className="text-muted-foreground">(optional)</span>
           </span>
-          <input
+          <Input
             type="text"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
@@ -341,8 +345,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                 paymentMethod === method ? 'bg-accent' : 'hover:bg-muted/40'
               }`}
             >
-              <input
-                type="radio"
+              <Radio
                 name="payment"
                 value={method}
                 checked={paymentMethod === method}
@@ -384,27 +387,33 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     </p>
                   ) : null}
                   <div className="mt-1 flex items-center gap-1 text-xs">
-                    <button
+                    <Button
+                      variant="plain"
+                      size="none"
                       type="button"
                       onClick={() => decrementLine(line.key)}
                       className="border-border hover:bg-muted h-6 w-6 rounded border"
                     >
                       −
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="plain"
+                      size="none"
                       type="button"
                       onClick={() => incrementLine(line.key)}
                       className="border-border hover:bg-muted h-6 w-6 rounded border"
                     >
                       +
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="plain"
+                      size="none"
                       type="button"
                       onClick={() => removeLine(line.key)}
                       className="ml-auto text-red-600 hover:underline"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -432,14 +441,16 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
 
-        <button
+        <Button
+          variant="plain"
+          size="none"
           type="button"
           onClick={onSubmit}
           disabled={submitting || lines.length === 0}
           className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:opacity-50"
         >
           {submitting ? 'Placing order…' : 'Place order'}
-        </button>
+        </Button>
       </aside>
 
       {configuringItem ? (
@@ -515,13 +526,15 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
             <h3 className="text-lg font-semibold">{item.name}</h3>
             <p className="text-muted-foreground text-xs">{item.priceLabel}</p>
           </div>
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={onCancel}
             className="text-muted-foreground hover:text-foreground text-sm"
           >
             Close
-          </button>
+          </Button>
         </header>
 
         {item.modifiers.map((group) => (
@@ -543,7 +556,7 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
                     }`}
                   >
                     <span>
-                      <input
+                      <Input
                         type={group.max === 1 ? 'radio' : 'checkbox'}
                         name={group.name}
                         checked={checked}
@@ -562,7 +575,7 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Notes</span>
-          <textarea
+          <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
@@ -575,20 +588,24 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         <div className="flex justify-end gap-2">
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={onCancel}
             className="border-border hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={onConfirm}
             className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium"
           >
             Add to order
-          </button>
+          </Button>
         </div>
       </div>
     </div>

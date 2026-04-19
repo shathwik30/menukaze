@@ -2,6 +2,17 @@
 
 import { useId, useState, useTransition, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Button,
+  FieldError,
+  FieldHint,
+  Input,
+  Label,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+} from '@menukaze/ui';
 import { createMenuStarterAction } from '@/app/actions/menu';
 
 interface ItemRow {
@@ -92,39 +103,30 @@ export function MenuSetupForm({ currency }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode('manual')}
-          className={`rounded-md border px-3 py-2 text-sm ${mode === 'manual' ? 'bg-foreground text-background' : 'border-input'}`}
-        >
-          Manual entry
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('csv')}
-          className={`rounded-md border px-3 py-2 text-sm ${mode === 'csv' ? 'bg-foreground text-background' : 'border-input'}`}
-        >
-          CSV import
-        </button>
-      </div>
+      <Tabs value={mode} onValueChange={(value) => setMode(value === 'csv' ? 'csv' : 'manual')}>
+        <TabsList variant="segmented">
+          <TabsTrigger value="manual" variant="segmented">
+            Manual entry
+          </TabsTrigger>
+          <TabsTrigger value="csv" variant="segmented">
+            CSV import
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {mode === 'manual' ? (
         <>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Category name</span>
-            <input
+          <label className="block space-y-1.5">
+            <Label>Category name</Label>
+            <Input
               type="text"
               required
               minLength={1}
               maxLength={120}
               value={categoryName}
               onChange={(event) => setCategoryName(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
-            <p className="text-muted-foreground mt-1 text-xs">
-              E.g. Appetizers, Mains, Desserts, Drinks.
-            </p>
+            <FieldHint>E.g. Appetizers, Mains, Desserts, Drinks.</FieldHint>
           </label>
 
           <div className="space-y-3">
@@ -137,104 +139,84 @@ export function MenuSetupForm({ currency }: Props) {
               <div key={item.rowId} className="flex items-start gap-2">
                 <div className="flex-1">
                   <label className="sr-only">Item {index + 1} name</label>
-                  <input
+                  <Input
                     type="text"
                     placeholder={`Item ${index + 1} name`}
                     value={item.name}
                     onChange={(event) => updateItem(item.rowId, { name: event.target.value })}
-                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   />
                 </div>
                 <div className="w-32">
                   <label className="sr-only">Item {index + 1} price</label>
-                  <input
+                  <Input
                     type="number"
                     step="0.01"
                     min="0"
                     placeholder="Price"
                     value={item.priceMajor}
                     onChange={(event) => updateItem(item.rowId, { priceMajor: event.target.value })}
-                    className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-right text-sm focus-visible:ring-2 focus-visible:outline-none"
+                    className="text-right"
                   />
                 </div>
-                <button
+                <Button
                   type="button"
                   onClick={() => removeItem(item.rowId)}
                   disabled={items.length === 1}
                   aria-label={`Remove item ${index + 1}`}
-                  className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-10 w-10 items-center justify-center rounded-md border text-sm disabled:pointer-events-none disabled:opacity-30"
+                  variant="outline"
+                  size="icon"
                 >
                   ×
-                </button>
+                </Button>
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={addItem}
-              className="border-input hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center rounded-md border px-3 text-sm"
-            >
+            <Button type="button" onClick={addItem} variant="outline" size="sm">
               + Add another item
-            </button>
+            </Button>
           </div>
         </>
       ) : (
         <div className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Upload CSV</span>
-            <input
-              id={fileInputId}
-              type="file"
-              accept=".csv,text/csv"
-              onChange={onCsvFileChange}
-              className="border-input block w-full rounded-md border px-3 py-2 text-sm"
-            />
-            <p className="text-muted-foreground mt-1 text-xs">
+          <label className="block space-y-1.5">
+            <Label>Upload CSV</Label>
+            <Input id={fileInputId} type="file" accept=".csv,text/csv" onChange={onCsvFileChange} />
+            <FieldHint>
               Header row supported. Accepted columns: item/name, price, category, description.
-            </p>
+            </FieldHint>
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Or paste from a spreadsheet</span>
-            <textarea
+          <label className="block space-y-1.5">
+            <Label>Or paste from a spreadsheet</Label>
+            <Textarea
               value={csvText}
               onChange={(event) => setCsvText(event.target.value)}
               rows={8}
               placeholder={`item,price,category,description
 Margherita,12.5,Pizza,Classic tomato
 Tiramisu,8.25,Dessert,Coffee cream`}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Default category</span>
-            <input
+          <label className="block space-y-1.5">
+            <Label>Default category</Label>
+            <Input
               type="text"
               value={defaultCategoryName}
               onChange={(event) => setDefaultCategoryName(event.target.value)}
-              className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
-            <p className="text-muted-foreground mt-1 text-xs">
+            <FieldHint>
               Used when the CSV does not include a category column or a row leaves it blank.
-            </p>
+            </FieldHint>
           </label>
         </div>
       )}
 
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-      >
-        {pending
-          ? 'Saving menu…'
-          : mode === 'manual'
-            ? 'Save menu and continue'
-            : 'Import CSV and continue'}
-      </button>
+      <Button type="submit" disabled={pending} full loading={pending}>
+        {mode === 'manual' ? 'Save menu and continue' : 'Import CSV and continue'}
+      </Button>
     </form>
   );
 }

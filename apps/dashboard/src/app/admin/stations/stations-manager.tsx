@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Checkbox, Input } from '@menukaze/ui';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -87,28 +88,30 @@ export function StationsManager({ initial }: { initial: Station[] }) {
       <section className="border-border space-y-3 rounded-md border p-4">
         <h2 className="text-base font-semibold">Add station</h2>
         <div className="grid gap-2 sm:grid-cols-[1fr_140px_auto]">
-          <input
+          <Input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Grill"
             className="border-border h-9 rounded-md border px-3 text-sm"
           />
-          <input
+          <Input
             type="text"
             value={newColor}
             onChange={(e) => setNewColor(e.target.value)}
             placeholder="emerald"
             className="border-border h-9 rounded-md border px-3 text-sm"
           />
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={create}
             disabled={pending || !newName.trim()}
             className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium disabled:opacity-50"
           >
             Add
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -124,13 +127,13 @@ export function StationsManager({ initial }: { initial: Station[] }) {
             const isPending = pending && pendingId === s.id;
             return (
               <li key={s.id} className="grid gap-2 p-3 sm:grid-cols-[1fr_140px_auto_auto]">
-                <input
+                <Input
                   type="text"
                   value={s.name}
                   onChange={(e) => updateField(s.id, 'name', e.target.value)}
                   className="border-border h-9 rounded-md border px-3 text-sm"
                 />
-                <input
+                <Input
                   type="text"
                   value={s.color}
                   onChange={(e) => updateField(s.id, 'color', e.target.value)}
@@ -138,30 +141,33 @@ export function StationsManager({ initial }: { initial: Station[] }) {
                   className="border-border h-9 rounded-md border px-3 text-sm"
                 />
                 <label className="flex items-center gap-1 text-xs">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={s.soundEnabled}
                     onChange={(e) => updateField(s.id, 'soundEnabled', e.target.checked)}
                   />
                   Sound
                 </label>
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
+                    variant="plain"
+                    size="none"
                     type="button"
                     onClick={() => save(s)}
                     disabled={isPending}
                     className="border-border hover:bg-muted inline-flex h-8 items-center rounded-md border px-3 text-xs disabled:opacity-50"
                   >
                     Save
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="plain"
+                    size="none"
                     type="button"
                     onClick={() => archive(s)}
                     disabled={isPending}
                     className="text-xs text-red-600 hover:underline disabled:opacity-50"
                   >
                     Archive
-                  </button>
+                  </Button>
                 </div>
               </li>
             );

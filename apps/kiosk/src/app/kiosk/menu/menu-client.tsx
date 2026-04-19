@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeTax, type TaxRule } from '@menukaze/shared';
-import { Badge, Eyebrow, cn } from '@menukaze/ui';
+import { Badge, Button, Eyebrow, cn } from '@menukaze/ui';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 import { ItemConfigurator } from './item-configurator';
@@ -142,10 +142,12 @@ export function MenuClient({
   return (
     <div className="bg-canvas-50 text-ink-950 grid h-screen grid-rows-[96px_minmax(0,1fr)]">
       <header className="border-ink-100 bg-surface flex items-center justify-between border-b px-8">
-        <button
+        <Button
           type="button"
           onClick={() => router.push('/kiosk/mode')}
-          className="border-ink-200 bg-surface text-ink-700 active:bg-canvas-200 flex h-16 items-center gap-2 rounded-2xl border px-6 text-base font-medium transition-colors"
+          variant="outline"
+          size="2xl"
+          className="text-ink-700 active:bg-canvas-200"
         >
           <svg
             viewBox="0 0 24 24"
@@ -160,7 +162,7 @@ export function MenuClient({
             <path d="m15 18-6-6 6-6" />
           </svg>
           Back
-        </button>
+        </Button>
         <div className="text-center">
           <Eyebrow tone="accent">Step 2 of 3 · {restaurantName}</Eyebrow>
           <p className="mt-1 font-serif text-2xl font-medium tracking-tight">Choose your dishes</p>
@@ -191,10 +193,12 @@ export function MenuClient({
                 {menus.map((menu) => {
                   const active = menu.id === activeMenuId;
                   return (
-                    <button
+                    <Button
                       key={menu.id}
                       type="button"
                       onClick={() => setActiveMenuId(menu.id)}
+                      variant="plain"
+                      size="none"
                       className={cn(
                         'min-h-11 rounded-xl px-4 text-left text-sm font-medium transition-colors',
                         active
@@ -203,7 +207,7 @@ export function MenuClient({
                       )}
                     >
                       {menu.name}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -215,10 +219,12 @@ export function MenuClient({
               const active = cat.id === activeCategoryId;
               const count = items.filter((i) => i.categoryId === cat.id && !i.soldOut).length;
               return (
-                <button
+                <Button
                   key={cat.id}
                   type="button"
                   onClick={() => setActiveCategoryId(cat.id)}
+                  variant="plain"
+                  size="none"
                   className={cn(
                     'group flex min-h-16 items-center justify-between rounded-2xl px-4 text-left transition-all duration-200 active:scale-[0.99]',
                     active
@@ -235,7 +241,7 @@ export function MenuClient({
                   >
                     {count}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -330,9 +336,11 @@ export function MenuClient({
                             Unavailable
                           </span>
                         ) : item.modifiers.length > 0 ? (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => handleOpenConfigurator(item)}
+                            variant="plain"
+                            size="none"
                             className={cn(
                               'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
@@ -349,11 +357,13 @@ export function MenuClient({
                             ) : (
                               <span className="font-serif text-lg">Customise</span>
                             )}
-                          </button>
+                          </Button>
                         ) : (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => handleAddSimple(item)}
+                            variant="plain"
+                            size="none"
                             className={cn(
                               'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
@@ -372,7 +382,7 @@ export function MenuClient({
                                 <PlusIcon /> Add to order
                               </span>
                             )}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -434,33 +444,39 @@ export function MenuClient({
                       </div>
                       <div className="mt-3 flex items-center justify-between">
                         <div className="border-ink-200 bg-surface inline-flex items-center gap-1 rounded-full border p-1">
-                          <button
+                          <Button
                             type="button"
                             onClick={() => decrementLine(key)}
+                            variant="plain"
+                            size="none"
                             className="text-ink-700 active:bg-canvas-100 flex size-10 items-center justify-center rounded-full font-mono text-xl transition-colors"
                             aria-label="Decrease"
                           >
                             −
-                          </button>
+                          </Button>
                           <span className="mk-nums w-8 text-center font-mono text-base font-semibold tabular-nums">
                             {line.quantity}
                           </span>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => incrementLine(key)}
+                            variant="plain"
+                            size="none"
                             className="text-ink-700 active:bg-canvas-100 flex size-10 items-center justify-center rounded-full font-mono text-xl transition-colors"
                             aria-label="Increase"
                           >
                             +
-                          </button>
+                          </Button>
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => removeLine(key)}
-                          className="text-mkrose-700 active:bg-mkrose-50 h-10 rounded-lg px-3 text-xs font-medium transition-colors"
+                          variant="ghost"
+                          size="sm"
+                          className="text-mkrose-700 active:bg-mkrose-50"
                         >
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
@@ -497,10 +513,12 @@ export function MenuClient({
                 </span>
               </div>
             </div>
-            <button
+            <Button
               type="button"
               disabled={itemCount === 0 || belowMinimum}
               onClick={() => router.push('/kiosk/checkout')}
+              variant="plain"
+              size="none"
               className={cn(
                 'mt-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl font-serif text-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.99]',
                 itemCount === 0 || belowMinimum
@@ -521,7 +539,7 @@ export function MenuClient({
               >
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
-            </button>
+            </Button>
           </div>
         </aside>
       </div>

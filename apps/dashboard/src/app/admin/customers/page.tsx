@@ -1,3 +1,4 @@
+import { Button, Input, Select } from '@menukaze/ui';
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
@@ -50,27 +51,29 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       </header>
 
       <form className="flex flex-wrap items-center gap-2" method="get">
-        <input
+        <Input
           type="text"
           name="q"
           defaultValue={query}
           placeholder="Search email, name, phone"
           className="border-border h-9 flex-1 rounded-md border px-3 text-sm"
         />
-        <select
+        <Select
           name="sort"
           defaultValue={sort}
           className="border-border h-9 rounded-md border px-2 text-sm"
         >
           <option value="top">Top spenders</option>
           <option value="recent">Recently active</option>
-        </select>
-        <button
+        </Select>
+        <Button
+          variant="plain"
+          size="none"
           type="submit"
           className="border-border hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm"
         >
           Search
-        </button>
+        </Button>
       </form>
 
       {customers.length === 0 ? (

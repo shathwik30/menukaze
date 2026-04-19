@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Checkbox, Input } from '@menukaze/ui';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateReservationSettingsAction } from '@/app/actions/reservations';
@@ -51,16 +52,14 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
   return (
     <div className="border-border space-y-4 rounded-md border p-5">
       <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={state.enabled}
           onChange={(e) => setState({ ...state, enabled: e.target.checked })}
         />
         <span className="font-medium">Accept online reservations</span>
       </label>
       <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={state.autoConfirm}
           onChange={(e) => setState({ ...state, autoConfirm: e.target.checked })}
           disabled={!state.enabled}
@@ -71,7 +70,7 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Slot length (minutes)</span>
-          <input
+          <Input
             type="number"
             min={15}
             max={240}
@@ -83,7 +82,7 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Max party size</span>
-          <input
+          <Input
             type="number"
             min={1}
             max={200}
@@ -94,7 +93,7 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Buffer between slots (minutes)</span>
-          <input
+          <Input
             type="number"
             min={0}
             max={120}
@@ -105,7 +104,7 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Reminder lead time (hours)</span>
-          <input
+          <Input
             type="number"
             min={0}
             max={168}
@@ -122,19 +121,21 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
           No bookings accepted on these dates (e.g. private events, holidays).
         </p>
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="date"
             value={newBlockedDate}
             onChange={(e) => setNewBlockedDate(e.target.value)}
             className="border-border h-9 rounded-md border px-3 text-sm"
           />
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={addBlockedDate}
             className="border-border hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm"
           >
             Add
-          </button>
+          </Button>
         </div>
         {state.blockedDates.length > 0 ? (
           <ul className="flex flex-wrap gap-2 pt-2">
@@ -144,13 +145,15 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
                 className="border-border flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
               >
                 <span className="font-mono">{d}</span>
-                <button
+                <Button
+                  variant="plain"
+                  size="none"
                   type="button"
                   onClick={() => removeBlockedDate(d)}
                   className="text-red-600 hover:underline"
                 >
                   Remove
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -162,14 +165,16 @@ export function ReservationSettingsForm({ initial }: { initial: Settings }) {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
 
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="button"
         onClick={onSave}
         disabled={pending}
         className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-50"
       >
         {pending ? 'Saving…' : 'Save settings'}
-      </button>
+      </Button>
     </div>
   );
 }

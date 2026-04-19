@@ -5,11 +5,13 @@ import { maxSelectionsForModifierGroup, validateModifierSelection } from '@menuk
 import {
   Badge,
   Button,
+  Checkbox,
   Dialog,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  FieldError,
   cn,
 } from '@menukaze/ui';
 import { useCart } from '@/stores/cart';
@@ -200,14 +202,16 @@ export function AddToCartButton({
                 From <span className="mk-nums font-mono">{formatMoney(priceMinor)}</span>
               </DialogDescription>
             </div>
-            <button
+            <Button
               type="button"
               onClick={resetConfigurator}
               aria-label="Close"
+              variant="ghost"
+              size="icon-sm"
               className="text-ink-500 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-canvas-50 rounded-lg p-1.5 transition-colors"
             >
               <CloseIcon />
-            </button>
+            </Button>
           </div>
         </DialogHeader>
 
@@ -276,8 +280,7 @@ export function AddToCartButton({
                               </svg>
                             ) : null}
                           </span>
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={active}
                             onChange={() => toggleOption(group, option.name)}
                             className="sr-only"
@@ -296,9 +299,9 @@ export function AddToCartButton({
           })}
 
           {error ? (
-            <div className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 dark:text-mkrose-300 rounded-lg border px-3 py-2.5 text-sm font-medium">
+            <FieldError className="border-mkrose-200 bg-mkrose-50 dark:border-mkrose-500/30 dark:bg-mkrose-500/10 rounded-lg border px-3 py-2.5">
               {error}
-            </div>
+            </FieldError>
           ) : null}
         </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { captureException } from '@menukaze/monitoring';
+import { Button } from '@menukaze/ui';
 import { useEffect } from 'react';
 
 export default function StorefrontError({
@@ -20,13 +21,9 @@ export default function StorefrontError({
       <p className="text-muted-foreground">
         We couldn&apos;t load this page. Please try again in a moment.
       </p>
-      <button
-        type="button"
-        onClick={reset}
-        className="bg-primary text-primary-foreground mt-2 rounded-md px-5 py-2 text-sm font-medium"
-      >
+      <Button type="button" onClick={reset} className="mt-2">
         Try again
-      </button>
+      </Button>
     </main>
   );
 }

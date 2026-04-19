@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Card, FieldError } from '@menukaze/ui';
 import { usePinExit } from '@/hooks/use-pin-exit';
 
 // Mount once in the kiosk layout to keep the exit gesture always available.
@@ -16,7 +17,7 @@ export function PinOverlay() {
 
       {showPin ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6">
-          <div className="w-80 rounded-lg bg-white p-6 shadow-2xl">
+          <Card className="w-80 bg-white p-6 shadow-2xl">
             <h2 className="mb-4 text-center text-xl font-bold text-zinc-950">Staff PIN</h2>
 
             <div className="mb-4 flex h-14 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-3xl tracking-[0.5em] text-zinc-950">
@@ -25,51 +26,61 @@ export function PinOverlay() {
               )}
             </div>
 
-            {error ? <p className="mb-3 text-center text-sm text-red-600">{error}</p> : null}
+            {error ? <FieldError className="mb-3 justify-center">{error}</FieldError> : null}
 
             <div className="grid grid-cols-3 gap-2">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-                <button
+                <Button
                   key={d}
                   type="button"
                   onClick={() => appendDigit(d)}
-                  className="h-14 rounded-lg bg-zinc-100 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
+                  variant="secondary"
+                  size="xl"
+                  className="h-14 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
                 >
                   {d}
-                </button>
+                </Button>
               ))}
-              <button
+              <Button
                 type="button"
                 onClick={dismiss}
-                className="h-14 rounded-lg bg-zinc-100 text-sm font-medium text-zinc-600 active:bg-zinc-200"
+                variant="secondary"
+                size="xl"
+                className="h-14 text-sm font-medium text-zinc-600 active:bg-zinc-200"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => appendDigit('0')}
-                className="h-14 rounded-lg bg-zinc-100 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
+                variant="secondary"
+                size="xl"
+                className="h-14 text-2xl font-semibold text-zinc-950 active:bg-zinc-200"
               >
                 0
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={backspace}
-                className="h-14 rounded-lg bg-zinc-100 text-xl font-medium text-zinc-700 active:bg-zinc-200"
+                variant="secondary"
+                size="xl"
+                className="h-14 text-xl font-medium text-zinc-700 active:bg-zinc-200"
               >
                 ⌫
-              </button>
+              </Button>
             </div>
 
-            <button
+            <Button
               type="button"
               onClick={() => void submitPin()}
               disabled={pin.length === 0}
-              className="mt-4 h-12 w-full rounded-lg bg-zinc-950 text-base font-semibold text-white active:bg-zinc-800 disabled:opacity-40"
+              full
+              size="lg"
+              className="mt-4 active:bg-zinc-800 disabled:opacity-40"
             >
               Confirm
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       ) : null}
     </>

@@ -2,6 +2,16 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Button,
+  Card,
+  CardContent,
+  FieldError,
+  FieldHint,
+  Input,
+  Label,
+  Select,
+} from '@menukaze/ui';
 import { createRestaurantAction } from '@/app/actions/onboarding';
 
 // Currency is locked at creation; locale/timezone can be overridden later.
@@ -105,14 +115,13 @@ export function RestaurantProfileForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <Field label="Restaurant name" hint="The name your customers see.">
-        <input
+        <Input
           type="text"
           required
           minLength={1}
           maxLength={120}
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
-          className={inputClass}
         />
       </Field>
 
@@ -124,8 +133,8 @@ export function RestaurantProfileForm() {
             : 'Auto-generated from the name above.'
         }
       >
-        <div className="border-input flex items-center rounded-md border bg-transparent">
-          <input
+        <div className="border-input bg-surface flex items-center rounded-lg border">
+          <Input
             type="text"
             required
             minLength={2}
@@ -133,7 +142,7 @@ export function RestaurantProfileForm() {
             pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
             value={slug}
             onChange={(event) => onSlugChange(event.target.value)}
-            className="focus-visible:ring-ring flex-1 rounded-l-md bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="flex-1 rounded-r-none border-0 bg-transparent shadow-none focus:ring-0"
           />
           <span className="text-muted-foreground border-input border-l px-3 text-sm">
             .menukaze.com
@@ -142,83 +151,69 @@ export function RestaurantProfileForm() {
       </Field>
 
       <Field label="Country" hint="Locks in currency, locale, tax format, and time zone.">
-        <select
+        <Select
           required
           value={country}
           onChange={(event) => {
             if (isCountryCode(event.target.value)) setCountry(event.target.value);
           }}
-          className={inputClass}
         >
           {COUNTRY_CODES.map((code) => (
             <option key={code} value={code}>
               {COUNTRY_DEFAULTS[code].name}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
-      <div className="border-border bg-muted/30 grid grid-cols-3 gap-4 rounded-md border p-4 text-sm">
-        <Derived label="Currency" value={defaults.currency} />
-        <Derived label="Locale" value={defaults.locale} />
-        <Derived label="Timezone" value={defaults.timezone} />
-      </div>
+      <Card variant="subtle" radius="sm">
+        <CardContent className="grid grid-cols-1 gap-4 p-4 text-sm sm:grid-cols-3">
+          <Derived label="Currency" value={defaults.currency} />
+          <Derived label="Locale" value={defaults.locale} />
+          <Derived label="Timezone" value={defaults.timezone} />
+        </CardContent>
+      </Card>
 
       <Field label="Address line 1">
-        <input
+        <Input
           type="text"
           required
           value={line1}
           onChange={(event) => setLine1(event.target.value)}
-          className={inputClass}
         />
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="City">
-          <input
+          <Input
             type="text"
             required
             value={city}
             onChange={(event) => setCity(event.target.value)}
-            className={inputClass}
           />
         </Field>
 
         <Field label="State / region">
-          <input
-            type="text"
-            value={state}
-            onChange={(event) => setState(event.target.value)}
-            className={inputClass}
-          />
+          <Input type="text" value={state} onChange={(event) => setState(event.target.value)} />
         </Field>
       </div>
 
       <Field label="Postal code">
-        <input
+        <Input
           type="text"
           value={postalCode}
           onChange={(event) => setPostalCode(event.target.value)}
-          className={inputClass}
         />
       </Field>
 
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-      >
-        {pending ? 'Creating restaurant…' : 'Continue'}
-      </button>
+      <Button type="submit" disabled={pending} full loading={pending}>
+        Continue
+      </Button>
     </form>
   );
 }
-
-const inputClass =
-  'border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none';
 
 function Field({
   label,
@@ -230,10 +225,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
+    <label className="block space-y-1.5">
+      <Label>{label}</Label>
       {children}
-      {hint ? <p className="text-muted-foreground mt-1 text-xs">{hint}</p> : null}
+      {hint ? <FieldHint>{hint}</FieldHint> : null}
     </label>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateMerchantStatusAction } from '@/app/actions/merchants';
-import { cn } from '@menukaze/ui';
+import { Button, cn } from '@menukaze/ui';
 
 interface MerchantData {
   id: string;
@@ -153,7 +153,9 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
               Are you sure you want to <strong>{confirm}</strong> this merchant?
             </p>
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 disabled={busy}
                 onClick={() =>
                   handleStatusChange(
@@ -167,40 +169,48 @@ export function MerchantDetail({ data }: { data: MerchantData }) {
                 className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 {busy ? 'Processing...' : 'Confirm'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="plain"
+                size="none"
                 onClick={() => setConfirm(null)}
                 className="border-input rounded-md border px-3 py-1.5 text-sm"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {data.status !== 'active' && (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 onClick={() => setConfirm('activate')}
                 className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white"
               >
                 Activate
-              </button>
+              </Button>
             )}
             {data.status !== 'suspended' && data.status !== 'cancelled' && (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 onClick={() => setConfirm('suspend')}
                 className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white"
               >
                 Suspend
-              </button>
+              </Button>
             )}
             {data.status !== 'cancelled' && (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 onClick={() => setConfirm('deactivate')}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white"
               >
                 Deactivate
-              </button>
+              </Button>
             )}
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button, FieldError, FieldHint, Input, Label } from '@menukaze/ui';
 import { connectRazorpayAction } from '@/app/actions/razorpay';
 
 export function RazorpayConnectForm() {
@@ -32,9 +33,9 @@ export function RazorpayConnectForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium">Key ID</span>
-        <input
+      <label className="block space-y-1.5">
+        <Label>Key ID</Label>
+        <Input
           type="text"
           required
           placeholder="rzp_test_XXXXXXXXXXXX"
@@ -42,38 +43,34 @@ export function RazorpayConnectForm() {
           onChange={(event) => setKeyId(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="font-mono"
         />
-        <p className="text-muted-foreground mt-1 text-xs">
+        <FieldHint>
           Test-mode key IDs start with <span className="font-mono">rzp_test_</span>.
-        </p>
+        </FieldHint>
       </label>
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium">Key Secret</span>
-        <input
+      <label className="block space-y-1.5">
+        <Label>Key Secret</Label>
+        <Input
           type="password"
           required
           value={keySecret}
           onChange={(event) => setKeySecret(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="font-mono"
         />
-        <p className="text-muted-foreground mt-1 text-xs">
+        <FieldHint>
           Stored AES-256-GCM envelope-encrypted. Never shown again in plaintext.
-        </p>
+        </FieldHint>
       </label>
 
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-      >
-        {pending ? 'Verifying with Razorpay…' : 'Connect Razorpay and continue'}
-      </button>
+      <Button type="submit" disabled={pending} full loading={pending}>
+        Connect Razorpay and continue
+      </Button>
     </form>
   );
 }

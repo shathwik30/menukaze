@@ -10,7 +10,7 @@ import {
   type OrderStatus,
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
-import { Badge, Button, EmptyState, Kbd, cn, type BadgeProps } from '@menukaze/ui';
+import { Badge, type BadgeProps, Button, Checkbox, cn, EmptyState, Kbd } from '@menukaze/ui';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { advanceOrderLinesAction } from '@/app/actions/stations';
 
@@ -240,8 +240,7 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
                 soundEnabled && 'translate-x-4',
               )}
             />
-            <input
-              type="checkbox"
+            <Checkbox
               checked={soundEnabled}
               onChange={(e) => setSoundEnabled(e.target.checked)}
               className="sr-only"
@@ -253,7 +252,9 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
           {CHANNEL_FILTERS.map((f) => {
             const active = channelFilter === f.id;
             return (
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 key={f.id}
                 type="button"
                 onClick={() => setChannelFilter(f.id)}
@@ -265,7 +266,7 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
                 )}
               >
                 {f.label}
-              </button>
+              </Button>
             );
           })}
         </div>

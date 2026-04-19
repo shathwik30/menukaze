@@ -2,22 +2,23 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { WEBHOOK_EVENT_TYPES } from '@menukaze/shared';
 import {
   Badge,
+  type BadgeProps,
   Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  Checkbox,
+  cn,
   EmptyState,
   FieldError,
   Input,
   Label,
-  cn,
-  type BadgeProps,
 } from '@menukaze/ui';
+import { WEBHOOK_EVENT_TYPES } from '@menukaze/shared';
 import {
   createWebhookSubscriptionAction,
   deleteWebhookSubscriptionAction,
@@ -235,8 +236,7 @@ export function WebhooksManager({
                         </svg>
                       ) : null}
                     </span>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       className="sr-only"
                       checked={active}
                       onChange={() => toggleEvent(event)}

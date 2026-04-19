@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { maxSelectionsForModifierGroup, validateModifierSelection } from '@menukaze/shared';
+import { Button, Checkbox, FieldError, cn } from '@menukaze/ui';
 import { useRoundCart } from '@/stores/cart';
 
 interface ModifierOption {
@@ -129,31 +130,33 @@ export function RoundItemAddButton({
 
   if (modifiers.length === 0) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => {
           addLine({ itemId, name, priceMinor, modifiers: [] });
           flashAdded();
         }}
-        className="border-input rounded-md border px-2 py-1 text-xs"
+        variant="outline"
+        size="xs"
       >
         {justAdded ? 'Added ✓' : 'Add'}
-      </button>
+      </Button>
     );
   }
 
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={() => {
           setError(null);
           setOpen(true);
         }}
-        className="border-input rounded-md border px-2 py-1 text-xs"
+        variant="outline"
+        size="xs"
       >
         {justAdded ? 'Added ✓' : 'Customize'}
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -171,13 +174,9 @@ export function RoundItemAddButton({
                   Base price {formatMoney(priceMinor)}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={resetConfigurator}
-                className="text-muted-foreground text-xs underline"
-              >
+              <Button type="button" onClick={resetConfigurator} variant="link" size="xs">
                 Close
-              </button>
+              </Button>
             </div>
 
             <div className="mt-4 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
@@ -209,15 +208,15 @@ export function RoundItemAddButton({
                         return (
                           <label
                             key={option.name}
-                            className={
+                            className={cn(
+                              'flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors',
                               active
-                                ? 'border-foreground bg-accent flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm'
-                                : 'border-input flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm'
-                            }
+                                ? 'border-foreground bg-accent'
+                                : 'border-input hover:bg-muted/40',
+                            )}
                           >
                             <span className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={active}
                                 onChange={() => toggleOption(group, option.name)}
                               />
@@ -235,21 +234,13 @@ export function RoundItemAddButton({
               })}
             </div>
 
-            {error ? (
-              <p className="bg-destructive/10 text-destructive mt-4 rounded-md px-3 py-2 text-xs">
-                {error}
-              </p>
-            ) : null}
+            {error ? <FieldError className="mt-4">{error}</FieldError> : null}
 
             <div className="mt-4 flex items-center justify-between gap-3">
               <span className="text-sm font-semibold">{formatMoney(previewTotalMinor)}</span>
-              <button
-                type="button"
-                onClick={addConfiguredItem}
-                className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold"
-              >
+              <Button type="button" onClick={addConfiguredItem} size="sm">
                 Add to round
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Eyebrow, Input, cn } from '@menukaze/ui';
+import { Badge, Button, Eyebrow, Input, cn } from '@menukaze/ui';
 import { AddToCartButton } from './add-to-cart-button';
 
 interface MenuSummary {
@@ -77,10 +77,12 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
               {menus.map((menu) => {
                 const active = menu.id === activeMenuId;
                 return (
-                  <button
+                  <Button
                     key={menu.id}
                     type="button"
                     onClick={() => setActiveMenuId(menu.id)}
+                    variant="plain"
+                    size="none"
                     className={cn(
                       'relative -mb-px px-1 py-3.5 text-sm font-medium whitespace-nowrap transition-colors',
                       active
@@ -96,7 +98,7 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
                         active ? 'scale-x-100' : 'scale-x-0',
                       )}
                     />
-                  </button>
+                  </Button>
                 );
               })}
             </nav>
@@ -154,16 +156,18 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
                 <p className="text-ink-600 dark:text-ink-400 font-serif text-xl">
                   No dishes match your search.
                 </p>
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setQuery('');
                     setActiveTag(null);
                   }}
-                  className="text-saffron-700 hover:text-saffron-800 mt-3 text-sm font-medium underline underline-offset-4 transition-colors"
+                  variant="link"
+                  size="sm"
+                  className="text-saffron-700 hover:text-saffron-800 mt-3"
                 >
                   Clear filters
-                </button>
+                </Button>
               </div>
             );
           }
@@ -249,13 +253,15 @@ function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
       {categories.map((category) => {
         const active = category.id === activeId;
         return (
-          <button
+          <Button
             key={category.id}
             type="button"
             role="tab"
             aria-selected={active}
             data-category-id={category.id}
             onClick={() => jumpTo(category.id)}
+            variant="plain"
+            size="none"
             className={cn(
               'shrink-0 rounded-full border px-4 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors',
               active
@@ -264,7 +270,7 @@ function CategoryChipNav({ categories }: { categories: CategorySummary[] }) {
             )}
           >
             {category.name}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -281,9 +287,11 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
+      variant="plain"
+      size="none"
       className={cn(
         'inline-flex h-8 items-center rounded-full px-3.5 text-xs font-medium transition-all duration-200',
         active
@@ -292,7 +300,7 @@ function FilterChip({
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

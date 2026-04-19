@@ -1,6 +1,7 @@
 'use client';
 
 import { captureException } from '@menukaze/monitoring';
+import { Button } from '@menukaze/ui';
 import { useEffect } from 'react';
 
 export default function GlobalError({
@@ -29,7 +30,9 @@ export default function GlobalError({
         <div style={{ maxWidth: 420, textAlign: 'center' }}>
           <h1 style={{ fontSize: 24, margin: 0 }}>We&apos;re having trouble</h1>
           <p style={{ marginTop: 8, color: '#666' }}>Please reload, or ask your server for help.</p>
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={reset}
             style={{
@@ -43,7 +46,7 @@ export default function GlobalError({
             }}
           >
             Reload
-          </button>
+          </Button>
         </div>
       </body>
     </html>

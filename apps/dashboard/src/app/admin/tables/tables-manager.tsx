@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Input } from '@menukaze/ui';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
@@ -162,13 +163,15 @@ export function TablesManager({
             {connected ? 'Live table sync is active' : 'Connecting live table sync…'}
           </p>
           {alerts.length > 0 ? (
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={() => setAlerts([])}
               className="text-muted-foreground text-xs underline"
             >
               Clear alerts
-            </button>
+            </Button>
           ) : null}
         </div>
         {alerts.length > 0 ? (
@@ -184,13 +187,15 @@ export function TablesManager({
                     {new Date(alert.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="plain"
+                  size="none"
                   type="button"
                   onClick={() => setAlerts((prev) => prev.filter((item) => item.id !== alert.id))}
                   className="text-xs underline"
                 >
                   Dismiss
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -283,7 +288,7 @@ function CreateTableForm({
     >
       <label className="flex flex-col gap-1 text-xs">
         Number
-        <input
+        <Input
           type="number"
           min="1"
           value={number}
@@ -293,7 +298,7 @@ function CreateTableForm({
       </label>
       <label className="flex flex-col gap-1 text-xs">
         Name (optional)
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -303,7 +308,7 @@ function CreateTableForm({
       </label>
       <label className="flex flex-col gap-1 text-xs">
         Capacity
-        <input
+        <Input
           type="number"
           min="1"
           value={capacity}
@@ -313,7 +318,7 @@ function CreateTableForm({
       </label>
       <label className="flex flex-col gap-1 text-xs">
         Zone (optional)
-        <input
+        <Input
           type="text"
           value={zone}
           onChange={(e) => setZone(e.target.value)}
@@ -321,13 +326,15 @@ function CreateTableForm({
           className="border-input bg-background h-9 w-36 rounded-md border px-2 text-sm"
         />
       </label>
-      <button
+      <Button
+        variant="plain"
+        size="none"
         type="submit"
         disabled={pending}
         className="bg-primary text-primary-foreground h-9 rounded-md px-4 text-sm font-medium disabled:opacity-50"
       >
         Add table
-      </button>
+      </Button>
     </form>
   );
 }
@@ -412,100 +419,116 @@ function TableCard({
           }}
           className="mt-3 flex flex-col gap-2"
         >
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="border-input bg-background h-8 rounded-md border px-2 text-xs"
           />
-          <input
+          <Input
             type="number"
             min="1"
             value={capacity}
             onChange={(e) => setCapacity(e.target.value)}
             className="border-input bg-background h-8 rounded-md border px-2 text-xs"
           />
-          <input
+          <Input
             type="text"
             value={zone}
             onChange={(e) => setZone(e.target.value)}
             className="border-input bg-background h-8 rounded-md border px-2 text-xs"
           />
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="submit"
               disabled={pending}
               className="bg-primary text-primary-foreground h-8 rounded-md px-3 text-xs disabled:opacity-50"
             >
               Save
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={() => setEditing(false)}
               className="border-input h-8 rounded-md border px-3 text-xs"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {canPrintQr ? (
-            <button
+            <Button
+              variant="plain"
+              size="none"
               type="button"
               onClick={() => window.open(`/admin/tables/${table.id}/print`, '_blank')}
               className="border-input rounded-md border px-2 py-1"
             >
               Print
-            </button>
+            </Button>
           ) : null}
           {canEdit ? (
             <>
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 onClick={() => setEditing(true)}
                 className="border-input rounded-md border px-2 py-1"
               >
                 Edit
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 disabled={pending}
                 onClick={onRegenerate}
                 className="border-input rounded-md border px-2 py-1 disabled:opacity-50"
               >
                 New QR
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 disabled={pending}
                 onClick={onDelete}
                 className="text-destructive rounded-md px-2 py-1 disabled:opacity-50"
               >
                 Delete
-              </button>
+              </Button>
             </>
           ) : null}
           {canProcessPayments &&
           table.activeSessionId &&
           (table.status === 'bill_requested' || table.status === 'needs_review') ? (
             <>
-              <button
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 disabled={pending}
                 onClick={() => onSettleAtCounter('cash')}
                 className="rounded-md bg-emerald-600 px-2 py-1 text-white disabled:opacity-50"
               >
                 Settle cash
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="plain"
+                size="none"
                 type="button"
                 disabled={pending}
                 onClick={() => onSettleAtCounter('terminal')}
                 className="rounded-md bg-blue-600 px-2 py-1 text-white disabled:opacity-50"
               >
                 Settle terminal
-              </button>
+              </Button>
             </>
           ) : null}
         </div>

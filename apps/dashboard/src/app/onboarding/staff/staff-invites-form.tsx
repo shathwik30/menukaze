@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { Button, Card, FieldError, FieldHint, Input, Label, Radio, cn } from '@menukaze/ui';
 import { inviteStaffAction, revokeInviteAction } from '@/app/actions/staff';
 import { completeStaffStepAction } from '@/app/actions/onboarding';
 
@@ -92,21 +93,20 @@ export function StaffInvitesForm({
   return (
     <div className="flex flex-col gap-6">
       {canInvite ? (
-        <section className="border-border space-y-3 rounded-md border p-4">
+        <Card className="space-y-3 p-4">
           <h2 className="text-base font-semibold">Add a teammate</h2>
-          <p className="text-muted-foreground text-xs">
+          <FieldHint>
             {slotsLeft} of 3 invite slot{slotsLeft === 1 ? '' : 's'} left during onboarding. Add
             more from <span className="font-mono">Staff</span> later.
-          </p>
+          </FieldHint>
           <div className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Email</span>
-              <input
+            <label className="flex flex-col gap-1.5 text-sm">
+              <Label>Email</Label>
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="teammate@example.com"
-                className="border-border h-9 rounded-md border px-3"
                 autoComplete="off"
                 disabled={inviteDisabled}
               />
@@ -116,19 +116,18 @@ export function StaffInvitesForm({
               {ROLE_OPTIONS.map((option) => (
                 <label
                   key={option.value}
-                  className={`border-border flex cursor-pointer flex-col gap-0.5 rounded-md border p-2 text-sm ${
-                    role === option.value ? 'bg-accent' : 'hover:bg-muted/40'
-                  }`}
+                  className={cn(
+                    'border-border flex cursor-pointer flex-col gap-0.5 rounded-md border p-2 text-sm transition-colors',
+                    role === option.value ? 'bg-accent' : 'hover:bg-muted/40',
+                  )}
                 >
                   <span className="flex items-center gap-2">
-                    <input
-                      type="radio"
+                    <Radio
                       name="role"
                       value={option.value}
                       checked={role === option.value}
                       onChange={() => setRole(option.value)}
                       disabled={inviteDisabled}
-                      className="h-3 w-3"
                     />
                     <span className="font-medium">{option.label}</span>
                   </span>
@@ -136,18 +135,19 @@ export function StaffInvitesForm({
                 </label>
               ))}
             </fieldset>
-            <button
+            <Button
               type="button"
               onClick={onInvite}
               disabled={inviteDisabled || !email || inviting}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 w-fit items-center rounded-md px-3 text-sm font-medium disabled:opacity-50"
+              loading={inviting}
+              className="w-fit"
             >
-              {inviting ? 'Sending…' : 'Send invite'}
-            </button>
+              Send invite
+            </Button>
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <FieldError>{error}</FieldError> : null}
           {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
-        </section>
+        </Card>
       ) : (
         <p className="text-muted-foreground text-sm">
           You don&apos;t have permission to invite staff during onboarding. Continue to go-live and
@@ -156,7 +156,7 @@ export function StaffInvitesForm({
       )}
 
       {existingInvites.length > 0 ? (
-        <section className="border-border space-y-2 rounded-md border p-4">
+        <Card className="space-y-2 p-4">
           <h2 className="text-base font-semibold">Pending invites</h2>
           <ul className="divide-border divide-y text-sm">
             {existingInvites.map((invite) => (
@@ -167,14 +167,16 @@ export function StaffInvitesForm({
                     {invite.role}
                   </span>
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => onRevoke(invite.id)}
                   disabled={revoking && revokingId === invite.id}
-                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  variant="link"
+                  size="xs"
+                  className="text-red-600"
                 >
                   {revoking && revokingId === invite.id ? 'Revoking…' : 'Revoke'}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -182,22 +184,13 @@ export function StaffInvitesForm({
             {existingMemberCount} active member{existingMemberCount === 1 ? '' : 's'} on the team
             today.
           </p>
-        </section>
+        </Card>
       ) : null}
 
       <div className="flex items-center justify-end">
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={continuing}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-50"
-        >
-          {continuing
-            ? 'Continuing…'
-            : existingInvites.length === 0
-              ? 'Skip & continue'
-              : 'Continue'}
-        </button>
+        <Button type="button" onClick={onContinue} disabled={continuing} loading={continuing}>
+          {existingInvites.length === 0 ? 'Skip & continue' : 'Continue'}
+        </Button>
       </div>
     </div>
   );

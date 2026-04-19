@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { maxSelectionsForModifierGroup, validateModifierSelection } from '@menukaze/shared';
+import { Button, Checkbox, FieldError, cn } from '@menukaze/ui';
 import { useKioskCart } from '@/stores/cart';
 
 interface ModifierOption {
@@ -121,13 +122,15 @@ export function ItemConfigurator({
             {description ? <p className="mt-2 text-base text-zinc-600">{description}</p> : null}
             <p className="mt-2 text-sm font-bold text-zinc-500">Base {fmt(priceMinor)}</p>
           </div>
-          <button
+          <Button
             type="button"
             onClick={onClose}
-            className="h-12 rounded-lg border border-zinc-300 px-4 text-sm font-bold active:bg-zinc-100"
+            variant="outline"
+            size="lg"
+            className="font-bold active:bg-zinc-100"
           >
             Close
-          </button>
+          </Button>
         </div>
 
         <div className="flex max-h-[55vh] flex-col gap-4 overflow-y-auto pr-1">
@@ -159,16 +162,16 @@ export function ItemConfigurator({
                     return (
                       <label
                         key={option.name}
-                        className={`flex min-h-14 cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors ${
+                        className={cn(
+                          'flex min-h-14 cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors',
                           active
                             ? 'border-emerald-600 bg-emerald-50'
-                            : 'border-zinc-200 bg-white active:bg-zinc-50'
-                        }`}
+                            : 'border-zinc-200 bg-white active:bg-zinc-50',
+                        )}
                       >
                         <span className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="h-6 w-6 accent-emerald-600"
+                          <Checkbox
+                            className="size-6"
                             checked={active}
                             onChange={() => toggleOption(group, option.name)}
                           />
@@ -187,9 +190,9 @@ export function ItemConfigurator({
         </div>
 
         {error ? (
-          <p className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
+          <FieldError className="mt-4 rounded-lg bg-rose-100 px-4 py-3 text-sm font-bold text-rose-800">
             {error}
-          </p>
+          </FieldError>
         ) : null}
 
         <div className="mt-5 flex items-center justify-between gap-4">
@@ -197,13 +200,15 @@ export function ItemConfigurator({
             <p className="text-xs font-bold tracking-[0.2em] text-zinc-500 uppercase">Item total</p>
             <span className="font-mono text-2xl font-black">{fmt(previewTotal)}</span>
           </div>
-          <button
+          <Button
             type="button"
             onClick={addToCart}
-            className="h-16 flex-1 rounded-lg bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400"
+            variant="accent"
+            size="2xl"
+            className="h-16 flex-1 bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400"
           >
             Add to order
-          </button>
+          </Button>
         </div>
       </div>
     </div>

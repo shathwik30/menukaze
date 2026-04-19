@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toggleGlobalFlagAction } from '@/app/actions/flags';
-import { cn } from '@menukaze/ui';
+import { Button, cn } from '@menukaze/ui';
 
 interface FlagRow {
   key: string;
@@ -52,7 +52,9 @@ export function FlagsList({ rows }: { rows: FlagRow[] }) {
                 <td className="px-4 py-3 font-mono text-xs">{f.key}</td>
                 <td className="px-4 py-3">{f.label}</td>
                 <td className="px-4 py-3">
-                  <button
+                  <Button
+                    variant="plain"
+                    size="none"
                     disabled={busy === f.key}
                     onClick={() => toggle(f.key, f.globallyEnabled)}
                     className={cn(
@@ -66,7 +68,7 @@ export function FlagsList({ rows }: { rows: FlagRow[] }) {
                         f.globallyEnabled ? 'translate-x-4' : 'translate-x-0',
                       )}
                     />
-                  </button>
+                  </Button>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">{f.overrideCount}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{f.planGateCount}</td>

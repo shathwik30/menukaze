@@ -1,6 +1,7 @@
 'use client';
 
 import { captureException } from '@menukaze/monitoring';
+import { Button } from '@menukaze/ui';
 import { useEffect } from 'react';
 
 export default function GlobalError({
@@ -37,7 +38,9 @@ export default function GlobalError({
               Ref: {error.digest}
             </p>
           ) : null}
-          <button
+          <Button
+            variant="plain"
+            size="none"
             type="button"
             onClick={reset}
             style={{
@@ -51,7 +54,7 @@ export default function GlobalError({
             }}
           >
             Reload
-          </button>
+          </Button>
         </div>
       </body>
     </html>

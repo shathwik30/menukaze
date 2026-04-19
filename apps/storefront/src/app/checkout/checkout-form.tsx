@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { computeTax, type TaxRule } from '@menukaze/shared';
 import '@menukaze/shared/razorpay-client';
-import { Badge, Button, Card, FieldError, Input, Label, cn } from '@menukaze/ui';
+import { Badge, Button, Card, FieldError, Input, Label, Radio, cn } from '@menukaze/ui';
 import { cartLineKey, cartSubtotalMinor, useCart } from '@/stores/cart';
 import {
   createPaymentIntentAction,
@@ -205,33 +205,39 @@ export function CheckoutForm({
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <div className="border-ink-200 bg-surface dark:border-ink-700 dark:bg-ink-800 inline-flex items-center rounded-full border p-0.5">
-                      <button
+                      <Button
                         type="button"
                         onClick={() => decrement(key)}
+                        variant="plain"
+                        size="none"
                         className="text-ink-600 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-700 flex size-7 items-center justify-center rounded-full transition-colors"
                         aria-label="Decrease"
                       >
                         −
-                      </button>
+                      </Button>
                       <span className="mk-nums w-7 text-center text-sm font-medium tabular-nums">
                         {line.quantity}
                       </span>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => increment(key)}
+                        variant="plain"
+                        size="none"
                         className="text-ink-600 hover:bg-canvas-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-700 flex size-7 items-center justify-center rounded-full transition-colors"
                         aria-label="Increase"
                       >
                         +
-                      </button>
+                      </Button>
                     </div>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => remove(key)}
+                      variant="link"
+                      size="xs"
                       className="text-ink-500 hover:text-mkrose-700 dark:text-ink-400 dark:hover:text-mkrose-400 ml-1 text-xs underline-offset-4 transition-colors hover:underline"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                   <Input
                     type="text"
@@ -290,8 +296,7 @@ export function CheckoutForm({
                       : 'text-ink-500 hover:text-ink-900 dark:text-ink-400 dark:hover:text-canvas-100',
                   )}
                 >
-                  <input
-                    type="radio"
+                  <Radio
                     name="orderType"
                     value={type}
                     checked={active}

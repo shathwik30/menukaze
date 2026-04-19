@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { retirePlanAction, activatePlanAction } from '@/app/actions/plans';
-import { cn } from '@menukaze/ui';
+import { useRouter } from 'next/navigation';
+import { Button, cn } from '@menukaze/ui';
+import { activatePlanAction, retirePlanAction } from '@/app/actions/plans';
 
 interface PlanRow {
   id: string;
@@ -94,13 +94,15 @@ export function PlanList({ rows }: { rows: PlanRow[] }) {
                     >
                       Edit
                     </Link>
-                    <button
+                    <Button
+                      variant="plain"
+                      size="none"
                       disabled={busy === p.id}
                       onClick={() => toggleActive(p.id, p.active)}
                       className="text-muted-foreground text-xs hover:underline disabled:opacity-50"
                     >
                       {p.active ? 'Retire' : 'Activate'}
-                    </button>
+                    </Button>
                   </div>
                 </td>
               </tr>

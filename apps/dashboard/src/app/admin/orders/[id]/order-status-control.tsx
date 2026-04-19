@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@menukaze/ui';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -45,7 +46,9 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
       <span className="text-foreground font-semibold">{status}</span>
       <span className="text-muted-foreground">→</span>
       {transitions.map((t) => (
-        <button
+        <Button
+          variant="plain"
+          size="none"
           key={t.next}
           type="button"
           disabled={isPending}
@@ -79,7 +82,7 @@ export function OrderStatusControl({ orderId, currentStatus }: Props) {
           }
         >
           {isPending ? '…' : t.label}
-        </button>
+        </Button>
       ))}
       {error ? <span className="text-destructive text-xs">{error}</span> : null}
     </div>

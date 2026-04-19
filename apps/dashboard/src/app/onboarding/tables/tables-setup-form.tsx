@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button, FieldError, FieldHint, Input, Label, Radio, cn } from '@menukaze/ui';
 import { createTablesStarterAction } from '@/app/actions/tables';
 
 export function TablesSetupForm() {
@@ -42,9 +43,13 @@ export function TablesSetupForm() {
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium">Do you have dine-in tables?</legend>
 
-        <label className="border-input hover:bg-accent/50 flex cursor-pointer items-start gap-3 rounded-md border p-4">
-          <input
-            type="radio"
+        <label
+          className={cn(
+            'border-input hover:bg-accent/50 flex cursor-pointer items-start gap-3 rounded-md border p-4 transition-colors',
+            hasTables === 'yes' && 'bg-accent',
+          )}
+        >
+          <Radio
             name="hasTables"
             value="yes"
             checked={hasTables === 'yes'}
@@ -59,9 +64,13 @@ export function TablesSetupForm() {
           </div>
         </label>
 
-        <label className="border-input hover:bg-accent/50 flex cursor-pointer items-start gap-3 rounded-md border p-4">
-          <input
-            type="radio"
+        <label
+          className={cn(
+            'border-input hover:bg-accent/50 flex cursor-pointer items-start gap-3 rounded-md border p-4 transition-colors',
+            hasTables === 'no' && 'bg-accent',
+          )}
+        >
+          <Radio
             name="hasTables"
             value="no"
             checked={hasTables === 'no'}
@@ -78,37 +87,28 @@ export function TablesSetupForm() {
       </fieldset>
 
       {hasTables === 'yes' ? (
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">How many tables?</span>
-          <input
+        <label className="block space-y-1.5">
+          <Label>How many tables?</Label>
+          <Input
             type="number"
             min="1"
             max="200"
             required
             value={tableCount}
             onChange={(event) => setTableCount(event.target.value)}
-            className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
-          <p className="text-muted-foreground mt-1 text-xs">
+          <FieldHint>
             We&apos;ll create tables numbered 1 through {tableCount || 'N'} with a default capacity
             of 4. You can edit everything later from the dashboard.
-          </p>
+          </FieldHint>
         </label>
       ) : null}
 
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
-      >
-        {pending
-          ? 'Saving…'
-          : hasTables === 'yes'
-            ? 'Create tables and continue'
-            : 'Skip and continue'}
-      </button>
+      <Button type="submit" disabled={pending} full loading={pending}>
+        {hasTables === 'yes' ? 'Create tables and continue' : 'Skip and continue'}
+      </Button>
     </form>
   );
 }
