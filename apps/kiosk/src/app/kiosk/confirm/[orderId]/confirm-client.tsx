@@ -91,7 +91,7 @@ export function ConfirmClient({
   const pickupNumber = formatPickupNumber(publicOrderId);
 
   return (
-    <div className="bg-ink-950 text-canvas-50 grid h-screen grid-cols-[1.1fr_0.9fr]">
+    <div className="kiosk-confirm-layout bg-ink-950 text-canvas-50 relative">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -101,7 +101,7 @@ export function ConfirmClient({
         }}
       />
 
-      <main className="relative flex min-h-0 flex-col justify-between px-14 py-12">
+      <main className="relative flex min-h-0 flex-col justify-between px-14 py-12 portrait:px-8 portrait:py-10">
         <div>
           <p className="text-jade-300 inline-flex items-center gap-3 text-[13px] font-semibold tracking-[0.28em] uppercase">
             <span className="bg-jade-400 relative inline-flex size-2 rounded-full">
@@ -217,7 +217,7 @@ export function ConfirmClient({
           </ol>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-8">
+        <div className="kiosk-scroll min-h-0 flex-1 p-8">
           <p className="text-ink-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
             Items
           </p>

@@ -15,9 +15,360 @@
     --border: 240 5.9% 88%;
     --input: 240 5.9% 84%;
     --ring: 160 84% 39%;
+    --kiosk-gutter: 2rem;
+    --kiosk-header-height: 6rem;
+    --kiosk-touch-target: 4.5rem;
   }
 
+  html,
   body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  label {
+    touch-action: manipulation;
+  }
+
+  @media (orientation: portrait) {
+    :root {
+      --kiosk-gutter: 2rem;
+      --kiosk-header-height: 8.25rem;
+      --kiosk-touch-target: 5rem;
+    }
+  }
+}
+
+@layer components {
+  .kiosk-screen {
+    height: 100dvh;
+    width: 100dvw;
+    overflow: hidden;
+  }
+
+  .kiosk-header {
+    min-height: var(--kiosk-header-height);
+    padding-inline: max(var(--kiosk-gutter), env(safe-area-inset-left))
+      max(var(--kiosk-gutter), env(safe-area-inset-right));
+  }
+
+  .kiosk-scroll {
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kiosk-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kiosk-attract-layout {
+    display: grid;
+    height: 100%;
+    width: 100%;
+    grid-template-columns: 1.05fr 0.95fr;
+  }
+
+  .kiosk-attract-action {
+    position: relative;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--mk-canvas-50);
+    color: var(--mk-ink-950);
+  }
+
+  .kiosk-start-button {
+    font-size: 34px;
+    background: var(--mk-ink-950);
+    color: var(--mk-canvas-50);
+  }
+
+  .kiosk-start-wrap {
+    max-width: 28rem;
+  }
+
+  .kiosk-attract-title {
+    font-size: 7.25rem;
+  }
+
+  .kiosk-attract-copy {
+    max-width: 36rem;
+    font-size: 22px;
+  }
+
+  .kiosk-step-grid {
+    max-width: 48rem;
+  }
+
+  .kiosk-mode-grid {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 0%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+    padding: var(--kiosk-gutter);
+  }
+
+  .kiosk-menu-shell,
+  .kiosk-checkout-shell {
+    display: grid;
+    height: 100dvh;
+    width: 100dvw;
+    overflow: hidden;
+    grid-template-rows: var(--kiosk-header-height) minmax(0, 1fr);
+  }
+
+  .kiosk-menu-content {
+    display: grid;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 280px minmax(0, 1fr) 400px;
+  }
+
+  .kiosk-menu-content > * {
+    min-width: 0;
+  }
+
+  .kiosk-menu-items {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .kiosk-category-sidebar {
+    min-height: 0;
+    border-right: 1px solid var(--mk-border);
+  }
+
+  .kiosk-menu-list,
+  .kiosk-category-list {
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .kiosk-items-grid {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .kiosk-item-card {
+    min-height: 410px;
+  }
+
+  .kiosk-cart-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--mk-border);
+  }
+
+  .kiosk-cart-summary,
+  .kiosk-cart-totals {
+    min-width: 0;
+    border-color: var(--mk-border);
+  }
+
+  .kiosk-cart-summary {
+    border-bottom: 1px solid var(--mk-border);
+  }
+
+  .kiosk-cart-totals {
+    border-top: 1px solid var(--mk-border);
+  }
+
+  .kiosk-cart-lines {
+    min-width: 0;
+  }
+
+  .kiosk-checkout-content {
+    display: grid;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) 560px;
+  }
+
+  .kiosk-payment-panel {
+    border-left: 1px solid var(--mk-border);
+  }
+
+  .kiosk-confirm-layout {
+    display: grid;
+    height: 100dvh;
+    width: 100dvw;
+    overflow: hidden;
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+
+  @media (orientation: portrait) {
+    .kiosk-attract-layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .kiosk-attract-hero {
+      padding: max(4rem, env(safe-area-inset-top)) 4rem min(42dvh, 760px);
+    }
+
+    .kiosk-attract-action {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      min-height: auto;
+      padding: 0 4rem max(4rem, env(safe-area-inset-bottom));
+      overflow: visible;
+      background: transparent;
+      color: var(--mk-canvas-50);
+    }
+
+    .kiosk-start-card {
+      display: none;
+    }
+
+    .kiosk-start-wrap {
+      max-width: none;
+    }
+
+    .kiosk-start-button {
+      min-height: 9rem;
+      max-width: none;
+      border-radius: 28px;
+      font-size: clamp(3.5rem, 6vw, 4.5rem);
+      background: var(--mk-saffron-500);
+      color: #ffffff;
+      box-shadow: 0 32px 80px -24px oklch(0.04 0.014 90 / 0.85);
+    }
+
+    .kiosk-start-brand {
+      display: none;
+    }
+
+    .kiosk-attract-title {
+      max-width: 860px;
+      font-size: clamp(9rem, 16vw, 12rem);
+    }
+
+    .kiosk-attract-copy {
+      max-width: 760px;
+      font-size: 2rem;
+      line-height: 1.25;
+    }
+
+    .kiosk-step-grid {
+      max-width: 880px;
+    }
+
+    .kiosk-mode-grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+    }
+
+    .kiosk-menu-content {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr) minmax(340px, 22dvh);
+    }
+
+    .kiosk-category-sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--mk-border);
+    }
+
+    .kiosk-menu-list,
+    .kiosk-category-list {
+      flex-direction: row;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+    }
+
+    .kiosk-menu-list::-webkit-scrollbar,
+    .kiosk-category-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .kiosk-menu-tab {
+      min-width: 14rem;
+      min-height: 4.75rem;
+    }
+
+    .kiosk-category-tab {
+      min-width: 15rem;
+      min-height: 5rem;
+    }
+
+    .kiosk-items-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+
+    .kiosk-item-card {
+      min-height: 460px;
+    }
+
+    .kiosk-checkout-content {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 1fr) min(43dvh, 800px);
+    }
+
+    .kiosk-payment-panel,
+    .kiosk-cart-panel {
+      border-left: 0;
+      border-top: 1px solid var(--mk-border);
+    }
+
+    .kiosk-cart-panel {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) 380px;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .kiosk-cart-summary {
+      border-right: 1px solid var(--mk-border);
+      border-bottom: 0;
+    }
+
+    .kiosk-cart-lines {
+      min-height: 0;
+      padding: 1.25rem;
+    }
+
+    .kiosk-cart-totals {
+      border-top: 0;
+      border-left: 1px solid var(--mk-border);
+    }
+
+    .kiosk-confirm-layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 1fr) min(38dvh, 720px);
+    }
+  }
+
+  @media (orientation: portrait) and (max-width: 760px) {
+    .kiosk-items-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (orientation: landscape) {
+    .kiosk-attract-hero,
+    .kiosk-attract-action {
+      padding: 3.5rem;
+    }
+
+    .kiosk-attract-title {
+      font-size: 9rem;
+    }
   }
 }

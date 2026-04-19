@@ -16,13 +16,13 @@ export default function KioskError({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8 text-center">
+    <main className="kiosk-screen flex items-center justify-center p-8 text-center">
       <div className="max-w-lg">
         <h1 className="text-4xl font-bold">Something went wrong</h1>
         <p className="text-muted-foreground mt-4 text-lg">
           Please try again, or ask a staff member for help.
         </p>
-        <Button type="button" onClick={reset} size="xl" className="mt-8">
+        <Button type="button" onClick={reset} size="2xl" className="mt-8">
           Try again
         </Button>
       </div>

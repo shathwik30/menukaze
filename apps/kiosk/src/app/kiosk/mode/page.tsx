@@ -16,8 +16,8 @@ export default function ModeSelectPage() {
   }
 
   return (
-    <main className="bg-canvas-50 text-ink-950 flex h-screen flex-col">
-      <header className="border-ink-100 bg-surface flex h-24 shrink-0 items-center justify-between border-b px-10">
+    <main className="kiosk-screen bg-canvas-50 text-ink-950 flex flex-col">
+      <header className="kiosk-header border-ink-100 bg-surface flex shrink-0 items-center justify-between border-b">
         <Button
           type="button"
           onClick={() => router.push('/kiosk')}
@@ -48,7 +48,7 @@ export default function ModeSelectPage() {
         <div className="w-32" />
       </header>
 
-      <section className="grid min-h-0 flex-1 grid-cols-2 gap-8 p-10">
+      <section className="kiosk-mode-grid">
         <ModeTile
           tone="jade"
           icon={<DineInIcon />}
@@ -98,7 +98,7 @@ function ModeTile({
       onClick={onClick}
       variant="plain"
       size="none"
-      className={`border-ink-100 bg-surface group flex min-h-0 flex-col justify-between rounded-3xl border-2 p-10 text-left shadow-sm transition-all duration-200 hover:shadow-xl active:scale-[0.99] ${activeBorder}`}
+      className={`border-ink-100 bg-surface group flex min-h-0 flex-col justify-between rounded-3xl border-2 p-10 text-left shadow-sm transition-all duration-200 active:scale-[0.99] ${activeBorder}`}
     >
       <span
         className={`inline-flex size-20 items-center justify-center rounded-2xl ring-1 ring-inset [&_svg]:size-10 ${accent}`}
@@ -106,7 +106,7 @@ function ModeTile({
         {icon}
       </span>
       <span>
-        <span className="text-ink-950 block font-serif text-[5.5rem] leading-[0.9] font-medium tracking-tight">
+        <span className="text-ink-950 block font-serif text-[4.5rem] leading-[0.9] font-medium tracking-tight landscape:text-[5.5rem]">
           {label}
         </span>
         <span className="text-ink-500 mt-5 block max-w-md text-2xl leading-snug">
@@ -124,7 +124,7 @@ function ModeTile({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="size-7 transition-transform duration-300 group-hover:translate-x-1"
+          className="size-7"
           aria-hidden
         >
           <path d="M5 12h14M13 5l7 7-7 7" />

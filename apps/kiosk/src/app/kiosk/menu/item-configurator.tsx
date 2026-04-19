@@ -106,11 +106,11 @@ export function ItemConfigurator({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6 portrait:p-8"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-t-lg bg-white p-6 text-zinc-950 shadow-2xl sm:rounded-lg"
+        className="flex h-full w-full max-w-5xl flex-col rounded-lg bg-white p-8 text-zinc-950 shadow-2xl landscape:max-h-[92dvh] landscape:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -127,13 +127,13 @@ export function ItemConfigurator({
             onClick={onClose}
             variant="outline"
             size="lg"
-            className="font-bold active:bg-zinc-100"
+            className="h-16 px-8 text-lg font-bold active:bg-zinc-100"
           >
             Close
           </Button>
         </div>
 
-        <div className="flex max-h-[55vh] flex-col gap-4 overflow-y-auto pr-1">
+        <div className="kiosk-scroll flex min-h-0 flex-1 flex-col gap-4 pr-1">
           {modifiers.map((group) => {
             const optionNames = selected[group.name] ?? [];
             const limit = maxSelectionsForModifierGroup(group);
@@ -146,7 +146,7 @@ export function ItemConfigurator({
                     ? 'Optional'
                     : `Optional · up to ${limit}`;
             return (
-              <section key={group.name} className="rounded-lg border border-zinc-200 p-4">
+              <section key={group.name} className="rounded-lg border border-zinc-200 p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <p className="text-lg font-black">{group.name}</p>
@@ -163,7 +163,7 @@ export function ItemConfigurator({
                       <label
                         key={option.name}
                         className={cn(
-                          'flex min-h-14 cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors',
+                          'flex min-h-[4.5rem] cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors',
                           active
                             ? 'border-emerald-600 bg-emerald-50'
                             : 'border-zinc-200 bg-white active:bg-zinc-50',
@@ -175,9 +175,9 @@ export function ItemConfigurator({
                             checked={active}
                             onChange={() => toggleOption(group, option.name)}
                           />
-                          <span className="text-base font-bold">{option.name}</span>
+                          <span className="text-lg font-bold">{option.name}</span>
                         </span>
-                        <span className="font-mono text-sm font-bold text-zinc-600">
+                        <span className="font-mono text-base font-bold text-zinc-600">
                           {option.priceMinor === 0 ? 'Included' : `+${option.priceLabel}`}
                         </span>
                       </label>
@@ -205,7 +205,7 @@ export function ItemConfigurator({
             onClick={addToCart}
             variant="accent"
             size="2xl"
-            className="h-16 flex-1 bg-emerald-500 text-xl font-black text-zinc-950 active:bg-emerald-400"
+            className="h-20 flex-1 bg-emerald-500 text-2xl font-black text-zinc-950 active:bg-emerald-400"
           >
             Add to order
           </Button>

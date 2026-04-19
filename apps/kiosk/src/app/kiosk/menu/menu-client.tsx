@@ -140,8 +140,8 @@ export function MenuClient({
   }
 
   return (
-    <div className="bg-canvas-50 text-ink-950 grid h-screen grid-rows-[96px_minmax(0,1fr)]">
-      <header className="border-ink-100 bg-surface flex items-center justify-between border-b px-8">
+    <div className="kiosk-menu-shell bg-canvas-50 text-ink-950">
+      <header className="kiosk-header border-ink-100 bg-surface flex items-center justify-between border-b">
         <Button
           type="button"
           onClick={() => router.push('/kiosk/mode')}
@@ -177,9 +177,9 @@ export function MenuClient({
         </Badge>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[260px_minmax(0,1fr)_380px]">
+      <div className="kiosk-menu-content max-w-full min-w-0">
         {/* Categories sidebar */}
-        <aside className="border-ink-100 bg-surface flex min-h-0 flex-col border-r">
+        <aside className="kiosk-category-sidebar border-ink-100 bg-surface flex min-h-0 min-w-0 flex-col">
           <div className="border-ink-100 border-b p-5">
             <Eyebrow tone="accent">Menu</Eyebrow>
             <p className="text-ink-950 mt-2 font-serif text-xl font-medium tracking-tight">
@@ -189,7 +189,7 @@ export function MenuClient({
 
           {menus.length > 1 ? (
             <div className="border-ink-100 border-b p-3">
-              <div className="flex flex-col gap-1.5">
+              <div className="kiosk-menu-list kiosk-scroll flex gap-2">
                 {menus.map((menu) => {
                   const active = menu.id === activeMenuId;
                   return (
@@ -200,7 +200,7 @@ export function MenuClient({
                       variant="plain"
                       size="none"
                       className={cn(
-                        'min-h-11 rounded-xl px-4 text-left text-sm font-medium transition-colors',
+                        'kiosk-menu-tab min-h-11 rounded-xl px-4 text-left text-sm font-medium transition-colors',
                         active
                           ? 'bg-ink-950 text-canvas-50'
                           : 'bg-canvas-100 text-ink-700 active:bg-canvas-200',
@@ -214,7 +214,7 @@ export function MenuClient({
             </div>
           ) : null}
 
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+          <div className="kiosk-category-list kiosk-scroll flex min-h-0 flex-1 gap-2 p-3">
             {visibleCategories.map((cat) => {
               const active = cat.id === activeCategoryId;
               const count = items.filter((i) => i.categoryId === cat.id && !i.soldOut).length;
@@ -226,10 +226,10 @@ export function MenuClient({
                   variant="plain"
                   size="none"
                   className={cn(
-                    'group flex min-h-16 items-center justify-between rounded-2xl px-4 text-left transition-all duration-200 active:scale-[0.99]',
+                    'kiosk-category-tab group flex min-h-16 items-center justify-between rounded-2xl px-4 text-left transition-all duration-200 active:scale-[0.99]',
                     active
                       ? 'bg-saffron-500 text-ink-950 shadow-[0_8px_24px_-8px_oklch(0.615_0.180_44/0.5)]'
-                      : 'bg-canvas-100 text-ink-800 hover:bg-canvas-200',
+                      : 'bg-canvas-100 text-ink-800 active:bg-canvas-200',
                   )}
                 >
                   <span className="font-serif text-lg font-medium tracking-tight">{cat.name}</span>
@@ -248,7 +248,7 @@ export function MenuClient({
         </aside>
 
         {/* Items grid */}
-        <main className="min-h-0 overflow-y-auto p-8">
+        <main className="kiosk-menu-items kiosk-scroll min-h-0 min-w-0 overflow-x-hidden p-8">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <Eyebrow tone="accent">{activeCategoryName ?? 'Items'}</Eyebrow>
@@ -268,7 +268,7 @@ export function MenuClient({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5">
+            <div className="kiosk-items-grid w-full max-w-full">
               {visibleItems.map((item) => {
                 const inCart = lines.reduce(
                   (sum, l) => (l.itemId === item.id ? sum + l.quantity : sum),
@@ -279,17 +279,13 @@ export function MenuClient({
                   <article
                     key={item.id}
                     className={cn(
-                      'border-ink-100 bg-surface group flex min-h-[400px] flex-col overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl',
+                      'kiosk-item-card border-ink-100 bg-surface group flex flex-col overflow-hidden rounded-2xl border shadow-sm transition-all duration-300',
                       item.soldOut && 'opacity-60',
                     )}
                   >
                     <div className="bg-canvas-100 relative aspect-[4/3] overflow-hidden">
                       {item.imageUrl ? (
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
+                        <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="from-canvas-100 to-canvas-300 flex h-full w-full items-center justify-center bg-gradient-to-br">
                           <span className="text-ink-300 font-serif text-5xl font-medium">
@@ -345,7 +341,7 @@ export function MenuClient({
                               'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
                                 ? 'bg-jade-500 text-white'
-                                : 'bg-ink-950 text-canvas-50 hover:bg-ink-900',
+                                : 'bg-ink-950 text-canvas-50 active:bg-ink-900',
                             )}
                           >
                             {isJustAdded ? (
@@ -368,7 +364,7 @@ export function MenuClient({
                               'h-14 w-full rounded-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.98]',
                               isJustAdded
                                 ? 'bg-jade-500 text-white'
-                                : 'bg-saffron-500 hover:bg-saffron-600 text-white shadow-[0_6px_16px_-4px_oklch(0.615_0.180_44/0.4)]',
+                                : 'bg-saffron-500 active:bg-saffron-600 text-white shadow-[0_6px_16px_-4px_oklch(0.615_0.180_44/0.4)]',
                             )}
                           >
                             {isJustAdded ? (
@@ -394,8 +390,8 @@ export function MenuClient({
         </main>
 
         {/* Cart sidebar */}
-        <aside className="border-ink-100 bg-surface flex min-h-0 flex-col border-l">
-          <div className="border-ink-100 border-b p-5">
+        <aside className="kiosk-cart-panel border-ink-100 bg-surface min-h-0 max-w-full min-w-0">
+          <div className="kiosk-cart-summary p-5">
             <Eyebrow tone="accent">Current order</Eyebrow>
             <div className="mt-2 flex items-end justify-between">
               <p className="text-ink-950 font-serif text-5xl leading-none font-medium tracking-tight">
@@ -407,9 +403,9 @@ export function MenuClient({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="kiosk-cart-lines kiosk-scroll min-h-0 flex-1 p-5">
             {lines.length === 0 ? (
-              <div className="border-ink-200 bg-canvas-50/50 flex h-full flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center">
+              <div className="border-ink-200 bg-canvas-50/50 flex h-full flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center portrait:p-4">
                 <div className="bg-canvas-100 text-ink-400 mb-4 flex size-14 items-center justify-center rounded-2xl">
                   <CartIcon />
                 </div>
@@ -485,7 +481,7 @@ export function MenuClient({
             )}
           </div>
 
-          <div className="border-ink-100 border-t p-5">
+          <div className="kiosk-cart-totals p-5">
             {belowMinimum ? (
               <div className="border-saffron-200 bg-saffron-50 text-saffron-900 mb-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium">
                 Minimum order is{' '}
@@ -498,12 +494,16 @@ export function MenuClient({
             <div className="space-y-1.5 text-sm">
               <div className="text-ink-600 flex justify-between">
                 <span>Subtotal</span>
-                <span className="mk-nums font-mono tabular-nums">{fmt(subtotal)}</span>
+                <span className="mk-nums font-mono font-semibold tabular-nums">
+                  {fmt(subtotal)}
+                </span>
               </div>
               {taxMinor > 0 ? (
                 <div className="text-ink-600 flex justify-between">
                   <span>Tax</span>
-                  <span className="mk-nums font-mono tabular-nums">{fmt(taxMinor)}</span>
+                  <span className="mk-nums font-mono font-semibold tabular-nums">
+                    {fmt(taxMinor)}
+                  </span>
                 </div>
               ) : null}
               <div className="border-ink-200 flex items-end justify-between border-t pt-3 text-lg font-medium">
@@ -523,10 +523,11 @@ export function MenuClient({
                 'mt-5 flex h-16 w-full items-center justify-center gap-3 rounded-2xl font-serif text-xl font-medium tracking-tight transition-all duration-200 active:scale-[0.99]',
                 itemCount === 0 || belowMinimum
                   ? 'bg-canvas-200 text-ink-400'
-                  : 'bg-ink-950 text-canvas-50 hover:bg-ink-900 shadow-[0_16px_40px_-12px_oklch(0.14_0.016_90/0.45)]',
+                  : 'bg-ink-950 text-canvas-50 active:bg-ink-900 shadow-[0_16px_40px_-12px_oklch(0.14_0.016_90/0.45)]',
               )}
             >
-              Review &amp; pay
+              <span>Review &amp; pay</span>
+              <span className="mk-nums font-mono text-base tabular-nums">{fmt(total)}</span>
               <svg
                 viewBox="0 0 24 24"
                 fill="none"

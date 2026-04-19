@@ -24,7 +24,7 @@ export default async function AttractScreen() {
   }
 
   return (
-    <main className="bg-ink-950 text-canvas-50 relative h-screen w-screen overflow-hidden">
+    <main className="kiosk-screen bg-ink-950 text-canvas-50 relative">
       <script
         nonce={nonce}
         type="application/json"
@@ -51,8 +51,8 @@ export default async function AttractScreen() {
         }}
       />
 
-      <div className="relative grid h-full w-full grid-cols-[1.05fr_0.95fr]">
-        <section className="flex min-h-0 flex-col justify-between px-14 py-14">
+      <div className="kiosk-attract-layout relative">
+        <section className="kiosk-attract-hero flex min-h-0 flex-col justify-between gap-10">
           <div className="flex items-center gap-5">
             {logoUrl ? (
               <img
@@ -78,22 +78,22 @@ export default async function AttractScreen() {
 
           <div>
             <p className="text-canvas-50/60 text-2xl font-medium">Welcome to {restaurant.name}</p>
-            <h1 className="text-canvas-50 mt-4 font-serif text-[9rem] leading-[0.88] font-medium tracking-[-0.04em]">
+            <h1 className="kiosk-attract-title text-canvas-50 mt-4 font-serif leading-[0.88] font-medium tracking-[-0.04em]">
               Tap to <span className="text-saffron-400 italic">order.</span>
             </h1>
-            <p className="text-canvas-50/70 mt-8 max-w-xl text-[22px] leading-snug">
+            <p className="kiosk-attract-copy text-canvas-50/70 mt-8 leading-snug">
               Choose your dishes, pay here, and keep your pickup number for collection.
             </p>
           </div>
 
-          <div className="grid max-w-3xl grid-cols-3 gap-4">
+          <div className="kiosk-step-grid grid grid-cols-3 gap-4">
             <StepCard n={1} label="Choose" detail="Browse the live menu." />
             <StepCard n={2} label="Pay" detail="Secure checkout in seconds." />
             <StepCard n={3} label="Collect" detail="Listen for your number." />
           </div>
         </section>
 
-        <section className="bg-canvas-50 text-ink-950 relative flex min-h-0 flex-col justify-center overflow-hidden px-14">
+        <section className="kiosk-attract-action">
           <div
             aria-hidden
             className="pointer-events-none absolute -top-24 -right-24 size-96 rounded-full opacity-80 blur-3xl"
@@ -103,8 +103,8 @@ export default async function AttractScreen() {
             }}
           />
 
-          <div className="relative mx-auto w-full max-w-md">
-            <div className="border-ink-100 bg-surface rounded-3xl border p-6 shadow-xl">
+          <div className="kiosk-start-wrap relative mx-auto w-full">
+            <div className="kiosk-start-card border-ink-100 bg-surface rounded-3xl border p-7 shadow-xl">
               <div className="flex items-center justify-between">
                 <p className="text-ink-500 inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.18em] uppercase">
                   <span className="bg-jade-500 relative inline-flex size-2 rounded-full">
@@ -128,7 +128,7 @@ export default async function AttractScreen() {
 
             <Link
               href="/kiosk/mode"
-              className="bg-ink-950 text-canvas-50 ring-ink-950 hover:bg-ink-900 group mt-6 flex h-28 w-full items-center justify-center gap-4 rounded-3xl text-[34px] font-medium shadow-[0_24px_60px_-10px_oklch(0.14_0.016_90/0.55)] ring-1 transition-all duration-200 active:translate-y-1 active:shadow-[0_12px_30px_-8px_oklch(0.14_0.016_90/0.45)]"
+              className="kiosk-start-button ring-ink-950 group mt-6 flex min-h-28 w-full items-center justify-center gap-4 rounded-3xl font-medium shadow-[0_24px_60px_-10px_oklch(0.14_0.016_90/0.55)] ring-1 transition-all duration-200 active:translate-y-1 active:shadow-[0_12px_30px_-8px_oklch(0.14_0.016_90/0.45)]"
             >
               <span className="font-serif tracking-tight">Start order</span>
               <svg
@@ -138,7 +138,7 @@ export default async function AttractScreen() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="size-8 transition-transform duration-300 group-hover:translate-x-1"
+                className="size-8"
                 aria-hidden
               >
                 <path d="M5 12h14M13 5l7 7-7 7" />
@@ -152,7 +152,7 @@ export default async function AttractScreen() {
             </div>
           </div>
 
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+          <div className="kiosk-start-brand absolute bottom-6 left-1/2 -translate-x-1/2">
             <BrandRow size="sm" className="opacity-70" />
           </div>
         </section>

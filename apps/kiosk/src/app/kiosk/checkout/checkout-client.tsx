@@ -44,7 +44,7 @@ function NameKeyboard({
               onClick={() => onLetter(key)}
               variant="secondary"
               size="lg"
-              className="h-12 text-lg font-black text-zinc-950 active:bg-zinc-200"
+              className="h-14 text-lg font-black text-zinc-950 active:bg-zinc-200 portrait:h-16"
             >
               {key}
             </Button>
@@ -57,7 +57,7 @@ function NameKeyboard({
           onClick={onClear}
           variant="secondary"
           size="lg"
-          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          className="h-14 text-sm font-black text-zinc-700 active:bg-zinc-200 portrait:h-16"
         >
           Clear
         </Button>
@@ -66,7 +66,7 @@ function NameKeyboard({
           onClick={onSpace}
           variant="secondary"
           size="lg"
-          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          className="h-14 text-sm font-black text-zinc-700 active:bg-zinc-200 portrait:h-16"
         >
           Space
         </Button>
@@ -75,7 +75,7 @@ function NameKeyboard({
           onClick={onBack}
           variant="secondary"
           size="lg"
-          className="h-12 text-sm font-black text-zinc-700 active:bg-zinc-200"
+          className="h-14 text-sm font-black text-zinc-700 active:bg-zinc-200 portrait:h-16"
         >
           Delete
         </Button>
@@ -198,8 +198,8 @@ export function CheckoutClient({
   return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
-      <div className="grid h-screen grid-rows-[88px_minmax(0,1fr)] bg-zinc-50 text-zinc-950">
-        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6">
+      <div className="kiosk-checkout-shell bg-zinc-50 text-zinc-950">
+        <header className="kiosk-header flex items-center justify-between border-b border-zinc-200 bg-white">
           <Button
             type="button"
             onClick={() => router.push('/kiosk/menu')}
@@ -220,8 +220,8 @@ export function CheckoutClient({
           </div>
         </header>
 
-        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_460px] overflow-hidden">
-          <main className="min-h-0 overflow-y-auto p-6">
+        <div className="kiosk-checkout-content">
+          <main className="kiosk-scroll min-h-0 p-6">
             <div className="mb-5 flex items-end justify-between">
               <div>
                 <p className="text-sm font-bold tracking-[0.22em] text-zinc-500 uppercase">
@@ -265,7 +265,7 @@ export function CheckoutClient({
             </ul>
           </main>
 
-          <aside className="flex min-h-0 flex-col border-l border-zinc-200 bg-white">
+          <aside className="kiosk-payment-panel flex min-h-0 flex-col bg-white">
             <div className="border-b border-zinc-200 p-5">
               <p className="text-xs font-bold tracking-[0.22em] text-zinc-500 uppercase">
                 Payment total
@@ -288,7 +288,7 @@ export function CheckoutClient({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="kiosk-scroll min-h-0 flex-1 p-5">
               <label className="block">
                 <Label className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
                   Name for pickup
@@ -299,7 +299,7 @@ export function CheckoutClient({
                   onChange={(e) => setName(e.target.value)}
                   maxLength={32}
                   placeholder="Optional"
-                  className="mt-3 h-16 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-3xl font-black tracking-wide uppercase outline-none focus:border-emerald-600"
+                  className="mt-3 h-[4.5rem] w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-3xl font-black tracking-wide uppercase outline-none focus:border-emerald-600"
                 />
               </label>
               <p className="mt-2 text-sm font-medium text-zinc-500">
