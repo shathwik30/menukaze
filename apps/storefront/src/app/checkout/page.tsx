@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { parseCurrencyCode } from '@menukaze/shared';
 import { BrandRow, Eyebrow } from '@menukaze/ui';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
+import { CartBoot } from '../_components/cart-boot';
 import { CheckoutForm } from './checkout-form';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +11,8 @@ export const dynamic = 'force-dynamic';
 export default async function CheckoutPage() {
   const restaurant = await resolveTenantOrNotFound();
   if (!restaurant.liveAt) notFound();
+
+  const currency = parseCurrencyCode(restaurant.currency);
 
   return (
     <div className="bg-canvas-100 dark:bg-ink-950 min-h-screen">
@@ -52,7 +56,7 @@ export default async function CheckoutPage() {
         <CheckoutForm
           restaurantId={String(restaurant._id)}
           restaurantName={restaurant.name}
-          currency={restaurant.currency}
+          currency={currency}
           locale={restaurant.locale}
           razorpayReady={Boolean(restaurant.razorpayKeyIdEnc)}
           minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
@@ -61,6 +65,12 @@ export default async function CheckoutPage() {
           taxRules={restaurant.taxRules ?? []}
         />
       </main>
+
+      <CartBoot
+        restaurantId={String(restaurant._id)}
+        currency={currency}
+        locale={restaurant.locale}
+      />
     </div>
   );
 }
