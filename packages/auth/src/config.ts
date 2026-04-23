@@ -100,11 +100,18 @@ export async function createAuth(opts: CreateAuthOptions = {}) {
         }
         const from = process.env['RESEND_FROM_ADDRESS'] ?? 'Menukaze <noreply@menukaze.com>';
         const resend = new Resend(apiKey);
+        // Redirect to our own confirmation screen after BetterAuth handles the
+        // verify action, so the user sees a branded "email confirmed" page
+        // rather than the raw JSON response.
+        const separator = url.includes('?') ? '&' : '?';
+        const verifyUrl = url.includes('callbackURL=')
+          ? url
+          : `${url}${separator}callbackURL=${encodeURIComponent('/email-verified')}`;
         await resend.emails.send({
           from,
           to: user.email,
           subject: 'Verify your Menukaze email',
-          html: `<p>Hi ${user.name ?? ''},</p><p>Click the link below to verify your email address:</p><p><a href="${url}">${url}</a></p><p>This link expires in 1 hour.</p>`,
+          html: `<p>Hi ${user.name ?? ''},</p><p>Click the link below to verify your email address:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>This link expires in 1 hour.</p>`,
         });
       },
     },

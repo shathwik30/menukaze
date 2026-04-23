@@ -13,6 +13,7 @@ interface Props {
   restaurantId: string;
   orderId: string;
   publicOrderId: string;
+  pickupNumber?: number;
   initialStatus: OrderStatus;
   customerName: string;
   totalLabel: string;
@@ -41,6 +42,7 @@ export function ConfirmClient({
   restaurantId,
   orderId,
   publicOrderId,
+  pickupNumber: pickupNumberProp,
   initialStatus,
   customerName,
   totalLabel,
@@ -88,7 +90,11 @@ export function ConfirmClient({
 
   const statusReady = status === 'ready';
   const currentRank = Math.max(STATUS_ORDER.indexOf(status), paid ? 1 : 0);
-  const pickupNumber = formatPickupNumber(publicOrderId);
+  const pickupNumber = formatPickupNumber(
+    pickupNumberProp !== undefined
+      ? { publicOrderId, pickupNumber: pickupNumberProp }
+      : publicOrderId,
+  );
 
   return (
     <div className="kiosk-confirm-layout bg-ink-950 text-canvas-50 relative">

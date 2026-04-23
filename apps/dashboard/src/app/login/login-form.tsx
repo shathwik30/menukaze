@@ -103,17 +103,9 @@ export function LoginForm({ inviteToken }: { inviteToken: string }) {
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <Label htmlFor="login-password" required>
-                    Password
-                  </Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-ink-500 hover:text-ink-950 dark:text-ink-400 dark:hover:text-canvas-50 text-xs underline-offset-4 hover:underline"
-                  >
-                    Forgot?
-                  </Link>
-                </div>
+                <Label htmlFor="login-password" required>
+                  Password
+                </Label>
                 <Input
                   id="login-password"
                   type="password"

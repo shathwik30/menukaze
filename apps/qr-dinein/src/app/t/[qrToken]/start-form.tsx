@@ -61,9 +61,10 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
           setError(null);
           start(async () => {
             const coords = await requestCoords();
+            const trimmedPhone = phone.trim();
             const result = await startOrJoinSessionAction(
               qrToken,
-              { name, email, phone },
+              { name, email, ...(trimmedPhone ? { phone: trimmedPhone } : {}) },
               { ...(coords ? { coords } : {}), clientHint },
             );
             if (!result.ok) {
@@ -100,10 +101,9 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
-          <Label>Phone</Label>
+          <Label>Phone (optional)</Label>
           <Input
             type="tel"
-            required
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+1 555 123 4567"

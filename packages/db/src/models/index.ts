@@ -123,6 +123,7 @@ export {
   type WebhookDeliveryModel,
   type WebhookDeliveryStatus,
 } from './webhook-delivery';
+export { counterModel, type CounterDoc, type CounterModel } from './counter';
 
 import type { Connection } from 'mongoose';
 import { restaurantModel } from './restaurant';
@@ -150,6 +151,7 @@ import { customerModel } from './customer';
 import { apiKeyModel } from './api-key';
 import { webhookSubscriptionModel } from './webhook-subscription';
 import { webhookDeliveryModel } from './webhook-delivery';
+import { counterModel } from './counter';
 
 export function getModels(connection: Connection) {
   return {
@@ -178,6 +180,7 @@ export function getModels(connection: Connection) {
     ApiKey: apiKeyModel(connection),
     WebhookSubscription: webhookSubscriptionModel(connection),
     WebhookDelivery: webhookDeliveryModel(connection),
+    Counter: counterModel(connection),
   };
 }
 

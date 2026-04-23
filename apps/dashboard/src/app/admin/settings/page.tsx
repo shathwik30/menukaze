@@ -27,9 +27,17 @@ export default async function SettingsPage() {
           <h1 className="text-2xl font-bold">Settings</h1>
           <p className="text-muted-foreground text-sm">{restaurant.name}</p>
         </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
-          ← Back
-        </Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link
+            href="/admin/settings/sessions"
+            className="text-foreground underline underline-offset-4"
+          >
+            Devices & sessions
+          </Link>
+          <Link href="/admin" className="text-foreground underline underline-offset-4">
+            ← Back
+          </Link>
+        </div>
       </header>
 
       <SettingsClient

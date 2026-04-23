@@ -15,11 +15,18 @@ import {
 } from '@menukaze/ui';
 import { authClient } from '@/lib/auth-client';
 
-export function SignupForm({ inviteToken }: { inviteToken: string }) {
+interface SignupFormProps {
+  inviteToken: string;
+  lockedEmail: string;
+  restaurantName: string;
+}
+
+export function SignupForm({ inviteToken, lockedEmail, restaurantName }: SignupFormProps) {
   const router = useRouter();
   const loginHref = inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : '/login';
+  const hasLockedEmail = inviteToken !== '' && lockedEmail !== '';
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(lockedEmail);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +36,11 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
     setBusy(true);
     setError(null);
 
-    const result = await authClient.signUp.email({ name, email, password });
+    // For invited users we always submit the invite email — never the free-text
+    // one — so a user can't accidentally register with a different address.
+    const submissionEmail = hasLockedEmail ? lockedEmail : email;
+
+    const result = await authClient.signUp.email({ name, email: submissionEmail, password });
     if (result.error) {
       setError(result.error.message ?? 'Sign-up failed.');
       setBusy(false);
@@ -51,11 +62,15 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
           {inviteToken ? 'Staff invite' : 'Create an account'}
         </Eyebrow>
         <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-[2.75rem]">
-          {inviteToken ? 'Join your team.' : 'Open your restaurant.'}
+          {inviteToken
+            ? restaurantName
+              ? `Join ${restaurantName}.`
+              : 'Join your team.'
+            : 'Open your restaurant.'}
         </h1>
         <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
           {inviteToken
-            ? 'Use the email address that received the invite so we can match you to your restaurant.'
+            ? 'Set a name and password to finish accepting your invite.'
             : 'Menukaze is built for restaurants that take their presentation seriously. Create an owner account to get started.'}
         </p>
 
@@ -77,20 +92,24 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="su-email" required>
-              Work email
-            </Label>
-            <Input
-              id="su-email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="jane@restaurant.com"
-            />
-          </div>
+          {hasLockedEmail ? (
+            <input type="hidden" name="email" value={lockedEmail} readOnly />
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="su-email" required>
+                Work email
+              </Label>
+              <Input
+                id="su-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="jane@restaurant.com"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="su-pwd" required>
@@ -108,6 +127,12 @@ export function SignupForm({ inviteToken }: { inviteToken: string }) {
             />
             <FieldHint>Use 8+ characters with a mix of letters and numbers.</FieldHint>
           </div>
+
+          {hasLockedEmail ? (
+            <FieldHint>
+              Your account will be created for <strong>{lockedEmail}</strong>.
+            </FieldHint>
+          ) : null}
 
           {error ? <FieldError>{error}</FieldError> : null}
 

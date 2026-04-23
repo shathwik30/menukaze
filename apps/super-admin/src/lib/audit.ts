@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
+import { ipFromHeaders } from '@menukaze/shared';
 
 interface LogPlatformActionOpts {
   targetRestaurantId?: string | Types.ObjectId;
@@ -17,7 +18,7 @@ export async function logPlatformAction(
   opts?: LogPlatformActionOpts,
 ): Promise<void> {
   const h = await headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
+  const ip = ipFromHeaders(h) ?? 'unknown';
   const userAgent = h.get('user-agent') ?? '';
 
   const actorOid = parseObjectId(actorUserId);

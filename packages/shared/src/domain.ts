@@ -183,6 +183,31 @@ export function kioskPlaceholderEmail(publicOrderId: string): string {
 
 export const DEFAULT_PREP_MINUTES = 20;
 
+/**
+ * Estimate the prep time (in minutes) the kitchen needs for a whole cart.
+ * Uses the *max* of the line items' per-item prep times (parallel prep on
+ * separate stations is the norm), falling back to the restaurant-level
+ * default for items that don't have one set.
+ */
+export function computeCartPrepMinutes(
+  lines: ReadonlyArray<{ estimatedPrepMinutes?: number | null }>,
+  restaurantDefault: number = DEFAULT_PREP_MINUTES,
+): number {
+  let maxMinutes = 0;
+  let hadAnyItemValue = false;
+  for (const line of lines) {
+    const v = line.estimatedPrepMinutes;
+    if (typeof v === 'number' && v > 0) {
+      hadAnyItemValue = true;
+      if (v > maxMinutes) maxMinutes = v;
+    }
+  }
+  if (!hadAnyItemValue) return restaurantDefault;
+  // Some items have a value, others don't; take the larger of the per-item
+  // max and the restaurant default so items without a value still contribute.
+  return Math.max(maxMinutes, restaurantDefault);
+}
+
 export const SESSION_FAST_FOLLOW_MS = 90_000;
 export const SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR = 50_000;
 export const SESSION_PLAUSIBLE_CAP_MULTIPLIER = 4;
