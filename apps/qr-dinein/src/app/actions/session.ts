@@ -10,6 +10,8 @@ import {
   getModels,
   generatePublicOrderId,
   getRestaurantSupportRecipients,
+  pickLeastLoadedStationId,
+  reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
@@ -56,7 +58,8 @@ const customerSchema = z.object({
     .string()
     .min(7)
     .max(40)
-    .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .'),
+    .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .')
+    .optional(),
 });
 
 const TIMED_OUT_PAYMENT_FAILURE_REASON = 'Unpaid — Requires Attention';
@@ -255,6 +258,7 @@ interface SessionRestaurantRecord {
   slug: string;
   currency: string;
   locale: string;
+  timezone?: string | null;
   razorpayKeyIdEnc?: string | null;
   razorpayKeySecretEnc?: string | null;
   holidayMode?: { enabled?: boolean; message?: string } | null;
@@ -298,6 +302,7 @@ async function buildRoundSnapshot(
   categoryModel: ReturnType<typeof getModels>['Category'],
   restaurantId: Types.ObjectId,
   lines: z.infer<typeof lineInput>[],
+  conn: Awaited<ReturnType<typeof getMongoConnection>>,
   participantLabel?: string,
 ): Promise<
   { snapshotLines: SessionRoundLineSnapshot[]; subtotalMinor: number } | { error: string }
@@ -338,10 +343,13 @@ async function buildRoundSnapshot(
     const lineTotalMinor = unitMinor * line.quantity;
     subtotalMinor += lineTotalMinor;
 
-    const stationId = resolvePrimaryStationId(
-      item.stationIds ?? null,
-      categoryStationsById.get(String(item.categoryId)) ?? null,
-    );
+    const itemStations = item.stationIds ?? [];
+    const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
+    const candidates = itemStations.length > 0 ? itemStations : categoryStations;
+    const stationId =
+      candidates.length > 1
+        ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
+        : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
 
     snapshotLines.push({
       itemId: item._id,
@@ -801,6 +809,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     Category,
     restaurantId,
     parsed.data.lines,
+    conn,
     parsed.data.participantLabel,
   );
   if ('error' in roundSnapshot) {
@@ -808,6 +817,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const publicOrderId = generatePublicOrderId();
+  const pickupNumber = await reserveDailyPickupNumber(conn, restaurantId, restaurant.timezone);
   const now = placedAt;
 
   const { taxMinor, surchargeMinor } = computeTax(
@@ -821,6 +831,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const order = await Order.create({
     restaurantId,
     publicOrderId,
+    pickupNumber,
     channel: 'qr_dinein',
     type: 'dine_in',
     customer: session.customer,

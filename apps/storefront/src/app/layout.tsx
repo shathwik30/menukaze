@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { Inter, Fraunces, JetBrains_Mono } from 'next/font/google';
+import { CartButton } from './_components/cart-button';
 import { CookieConsent } from './_components/cookie-consent';
 import '@/env';
 import './globals.css';
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head nonce={nonce} />
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         {children}
+        <CartButton />
         <CookieConsent />
       </body>
     </html>

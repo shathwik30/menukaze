@@ -1,4 +1,5 @@
 import { getMongoConnection, getModels } from '@menukaze/db';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import {
   Badge,
@@ -13,6 +14,7 @@ import {
   StatCard,
   cn,
 } from '@menukaze/ui';
+import type { Types } from 'mongoose';
 import { requirePageFlag } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -28,14 +30,16 @@ const RANGE_OPTIONS = [
   { days: 90, label: '90 days' },
 ];
 
-const CHANNEL_OPTIONS = [
+// Core channels are the hard-coded order.channel values; API integrations
+// surface as one filter option per ApiKey (id = `api:<keyId>`).
+const CORE_CHANNEL_OPTIONS = [
   { id: 'all', label: 'All channels' },
   { id: 'storefront', label: 'Storefront' },
   { id: 'qr_dinein', label: 'QR Dine-In' },
   { id: 'kiosk', label: 'Kiosk' },
   { id: 'walk_in', label: 'Walk-in' },
-  { id: 'api', label: 'API' },
-];
+  { id: 'api', label: 'API (all integrations)' },
+] as const;
 
 const REVENUE_STATUSES = ['confirmed', 'preparing', 'ready', 'served', 'completed'];
 
@@ -43,16 +47,30 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
   const { restaurantId } = await requirePageFlag(['analytics.view']);
   const params = await searchParams;
   const days = Math.max(1, Math.min(365, Number(params.days ?? '7') || 7));
-  const channel =
-    params.channel && CHANNEL_OPTIONS.some((c) => c.id === params.channel) ? params.channel : 'all';
 
   const conn = await getMongoConnection('live');
-  const { Order, Restaurant } = getModels(conn);
-  const restaurant = await Restaurant.findById(restaurantId, { currency: 1, locale: 1 })
-    .lean()
-    .exec();
+  const { Order, Restaurant, ApiKey } = getModels(conn);
+  const [restaurant, apiKeys] = await Promise.all([
+    Restaurant.findById(restaurantId, { currency: 1, locale: 1, timezone: 1 }).lean().exec(),
+    ApiKey.find({ restaurantId }, { name: 1 }).sort({ createdAt: 1 }).lean().exec(),
+  ]);
   const currency = currencyCodeOrDefault(restaurant?.currency);
   const locale = restaurant?.locale ?? 'en-US';
+  const timezone =
+    restaurant?.timezone && restaurant.timezone.length > 0 ? restaurant.timezone : 'UTC';
+
+  const apiKeyNameById = new Map<string, string>(
+    apiKeys.map((k) => [String(k._id), k.name ?? 'Unnamed key']),
+  );
+  const channelOptions = [
+    ...CORE_CHANNEL_OPTIONS,
+    ...apiKeys.map((k) => ({
+      id: `api:${String(k._id)}`,
+      label: `API · ${k.name ?? 'Unnamed key'}`,
+    })),
+  ];
+  const rawChannel = params.channel ?? 'all';
+  const channel = channelOptions.some((c) => c.id === rawChannel) ? rawChannel : 'all';
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const baseMatch: Record<string, unknown> = {
@@ -60,9 +78,31 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
     createdAt: { $gte: since },
     status: { $in: REVENUE_STATUSES },
   };
-  if (channel !== 'all') baseMatch.channel = channel;
+  // Parse the specific-api-key filter once. Order.apiKeyId is an ObjectId in
+  // Mongo; comparing it against a raw string would never match.
+  const apiKeyFilter =
+    channel.startsWith('api:') && channel !== 'api:legacy' ? parseObjectId(channel.slice(4)) : null;
+  if (channel !== 'all') {
+    if (channel === 'api') {
+      baseMatch.channel = 'api';
+    } else if (channel.startsWith('api:')) {
+      baseMatch.channel = 'api';
+      if (apiKeyFilter) baseMatch.apiKeyId = apiKeyFilter;
+    } else {
+      baseMatch.channel = channel;
+    }
+  }
 
-  const [totals, byChannel, topItems, hourlyBuckets] = await Promise.all([
+  // Match for the per-api-key breakdown: honour any apiKeyId filter from the
+  // user but add `$exists: true` for the "all integrations" case so we never
+  // show legacy API orders without a key id in the breakdown.
+  const apiKeyMatch: Record<string, unknown> = {
+    ...baseMatch,
+    channel: 'api',
+  };
+  if (!apiKeyFilter) apiKeyMatch.apiKeyId = { $exists: true };
+
+  const [totals, byChannel, byApiKey, topItems, hourlyBuckets] = await Promise.all([
     Order.aggregate([
       { $match: baseMatch },
       {
@@ -85,6 +125,17 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
       { $sort: { revenue: -1 } },
     ]).exec() as Promise<Array<{ _id: string; revenue: number; orders: number }>>,
     Order.aggregate([
+      { $match: apiKeyMatch },
+      {
+        $group: {
+          _id: '$apiKeyId',
+          revenue: { $sum: '$totalMinor' },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+    ]).exec() as Promise<Array<{ _id: Types.ObjectId; revenue: number; orders: number }>>,
+    Order.aggregate([
       { $match: baseMatch },
       { $unwind: '$items' },
       {
@@ -102,7 +153,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
       { $match: baseMatch },
       {
         $group: {
-          _id: { $hour: '$createdAt' },
+          _id: { $hour: { date: '$createdAt', timezone } },
           orders: { $sum: 1 },
         },
       },
@@ -112,6 +163,53 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
   const totalsRow = totals[0] ?? { revenue: 0, orders: 0 };
   const aov = totalsRow.orders > 0 ? totalsRow.revenue / totalsRow.orders : 0;
 
+  // Merge per-channel rows, replacing the `api` aggregate with one row per key
+  // so operators see each integration separately.
+  interface ChannelRow {
+    id: string;
+    label: string;
+    revenue: number;
+    orders: number;
+  }
+  const channelRows: ChannelRow[] = [];
+  for (const row of byChannel) {
+    if (row._id === 'api') {
+      if (byApiKey.length === 0) {
+        channelRows.push({ id: 'api', label: 'API', revenue: row.revenue, orders: row.orders });
+      } else {
+        for (const k of byApiKey) {
+          const name = apiKeyNameById.get(String(k._id)) ?? 'Deleted key';
+          channelRows.push({
+            id: `api:${String(k._id)}`,
+            label: `API · ${name}`,
+            revenue: k.revenue,
+            orders: k.orders,
+          });
+        }
+        const apiSum = byApiKey.reduce((s, k) => s + k.revenue, 0);
+        const apiOrders = byApiKey.reduce((s, k) => s + k.orders, 0);
+        const missingRevenue = Math.max(0, row.revenue - apiSum);
+        const missingOrders = Math.max(0, row.orders - apiOrders);
+        if (missingOrders > 0) {
+          channelRows.push({
+            id: 'api:legacy',
+            label: 'API · (legacy, no key recorded)',
+            revenue: missingRevenue,
+            orders: missingOrders,
+          });
+        }
+      }
+    } else {
+      channelRows.push({
+        id: row._id,
+        label: row._id.replace('_', ' '),
+        revenue: row.revenue,
+        orders: row.orders,
+      });
+    }
+  }
+  channelRows.sort((a, b) => b.revenue - a.revenue);
+
   const hourlyMap = new Map<number, number>(hourlyBuckets.map((h) => [h._id, h.orders]));
   const peakHours = Array.from({ length: 24 }, (_, hour) => ({
     hour,
@@ -119,6 +217,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
   }));
   const peakMax = peakHours.reduce((max, h) => Math.max(max, h.orders), 0);
   const topMax = topItems.reduce((max, i) => Math.max(max, i.revenue), 0);
+  const channelLabel = channelOptions.find((c) => c.id === channel)?.label ?? 'All channels';
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
@@ -131,8 +230,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             Analytics
           </h1>
           <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
-            Last {days} day{days === 1 ? '' : 's'}
-            {channel !== 'all' ? ` · ${channel.replace('_', ' ')}` : ''}
+            Last {days} day{days === 1 ? '' : 's'} · {channelLabel}
           </p>
         </div>
 
@@ -145,7 +243,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             ))}
           </Select>
           <Select name="channel" defaultValue={channel} className="h-10 w-auto">
-            {CHANNEL_OPTIONS.map((opt) => (
+            {channelOptions.map((opt) => (
               <option key={opt.id} value={opt.id}>
                 {opt.label}
               </option>
@@ -184,7 +282,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             <CardTitle>Channel breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            {byChannel.length === 0 ? (
+            {channelRows.length === 0 ? (
               <EmptyState
                 compact
                 title="No orders in range"
@@ -192,16 +290,13 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
               />
             ) : (
               <ul className="flex flex-col gap-3">
-                {byChannel.map((row) => {
+                {channelRows.map((row) => {
                   const pct =
                     totalsRow.revenue > 0 ? Math.round((row.revenue / totalsRow.revenue) * 100) : 0;
                   return (
-                    <li
-                      key={row._id}
-                      className="grid grid-cols-[120px_1fr_auto] items-center gap-4"
-                    >
+                    <li key={row.id} className="grid grid-cols-[160px_1fr_auto] items-center gap-4">
                       <span className="text-foreground truncate text-sm font-medium capitalize">
-                        {row._id.replace('_', ' ')}
+                        {row.label}
                       </span>
                       <div className="bg-canvas-100 dark:bg-ink-800 relative h-8 overflow-hidden rounded-lg">
                         <div

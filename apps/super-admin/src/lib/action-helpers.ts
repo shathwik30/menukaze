@@ -3,6 +3,7 @@ import {
   type ActionFailure,
   type ActionResult,
   invalidEntityError,
+  ipFromHeaders,
   validationError,
 } from '@menukaze/shared';
 import { requireSuperAdmin, type SuperAdminSession } from '@/lib/session';
@@ -24,7 +25,7 @@ export async function withSuperAdminAction<T>(
 ): Promise<T> {
   const session = await requireSuperAdmin();
   const h = await headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
+  const ip = ipFromHeaders(h) ?? 'unknown';
   const userAgent = h.get('user-agent') ?? '';
   return handler({ session, ip, userAgent });
 }

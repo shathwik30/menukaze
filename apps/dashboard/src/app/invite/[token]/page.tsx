@@ -12,7 +12,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ t
   const session = await getSession();
 
   const conn = await getMongoConnection('live');
-  const { StaffInvite, Restaurant } = getModels(conn);
+  const { StaffInvite, Restaurant, User } = getModels(conn);
 
   const invite = await StaffInvite.findOne({ token }, null, { skipTenantGuard: true }).exec();
 
@@ -48,31 +48,41 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ t
     );
   }
 
-  const restaurant = await Restaurant.findById(invite.restaurantId).exec();
+  const restaurant = await Restaurant.findById(invite.restaurantId).lean().exec();
 
   if (!session) {
     const encodedToken = encodeURIComponent(token);
+    // If a user already exists for the invite email, only "Log in" should be
+    // offered — the invitee has already picked a password elsewhere on the
+    // platform, so showing "Create account" would only confuse them (and
+    // double-signup would fail on the unique email index anyway).
+    const existingUser = await User.findOne({ emailLower: invite.email.toLowerCase() })
+      .lean()
+      .exec();
+
     return (
       <InviteShell>
         <h1 className="text-2xl font-bold">Join {restaurant?.name}</h1>
         <p className="text-muted-foreground text-sm">
           This invite was sent to <strong>{invite.email}</strong> for the{' '}
-          <strong>{invite.role}</strong> role. Sign in or create an account with that same email to
-          accept it.
+          <strong>{invite.role}</strong> role.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            href={`/login?invite=${encodedToken}`}
-            className="bg-primary text-primary-foreground inline-flex h-10 items-center rounded-md px-4 text-sm font-medium"
-          >
-            Log in to accept
-          </Link>
-          <Link
-            href={`/signup?invite=${encodedToken}`}
-            className="border-input inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium"
-          >
-            Create staff account
-          </Link>
+          {existingUser ? (
+            <Link
+              href={`/login?invite=${encodedToken}`}
+              className="bg-primary text-primary-foreground inline-flex h-10 items-center rounded-md px-4 text-sm font-medium"
+            >
+              Log in to accept
+            </Link>
+          ) : (
+            <Link
+              href={`/signup?invite=${encodedToken}`}
+              className="bg-primary text-primary-foreground inline-flex h-10 items-center rounded-md px-4 text-sm font-medium"
+            >
+              Create account
+            </Link>
+          )}
         </div>
       </InviteShell>
     );

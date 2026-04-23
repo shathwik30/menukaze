@@ -6,6 +6,8 @@ import {
   generatePublicOrderId,
   getModels,
   getMongoConnection,
+  pickLeastLoadedStationId,
+  reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
@@ -180,10 +182,13 @@ export async function POST(request: NextRequest): Promise<Response> {
           const lineTotalMinor = unitMinor * line.quantity;
           subtotalMinor += lineTotalMinor;
 
-          const stationId = resolvePrimaryStationId(
-            item.stationIds ?? null,
-            categoryStationsById.get(String(item.categoryId)) ?? null,
-          );
+          const itemStations = item.stationIds ?? [];
+          const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
+          const candidates = itemStations.length > 0 ? itemStations : categoryStations;
+          const stationId =
+            candidates.length > 1
+              ? await pickLeastLoadedStationId(conn, ctx.restaurantId, candidates)
+              : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
 
           snapshotLines.push({
             itemId: item._id,
@@ -212,6 +217,11 @@ export async function POST(request: NextRequest): Promise<Response> {
         const totalMinor = subtotalMinor + surchargeMinor;
 
         const publicOrderId = generatePublicOrderId();
+        const pickupNumber = await reserveDailyPickupNumber(
+          conn,
+          ctx.restaurantId,
+          restaurant.timezone,
+        );
         const now = new Date();
         const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
         const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
@@ -219,7 +229,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         const order = await Order.create({
           restaurantId: ctx.restaurantId,
           publicOrderId,
+          pickupNumber,
           channel: 'api',
+          apiKeyId: ctx.keyId,
           type: input.type,
           customer: input.customer,
           items: snapshotLines,

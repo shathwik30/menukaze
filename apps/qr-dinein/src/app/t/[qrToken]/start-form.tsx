@@ -66,10 +66,13 @@ export function StartSessionForm({
           e.preventDefault();
           setError(null);
           start(async () => {
+            // Only probe geolocation when the restaurant has the delivery-radius
+            // gate enabled; otherwise we skip the permission prompt entirely.
             const coords = geolocationEnabled ? await requestCoords() : null;
+            const trimmedPhone = phone.trim();
             const result = await startOrJoinSessionAction(
               qrToken,
-              { name, email, phone },
+              { name, email, ...(trimmedPhone ? { phone: trimmedPhone } : {}) },
               { ...(coords ? { coords } : {}), clientHint },
             );
             if (!result.ok) {
@@ -106,10 +109,9 @@ export function StartSessionForm({
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
-          <Label>Phone</Label>
+          <Label>Phone (optional)</Label>
           <Input
             type="tel"
-            required
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+1 555 123 4567"

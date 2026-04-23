@@ -59,6 +59,7 @@ export { EmptyState } from './components/empty-state';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs';
 export { Container, PageHeader, Section } from './components/page';
 export { Kbd } from './components/kbd';
+export { ImageCrop, type ImageCropProps } from './components/image-crop';
 
 export { LogoMark, Wordmark, BrandRow } from './brand/logo';
 export { AuroraBackdrop, MeshBackdrop, GridBackdrop } from './brand/aurora';

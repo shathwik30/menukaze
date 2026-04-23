@@ -4,8 +4,7 @@ import { parseObjectId } from '@menukaze/db/object-id';
 import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { channels } from '@menukaze/realtime';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
-import { OrderTracker } from './order-tracker';
-import { FeedbackWidget } from './feedback-widget';
+import { TrackingArea } from './tracking-area';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,12 +31,14 @@ export default async function OrderConfirmationPage({
   const currency = parseCurrencyCode(order.currency);
   const locale = restaurant.locale;
   const paid = order.payment.status === 'succeeded';
-  const showFeedback = ['ready', 'served', 'completed'].includes(order.status);
-  const existingFeedback = showFeedback
-    ? await Feedback.findOne({ restaurantId: restaurant._id, orderId: order._id }, { _id: 1 })
-        .lean()
-        .exec()
-    : null;
+  // Fetch the feedback record regardless of current status — the widget may
+  // surface live once the kitchen moves the order to ready without a refresh.
+  const existingFeedback = await Feedback.findOne(
+    { restaurantId: restaurant._id, orderId: order._id },
+    { _id: 1 },
+  )
+    .lean()
+    .exec();
 
   return (
     <main className="mx-auto max-w-xl px-4 py-10 sm:px-6">
@@ -93,23 +94,15 @@ export default async function OrderConfirmationPage({
           </div>
         </section>
 
-        <OrderTracker
+        <TrackingArea
           restaurantId={String(restaurant._id)}
           orderId={String(order._id)}
           channelName={channels.customerOrder(String(restaurant._id), String(order._id))}
           initialStatus={order.status}
           initialPaymentStatus={order.payment.status}
+          alreadySubmittedFeedback={Boolean(existingFeedback)}
         />
       </div>
-
-      {showFeedback ? (
-        <div className="mt-6">
-          <FeedbackWidget
-            orderId={String(order._id)}
-            alreadySubmitted={Boolean(existingFeedback)}
-          />
-        </div>
-      ) : null}
     </main>
   );
 }

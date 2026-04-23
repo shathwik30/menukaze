@@ -14,29 +14,48 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!customerObjectId) notFound();
 
   const conn = await getMongoConnection('live');
-  const { Customer, Order, Restaurant } = getModels(conn);
+  const { Customer, Order, Reservation, Restaurant } = getModels(conn);
   const restaurant = await Restaurant.findById(restaurantId, { locale: 1 }).lean().exec();
   const locale = restaurant?.locale ?? 'en-US';
 
   const customer = await Customer.findOne({ restaurantId, _id: customerObjectId }).lean().exec();
   if (!customer) notFound();
 
-  const orders = await Order.find(
-    { restaurantId, 'customer.phone': customer.phone },
-    {
-      publicOrderId: 1,
-      channel: 1,
-      type: 1,
-      status: 1,
-      createdAt: 1,
-      totalMinor: 1,
-      currency: 1,
-    },
-  )
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .lean()
-    .exec();
+  // Orders now key on phone (Customer's unique identifier); reservations are
+  // still email-keyed at the schema level, so match them independently.
+  const [orders, reservations] = await Promise.all([
+    Order.find(
+      { restaurantId, 'customer.phone': customer.phone },
+      {
+        publicOrderId: 1,
+        channel: 1,
+        type: 1,
+        status: 1,
+        createdAt: 1,
+        totalMinor: 1,
+        currency: 1,
+      },
+    )
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+      .exec(),
+    Reservation.find(
+      { restaurantId, email: customer.email.toLowerCase() },
+      {
+        date: 1,
+        slotStart: 1,
+        slotEnd: 1,
+        partySize: 1,
+        status: 1,
+        createdAt: 1,
+      },
+    )
+      .sort({ date: -1, slotStart: -1 })
+      .limit(25)
+      .lean()
+      .exec(),
+  ]);
 
   const currency = currencyCodeOrDefault(customer.currency);
   const channelEntries = (Object.entries(customer.channelCounts) as Array<[string, number]>)
@@ -100,6 +119,28 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 </span>
                 <span className="font-mono text-xs">
                   {formatMoney(o.totalMinor, currencyCodeOrDefault(o.currency), locale)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Reservations</h2>
+        {reservations.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No reservations on file.</p>
+        ) : (
+          <ul className="border-border divide-border divide-y rounded-md border">
+            {reservations.map((r) => (
+              <li key={String(r._id)} className="flex items-center gap-3 p-3 text-sm">
+                <span className="font-mono text-xs">{r.date}</span>
+                <span className="text-muted-foreground text-xs">
+                  {r.slotStart}–{r.slotEnd}
+                </span>
+                <span className="text-muted-foreground text-xs">party of {r.partySize}</span>
+                <span className="text-muted-foreground ml-auto text-xs capitalize">
+                  {r.status.replace('_', ' ')}
                 </span>
               </li>
             ))}

@@ -128,3 +128,5 @@ export { CAPACITY_ORDER_STATUSES, restaurantHasReachedOrderCapacity } from './or
 export { getRestaurantSupportRecipients, type SupportRecipientsResult } from './support-recipients';
 export { upsertCustomerFromOrder, type CustomerUpsertInput } from './customers';
 export { enqueueWebhookEvent, type EnqueueEventInput } from './webhooks';
+export { reserveDailyPickupNumber } from './order-reference';
+export { pickLeastLoadedStationId } from './station-load';

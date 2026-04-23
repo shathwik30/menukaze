@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Checkbox, Input, Textarea } from '@menukaze/ui';
+import { Button, Checkbox, ImageCrop, Input, Textarea } from '@menukaze/ui';
 import { useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -300,7 +300,17 @@ function ProfileSection({
         </label>
         <InputRow label="Public email" value={email} onChange={setEmail} type="email" />
         <InputRow label="Phone" value={phone} onChange={setPhone} />
-        <InputRow label="Logo URL" value={logoUrl} onChange={setLogoUrl} />
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="text-foreground">Logo</span>
+          <ImageCrop
+            label="logo"
+            value={logoUrl || null}
+            onChange={setLogoUrl}
+            onRemove={() => setLogoUrl('')}
+            aspectRatio={1}
+            outputSize={512}
+          />
+        </div>
         <InputRow
           label="Address line 1"
           value={addr.line1}

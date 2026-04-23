@@ -14,7 +14,15 @@ const profileInput = z.object({
   description: z.string().max(1000).optional(),
   email: z.string().email().max(320).optional(),
   phone: z.string().max(40).optional(),
-  logoUrl: z.string().url().max(2048).optional(),
+  // Accepts either an https URL or an inline `data:image/…` payload so the
+  // dashboard can submit cropper output without a separate upload service.
+  logoUrl: z
+    .string()
+    .max(2 * 1024 * 1024)
+    .refine((v) => /^https?:\/\//i.test(v) || /^data:image\/(png|jpeg|webp);base64,/i.test(v), {
+      message: 'Logo must be an https URL or a data:image/(png|jpeg|webp) payload.',
+    })
+    .optional(),
   addressStructured: z.object({
     line1: z.string().min(1).max(200),
     line2: z.string().max(200).optional(),

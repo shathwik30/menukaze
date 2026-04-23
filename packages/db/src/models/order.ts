@@ -74,6 +74,13 @@ export interface OrderDoc {
   restaurantId: Types.ObjectId;
 
   publicOrderId: string;
+  /**
+   * Short, human-friendly pickup number. Sequential per restaurant per local
+   * day (resets at local midnight). Populated on creation via
+   * `reserveDailyPickupNumber`. Older orders may not have this set; display
+   * code should fall back to a short hash of `publicOrderId`.
+   */
+  pickupNumber?: number;
 
   channel: OrderChannel;
   type: OrderType;
@@ -99,6 +106,8 @@ export interface OrderDoc {
 
   tableId?: Types.ObjectId;
   sessionId?: Types.ObjectId;
+  /** Set on orders placed through the public v1 API; identifies which integration submitted it. */
+  apiKeyId?: Types.ObjectId;
 
   estimatedReadyAt?: Date;
   completedAt?: Date;
@@ -188,6 +197,7 @@ const orderSchema = new Schema<OrderDoc>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     publicOrderId: { type: String, required: true },
+    pickupNumber: { type: Number, min: 1 },
 
     channel: {
       type: String,
@@ -217,6 +227,7 @@ const orderSchema = new Schema<OrderDoc>(
 
     tableId: { type: Schema.Types.ObjectId, ref: 'Table' },
     sessionId: { type: Schema.Types.ObjectId, ref: 'TableSession' },
+    apiKeyId: { type: Schema.Types.ObjectId, ref: 'ApiKey' },
 
     estimatedReadyAt: Date,
     completedAt: Date,
@@ -232,6 +243,10 @@ orderSchema.index({ restaurantId: 1, publicOrderId: 1 }, { unique: true });
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, sessionId: 1 });
+orderSchema.index(
+  { restaurantId: 1, apiKeyId: 1, createdAt: -1 },
+  { partialFilterExpression: { apiKeyId: { $exists: true } } },
+);
 orderSchema.index({ restaurantId: 1, 'customer.email': 1, createdAt: -1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ 'customer.email': 1, createdAt: -1 });

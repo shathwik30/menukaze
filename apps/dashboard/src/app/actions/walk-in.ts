@@ -8,6 +8,8 @@ import {
   generatePublicOrderId,
   getModels,
   getMongoConnection,
+  pickLeastLoadedStationId,
+  reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
@@ -157,10 +159,13 @@ export async function createWalkInOrderAction(
         const lineTotalMinor = unitMinor * line.quantity;
         subtotalMinor += lineTotalMinor;
 
-        const stationId = resolvePrimaryStationId(
-          item.stationIds ?? null,
-          categoryStationsById.get(String(item.categoryId)) ?? null,
-        );
+        const itemStations = item.stationIds ?? [];
+        const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
+        const candidates = itemStations.length > 0 ? itemStations : categoryStations;
+        const stationId =
+          candidates.length > 1
+            ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
+            : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
 
         snapshotLines.push({
           itemId: item._id,
@@ -186,6 +191,7 @@ export async function createWalkInOrderAction(
       if (totalMinor <= 0) throw new Error('Cart is empty.');
 
       const publicOrderId = generatePublicOrderId();
+      const pickupNumber = await reserveDailyPickupNumber(conn, restaurantId, restaurant.timezone);
       const now = new Date();
       const trimmedName = input.customerName?.trim();
       const customerName = trimmedName && trimmedName.length > 0 ? trimmedName : 'Walk-in customer';
@@ -198,6 +204,7 @@ export async function createWalkInOrderAction(
       const order = await Order.create({
         restaurantId,
         publicOrderId,
+        pickupNumber,
         channel: 'walk_in',
         type: input.type,
         customer: {
