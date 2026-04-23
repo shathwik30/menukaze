@@ -56,7 +56,10 @@ export default async function TableLandingPage({
         </p>
       </header>
 
-      <StartSessionForm qrToken={qrToken} />
+      <StartSessionForm
+        qrToken={qrToken}
+        geolocationEnabled={restaurant.geolocationRestriction?.enabled ?? false}
+      />
     </main>
   );
 }

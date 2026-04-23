@@ -52,8 +52,6 @@ export {
   API_KEY_ENVS,
   WEEKDAYS,
   PAYMENT_MODE_REQUESTED_OPTIONS,
-  walkInPlaceholderEmail,
-  kioskPlaceholderEmail,
   DEFAULT_PREP_MINUTES,
   computeCartPrepMinutes,
   SESSION_FAST_FOLLOW_MS,

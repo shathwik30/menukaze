@@ -598,17 +598,22 @@ export async function startOrJoinSessionAction(
     clientHint: contextParsed.data?.clientHint ?? null,
   });
 
+  const geoEnabled = restaurant.geolocationRestriction?.enabled ?? false;
   const locationCheck = preCheckQrLocation({
     restaurant: {
       coordinates: restaurant.geo.coordinates,
-      geofenceRadiusM: restaurant.hardening?.geofenceRadiusM ?? restaurant.geofenceRadiusM,
+      geofenceRadiusM: geoEnabled
+        ? (restaurant.geolocationRestriction?.radiusKm ?? 5) * 1000
+        : (restaurant.hardening?.geofenceRadiusM ?? restaurant.geofenceRadiusM),
       wifiPublicIps: restaurant.wifiPublicIps,
       hardening: {
-        strictMode: restaurant.hardening?.strictMode,
+        // Only enforce strictMode when geolocation restriction is active.
+        strictMode: geoEnabled ? (restaurant.hardening?.strictMode ?? false) : false,
         wifiGate: restaurant.hardening?.wifiGate,
       },
     },
-    coords: contextParsed.data?.coords ?? null,
+    // Skip coordinate check entirely when the feature is disabled.
+    coords: geoEnabled ? (contextParsed.data?.coords ?? null) : null,
     ip,
   });
   if (!locationCheck.ok) {
@@ -849,15 +854,17 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
     ...(anomaly ? { suspicious: true, suspiciousReason: anomaly } : {}),
   });
 
-  await upsertCustomerFromOrder(conn, {
-    restaurantId,
-    email: session.customer.email,
-    name: session.customer.name,
-    ...(session.customer.phone ? { phone: session.customer.phone } : {}),
-    channel: 'qr_dinein',
-    totalMinor,
-    currency: restaurant.currency,
-  });
+  if (session.customer.phone) {
+    await upsertCustomerFromOrder(conn, {
+      restaurantId,
+      phone: session.customer.phone,
+      email: session.customer.email,
+      name: session.customer.name,
+      channel: 'qr_dinein',
+      totalMinor,
+      currency: restaurant.currency,
+    });
+  }
 
   await enqueueWebhookEvent(conn, {
     restaurantId,

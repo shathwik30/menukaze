@@ -171,16 +171,6 @@ export type Weekday = (typeof WEEKDAYS)[number];
 export const PAYMENT_MODE_REQUESTED_OPTIONS = ['online', 'counter'] as const;
 export type PaymentModeRequested = (typeof PAYMENT_MODE_REQUESTED_OPTIONS)[number];
 
-const PLACEHOLDER_EMAIL_DOMAIN = 'noreply.local';
-
-export function walkInPlaceholderEmail(publicOrderId: string): string {
-  return `walkin+${publicOrderId}@${PLACEHOLDER_EMAIL_DOMAIN}`;
-}
-
-export function kioskPlaceholderEmail(publicOrderId: string): string {
-  return `kiosk+${publicOrderId}@${PLACEHOLDER_EMAIL_DOMAIN}`;
-}
-
 export const DEFAULT_PREP_MINUTES = 20;
 
 /**

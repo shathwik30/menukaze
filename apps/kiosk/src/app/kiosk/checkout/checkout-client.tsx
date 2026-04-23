@@ -101,6 +101,8 @@ export function CheckoutClient({
   const clear = useKioskCart((s) => s.clear);
 
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingReference, setPendingReference] = useState<string | null>(null);
@@ -133,6 +135,14 @@ export function CheckoutClient({
       setError(`Minimum order is ${fmt(minimumOrderMinor)}.`);
       return;
     }
+    if (!phone.trim()) {
+      setError('Please enter your phone number.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
     setError(null);
     setPendingReference(null);
     setSubmitting(true);
@@ -142,6 +152,8 @@ export function CheckoutClient({
       restaurantId,
       orderMode: orderMode ?? 'dine_in',
       customerName,
+      customerPhone: phone.trim(),
+      customerEmail: email.trim(),
       lines: lines.map((l) => ({
         itemId: l.itemId,
         quantity: l.quantity,
@@ -313,6 +325,35 @@ export function CheckoutClient({
                   onSpace={() => setName((n) => (n.length >= 32 || n.endsWith(' ') ? n : `${n} `))}
                   onClear={() => setName('')}
                 />
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <label className="block">
+                  <Label className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
+                    Phone number <span className="text-rose-600">*</span>
+                  </Label>
+                  <Input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    maxLength={40}
+                    placeholder="+91 98765 43210"
+                    className="mt-3 h-14 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-xl font-bold outline-none focus:border-emerald-600"
+                  />
+                </label>
+                <label className="block">
+                  <Label className="text-sm font-black tracking-[0.18em] text-zinc-500 uppercase">
+                    Email address <span className="text-rose-600">*</span>
+                  </Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    maxLength={320}
+                    placeholder="you@example.com"
+                    className="mt-3 h-14 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-xl font-bold outline-none focus:border-emerald-600"
+                  />
+                </label>
               </div>
 
               {error ? (

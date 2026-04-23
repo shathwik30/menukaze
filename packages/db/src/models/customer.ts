@@ -2,17 +2,17 @@ import { Schema, type Types, type Connection, type HydratedDocument, type Model 
 import { ORDER_CHANNELS, type OrderChannel } from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
-// Upserted by lower-cased email on every order. firstChannel is immutable
-// (acquisition source for analytics); most-used channel is derived at read
-// time from channelCounts.
+// Upserted by phone on every order; email is also stored for receipts.
+// firstChannel is immutable (acquisition source for analytics);
+// most-used channel is derived at read time from channelCounts.
 
 export type CustomerChannel = OrderChannel;
 
 export interface CustomerDoc {
   restaurantId: Types.ObjectId;
+  phone: string;
   email: string;
   name?: string;
-  phone?: string;
   firstChannel: CustomerChannel;
   channelCounts: Record<CustomerChannel, number>;
   lifetimeOrders: number;
@@ -27,9 +27,9 @@ export interface CustomerDoc {
 const customerSchema = new Schema<CustomerDoc>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    phone: { type: String, required: true, maxlength: 40 },
     email: { type: String, required: true, maxlength: 320 },
     name: { type: String, maxlength: 200 },
-    phone: { type: String, maxlength: 40 },
     firstChannel: {
       type: String,
       enum: ORDER_CHANNELS,
@@ -55,13 +55,9 @@ const customerSchema = new Schema<CustomerDoc>(
 );
 
 customerSchema.plugin(tenantScopedPlugin);
-customerSchema.index({ restaurantId: 1, email: 1 }, { unique: true });
+customerSchema.index({ restaurantId: 1, phone: 1 }, { unique: true });
 customerSchema.index({ restaurantId: 1, lastOrderAt: -1 });
 customerSchema.index({ restaurantId: 1, lifetimeOrders: -1 });
-
-customerSchema.pre('validate', function () {
-  this.email = this.email.toLowerCase();
-});
 
 export type CustomerHydratedDoc = HydratedDocument<CustomerDoc>;
 export type CustomerModel = Model<CustomerDoc>;

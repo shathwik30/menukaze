@@ -107,7 +107,7 @@ export function CheckoutForm({
     const payload: CheckoutInput = {
       restaurantId,
       type: orderType,
-      customer: { name, email, ...(phone ? { phone } : {}) },
+      customer: { name, phone, email },
       lines: lines.map((l) => ({
         itemId: l.itemId,
         quantity: l.quantity,
@@ -327,6 +327,20 @@ export function CheckoutForm({
             />
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="co-phone" required>
+              Phone
+            </Label>
+            <Input
+              id="co-phone"
+              type="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              placeholder="+91 98765 43210"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="co-email" required>
               Email
             </Label>
@@ -338,17 +352,6 @@ export function CheckoutForm({
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               placeholder="jane@example.com"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="co-phone">Phone</Label>
-            <Input
-              id="co-phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              autoComplete="tel"
-              placeholder="For SMS order updates"
             />
           </div>
         </div>

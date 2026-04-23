@@ -11,6 +11,7 @@ import {
   pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
+  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
@@ -24,7 +25,6 @@ import {
   parseCurrencyCode,
   resolvePrimaryStationId,
   validateModifierSelection,
-  walkInPlaceholderEmail,
 } from '@menukaze/shared';
 import { runRestaurantAction, validationError, type ActionResult } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
@@ -46,6 +46,8 @@ const lineInput = z.object({
 
 const walkInInput = z.object({
   customerName: z.string().trim().max(200).optional(),
+  customerPhone: z.string().min(7).max(40).optional(),
+  customerEmail: z.string().email().max(320).optional(),
   type: z.enum(['dine_in', 'pickup']),
   tableId: z.string().min(1).optional(),
   paymentMethod: z.enum(['cash', 'pay_later']),
@@ -193,6 +195,8 @@ export async function createWalkInOrderAction(
       const now = new Date();
       const trimmedName = input.customerName?.trim();
       const customerName = trimmedName && trimmedName.length > 0 ? trimmedName : 'Walk-in customer';
+      const customerPhone = input.customerPhone?.trim();
+      const customerEmail = input.customerEmail?.trim();
       const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
       const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
 
@@ -205,7 +209,10 @@ export async function createWalkInOrderAction(
         type: input.type,
         customer: {
           name: customerName,
-          email: walkInPlaceholderEmail(publicOrderId),
+          ...(customerPhone ? { phone: customerPhone } : {}),
+          ...(customerEmail
+            ? { email: customerEmail }
+            : { email: `walkin+${publicOrderId}@noreply.local` }),
         },
         items: snapshotLines,
         subtotalMinor,
@@ -235,6 +242,18 @@ export async function createWalkInOrderAction(
           { restaurantId, _id: table._id },
           { $set: { status: 'occupied' } },
         ).exec();
+      }
+
+      if (customerPhone && customerEmail) {
+        await upsertCustomerFromOrder(conn, {
+          restaurantId,
+          phone: customerPhone,
+          email: customerEmail,
+          name: customerName !== 'Walk-in customer' ? customerName : undefined,
+          channel: 'walk_in',
+          totalMinor,
+          currency: restaurant.currency,
+        });
       }
 
       try {

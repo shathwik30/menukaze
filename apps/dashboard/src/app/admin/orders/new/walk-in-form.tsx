@@ -68,6 +68,8 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
   const [orderType, setOrderType] = useState<'dine_in' | 'pickup'>('pickup');
   const [tableId, setTableId] = useState<string>('');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [lines, setLines] = useState<CartLine[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string>(categories[0]?.id ?? '');
@@ -192,6 +194,8 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
     startSubmit(async () => {
       const result = await createWalkInOrderAction({
         customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
         type: orderType,
         ...(orderType === 'dine_in' && tableId ? { tableId } : {}),
         paymentMethod,
@@ -209,6 +213,8 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
       setSuccess(`Order ${result.data.publicOrderId} sent to the KDS.`);
       setLines([]);
       setCustomerName('');
+      setCustomerPhone('');
+      setCustomerEmail('');
       router.refresh();
     });
   };
@@ -332,6 +338,32 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="Walk-in customer"
+            className="border-border h-9 rounded-md border px-3"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">
+            Phone <span className="text-muted-foreground">(optional)</span>
+          </span>
+          <Input
+            type="tel"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+            placeholder="+91 98765 43210"
+            className="border-border h-9 rounded-md border px-3"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">
+            Email <span className="text-muted-foreground">(optional)</span>
+          </span>
+          <Input
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            placeholder="customer@example.com"
             className="border-border h-9 rounded-md border px-3"
           />
         </label>

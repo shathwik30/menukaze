@@ -324,6 +324,45 @@ export async function updateNotificationPrefsAction(raw: unknown): Promise<Actio
   );
 }
 
+const geolocationRestrictionInput = z.object({
+  enabled: z.boolean(),
+  radiusKm: z.number().min(0.1).max(100),
+});
+export async function updateGeolocationRestrictionAction(raw: unknown): Promise<ActionResult> {
+  const parsed = geolocationRestrictionInput.safeParse(raw);
+  if (!parsed.success) return validationError(parsed.error);
+
+  return runRestaurantAction(
+    ['settings.edit_profile'],
+    {
+      onError: 'Failed to update geolocation restriction.',
+      onForbidden: SETTINGS_PERMISSION_ERROR,
+    },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { geolocationRestriction: parsed.data } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: parsed.data.enabled
+          ? 'settings.geolocation_restriction.enabled'
+          : 'settings.geolocation_restriction.disabled',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+        metadata: parsed.data,
+      });
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    },
+  );
+}
+
 const taxRulesInput = z.object({
   taxRules: z.array(taxRuleSchema).max(10),
 });

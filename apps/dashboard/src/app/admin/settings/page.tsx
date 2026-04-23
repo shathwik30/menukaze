@@ -77,6 +77,10 @@ export default async function SettingsPage() {
             enabled: restaurant.throttling?.enabled ?? false,
             maxConcurrentOrders: restaurant.throttling?.maxConcurrentOrders ?? 20,
           },
+          geolocationRestriction: {
+            enabled: restaurant.geolocationRestriction?.enabled ?? false,
+            radiusKm: restaurant.geolocationRestriction?.radiusKm ?? 5,
+          },
           receiptBranding: {
             headerColor: restaurant.receiptBranding?.headerColor ?? '#000000',
             footerText: restaurant.receiptBranding?.footerText ?? '',
