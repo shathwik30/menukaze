@@ -55,6 +55,7 @@ export {
   walkInPlaceholderEmail,
   kioskPlaceholderEmail,
   DEFAULT_PREP_MINUTES,
+  computeCartPrepMinutes,
   SESSION_FAST_FOLLOW_MS,
   SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR,
   SESSION_PLAUSIBLE_CAP_MULTIPLIER,
@@ -199,6 +200,8 @@ export { computeTax } from './tax';
 export type { TaxRule, TaxBreakdown } from './tax';
 
 export { getZodErrorMessage } from './validation';
+
+export { startOfTodayInTimezone } from './timezone';
 
 export {
   WEBHOOK_EVENT_TYPES,

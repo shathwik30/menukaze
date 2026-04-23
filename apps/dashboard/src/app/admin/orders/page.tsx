@@ -25,6 +25,7 @@ export default async function DashboardOrdersPage() {
   const rows = orders.map((o) => ({
     id: String(o._id),
     publicOrderId: o.publicOrderId,
+    ...(typeof o.pickupNumber === 'number' ? { pickupNumber: o.pickupNumber } : {}),
     channel: o.channel,
     type: o.type,
     status: o.status,

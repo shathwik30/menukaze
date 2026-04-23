@@ -16,6 +16,7 @@ import { Badge, Card, EmptyState, cn, type BadgeProps } from '@menukaze/ui';
 export interface OrderRow {
   id: string;
   publicOrderId: string;
+  pickupNumber?: number;
   channel: string;
   type: string;
   status: OrderStatus;
@@ -238,7 +239,7 @@ function Section({
       ) : (
         <ul className={cn('divide-ink-100 dark:divide-ink-800 divide-y', dimmed && 'opacity-85')}>
           {rows.map((row) => {
-            const pickup = formatPickupNumber(row.publicOrderId);
+            const pickup = formatPickupNumber(row);
             const channel = CHANNEL_META[row.channel] ?? {
               label: row.channel,
               icon: null,

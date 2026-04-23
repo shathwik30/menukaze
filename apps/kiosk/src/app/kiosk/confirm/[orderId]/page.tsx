@@ -43,6 +43,7 @@ export default async function KioskConfirmPage({ params }: PageProps) {
       restaurantId={String(restaurant._id)}
       orderId={orderId}
       publicOrderId={order.publicOrderId}
+      {...(typeof order.pickupNumber === 'number' ? { pickupNumber: order.pickupNumber } : {})}
       initialStatus={order.status}
       customerName={order.customer.name}
       totalLabel={totalLabel}

@@ -29,7 +29,7 @@ export default async function DashboardOrderDetailPage({
 
   const currency = currencyCodeOrDefault(restaurant?.currency ?? order.currency);
   const locale = restaurant?.locale ?? 'en-US';
-  const pickupNumber = formatPickupNumber(order.publicOrderId);
+  const pickupNumber = formatPickupNumber(order);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">

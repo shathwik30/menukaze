@@ -8,6 +8,8 @@ import {
   getMongoConnection,
   getModels,
   generatePublicOrderId,
+  pickLeastLoadedStationId,
+  reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
@@ -17,6 +19,7 @@ import { channels } from '@menukaze/realtime';
 import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
+  computeCartPrepMinutes,
   computeTax,
   DEFAULT_PREP_MINUTES,
   formatMoney,
@@ -91,6 +94,7 @@ interface CheckoutRestaurant {
   slug: string;
   currency: string;
   locale: string;
+  timezone?: string | null;
   razorpayKeyIdEnc?: string | null;
   razorpayKeySecretEnc?: string | null;
   liveAt?: Date | null;
@@ -132,6 +136,7 @@ interface CheckoutOrderRecord {
 interface CheckoutPricing {
   snapshotLines: CheckoutLineSnapshot[];
   subtotalMinor: number;
+  prepMinutes: number;
 }
 
 function buildCheckoutIds(
@@ -184,6 +189,7 @@ async function buildCheckoutPricing(
   restaurant: CheckoutRestaurant,
   lines: CheckoutInput['lines'],
   categoryModel: ReturnType<typeof getModels>['Category'],
+  conn: Awaited<ReturnType<typeof getMongoConnection>>,
 ): Promise<CheckoutPricing | { error: string }> {
   const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
   const itemsById = new Map(items.map((item) => [String(item._id), item]));
@@ -225,10 +231,15 @@ async function buildCheckoutPricing(
     const lineTotalMinor = unitMinor * line.quantity;
     subtotalMinor += lineTotalMinor;
 
-    const stationId = resolvePrimaryStationId(
-      item.stationIds ?? null,
-      categoryStationsById.get(String(item.categoryId)) ?? null,
-    );
+    // When an item can route to multiple stations, spread load: pick the one
+    // with the fewest open lines so a busy grill doesn't get every new order.
+    const itemStations = item.stationIds ?? [];
+    const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
+    const candidates = itemStations.length > 0 ? itemStations : categoryStations;
+    const stationId =
+      candidates.length > 1
+        ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
+        : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
 
     snapshotLines.push({
       itemId: item._id,
@@ -263,7 +274,18 @@ async function buildCheckoutPricing(
     };
   }
 
-  return { snapshotLines, subtotalMinor };
+  // Prep time is the max per-item prep time across the cart, falling back to
+  // the restaurant default so operators see a sensible estimate even before
+  // they've filled out per-item values.
+  const prepMinutes = computeCartPrepMinutes(
+    lines.map((line) => {
+      const item = itemsById.get(line.itemId);
+      return { estimatedPrepMinutes: item?.estimatedPrepMinutes ?? null };
+    }),
+    restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES,
+  );
+
+  return { snapshotLines, subtotalMinor, prepMinutes };
 }
 
 function buildTrackingUrl(restaurant: CheckoutRestaurant, orderId: string): string {
@@ -386,6 +408,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     restaurant,
     input.lines,
     Category,
+    conn,
   );
   if ('error' in pricing) {
     return { ok: false, error: pricing.error };
@@ -406,9 +429,14 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
     };
   }
 
-  const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
+  const prepMinutes = pricing.prepMinutes;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
   const publicOrderId = generatePublicOrderId();
+  const pickupNumber = await reserveDailyPickupNumber(
+    conn,
+    checkoutIds.restaurantId,
+    restaurant.timezone,
+  );
 
   const razorpayOrder = await razorpay.client.orders.create({
     amount: totalMinor,
@@ -425,6 +453,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   const order = await Order.create({
     restaurantId: checkoutIds.restaurantId,
     publicOrderId,
+    pickupNumber,
     channel: 'storefront',
     type: input.type === 'pickup' ? 'pickup' : 'delivery',
     customer: input.customer,

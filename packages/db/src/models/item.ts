@@ -35,6 +35,12 @@ export interface ItemDoc {
   ageRestricted?: boolean;
   /** Override for category.stationIds. */
   stationIds?: Types.ObjectId[];
+  /**
+   * Optional per-item prep time (minutes). Cart-level estimates take the
+   * maximum of line items' prep times so a slow dish isn't hidden by fast
+   * ones; falls back to `Restaurant.estimatedPrepMinutes` when unset.
+   */
+  estimatedPrepMinutes?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -72,6 +78,7 @@ const itemSchema = new Schema<ItemDoc>(
     soldOut: { type: Boolean, default: false },
     ageRestricted: Boolean,
     stationIds: { type: [Schema.Types.ObjectId], default: undefined },
+    estimatedPrepMinutes: { type: Number, min: 0, max: 600 },
   },
   { timestamps: true, collection: 'items' },
 );

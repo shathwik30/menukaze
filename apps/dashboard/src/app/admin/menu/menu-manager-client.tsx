@@ -1,7 +1,7 @@
 'use client';
 
-import { Button, Checkbox, Input, Textarea } from '@menukaze/ui';
-import { useEffect, useState, useTransition, type ChangeEvent } from 'react';
+import { Button, Checkbox, ImageCrop, Input, Textarea } from '@menukaze/ui';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import {
@@ -88,7 +88,6 @@ interface Props {
   canToggleAvailability: boolean;
 }
 
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const DAY_LABELS = [
   ['mon', 'Mon'],
   ['tue', 'Tue'],
@@ -128,47 +127,6 @@ function parseModifiers(value: string): ManagerModifierGroup[] {
 
 function toggleComboId(selected: string[], id: string): string[] {
   return selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id];
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image.'));
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('Failed to read image.'));
-        return;
-      }
-      resolve(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function handleImageUpload(
-  event: ChangeEvent<HTMLInputElement>,
-  onLoaded: (value: string) => void,
-  onError: (message: string) => void,
-) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    onError('Use a JPG, PNG, or WebP image.');
-    event.target.value = '';
-    return;
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    onError('Images must be 2 MB or smaller.');
-    event.target.value = '';
-    return;
-  }
-  try {
-    onLoaded(await readFileAsDataUrl(file));
-  } catch (error) {
-    onError(error instanceof Error ? error.message : 'Failed to load image.');
-  } finally {
-    event.target.value = '';
-  }
 }
 
 export function MenuManagerClient({
@@ -746,38 +704,19 @@ function ItemCreateRow({
               className="border-input bg-background h-8 rounded-md border px-2 text-xs"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs">
-            Upload image
-            <Input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) =>
-                void handleImageUpload(
-                  event,
-                  (value) => {
-                    setLocalError(null);
-                    setImageUrl(value);
-                  },
-                  setLocalError,
-                )
-              }
-              className="text-xs"
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="font-medium">Item image</span>
+            <ImageCrop
+              label="item photo"
+              value={imageUrl || null}
+              onChange={(value) => {
+                setLocalError(null);
+                setImageUrl(value);
+              }}
+              onRemove={() => setImageUrl('')}
+              aspectRatio={1}
             />
-          </label>
-          {imageUrl ? (
-            <div className="flex items-center gap-3">
-              <img src={imageUrl} alt="" className="h-16 w-16 rounded-md border object-cover" />
-              <Button
-                variant="plain"
-                size="none"
-                type="button"
-                onClick={() => setImageUrl('')}
-                className="text-xs underline"
-              >
-                Remove image
-              </Button>
-            </div>
-          ) : null}
+          </div>
           <div className="flex flex-col gap-2 text-xs">
             <p className="font-medium">Combo contents</p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -988,38 +927,19 @@ function ItemRow({
           className="border-input bg-background h-8 rounded-md border px-2 text-xs"
         />
         <div className="flex flex-col gap-2 rounded-md border border-dashed border-zinc-300 p-3">
-          <label className="flex flex-col gap-1 text-xs">
-            Upload image
-            <Input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) =>
-                void handleImageUpload(
-                  event,
-                  (value) => {
-                    setLocalError(null);
-                    setImageUrl(value);
-                  },
-                  setLocalError,
-                )
-              }
-              className="text-xs"
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="font-medium">Item image</span>
+            <ImageCrop
+              label="item photo"
+              value={imageUrl || null}
+              onChange={(value) => {
+                setLocalError(null);
+                setImageUrl(value);
+              }}
+              onRemove={() => setImageUrl('')}
+              aspectRatio={1}
             />
-          </label>
-          {imageUrl ? (
-            <div className="flex items-center gap-3">
-              <img src={imageUrl} alt="" className="h-16 w-16 rounded-md border object-cover" />
-              <Button
-                variant="plain"
-                size="none"
-                type="button"
-                onClick={() => setImageUrl('')}
-                className="text-xs underline"
-              >
-                Remove image
-              </Button>
-            </div>
-          ) : null}
+          </div>
           <div className="flex flex-col gap-2 text-xs">
             <p className="font-medium">Combo contents</p>
             <div className="grid gap-2 sm:grid-cols-2">

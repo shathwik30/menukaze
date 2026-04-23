@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
+import { currencyCodeOrDefault, formatMoney, startOfTodayInTimezone } from '@menukaze/shared';
 import {
   Badge,
   Button,
@@ -25,8 +25,9 @@ export default async function DashboardAdminPage() {
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Menu, Category, Item, Table, Order } = getModels(conn);
-  const [restaurant, menus, categories, items, tables, orderAgg] = await Promise.all([
-    Restaurant.findById(restaurantId).exec(),
+  const restaurant = await Restaurant.findById(restaurantId).exec();
+  const todayStart = startOfTodayInTimezone(restaurant?.timezone);
+  const [menus, categories, items, tables, orderAgg] = await Promise.all([
     Menu.find({ restaurantId }).sort({ order: 1 }).exec(),
     Category.find({ restaurantId }).sort({ order: 1 }).exec(),
     Item.find({ restaurantId }).sort({ createdAt: 1 }).exec(),
@@ -42,7 +43,7 @@ export default async function DashboardAdminPage() {
           today: [
             {
               $match: {
-                createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+                createdAt: { $gte: todayStart },
                 status: { $nin: ['cancelled'] },
               },
             },
@@ -58,7 +59,7 @@ export default async function DashboardAdminPage() {
             {
               $match: {
                 status: {
-                  $in: ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'],
+                  $in: ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'],
                 },
               },
             },

@@ -461,6 +461,15 @@ function TableCard({
         </form>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Button
+            variant="plain"
+            size="none"
+            type="button"
+            onClick={() => window.open(`/admin/tables/${table.id}`, '_self')}
+            className="bg-ink-950 text-canvas-50 rounded-md px-2 py-1"
+          >
+            Details
+          </Button>
           {canPrintQr ? (
             <Button
               variant="plain"

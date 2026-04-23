@@ -61,6 +61,7 @@ export default async function KdsPage({ searchParams }: PageProps) {
     const card: KdsCard = {
       id: String(o._id),
       publicOrderId: o.publicOrderId,
+      ...(typeof o.pickupNumber === 'number' ? { pickupNumber: o.pickupNumber } : {}),
       channel: o.channel,
       type: o.type,
       status: o.status,

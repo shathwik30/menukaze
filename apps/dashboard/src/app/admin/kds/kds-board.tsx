@@ -40,6 +40,7 @@ export interface KdsStation {
 export interface KdsCard {
   id: string;
   publicOrderId: string;
+  pickupNumber?: number;
   channel: string;
   type: string;
   status: OrderStatus;
@@ -448,7 +449,7 @@ function Ticket({
   const ageMinutes = Math.floor((Date.now() - new Date(card.createdAt).getTime()) / 60_000);
   const severity = ageSeverity(ageMinutes);
   const action = STAGE_ACTIONS[card.status];
-  const pickupNumber = formatPickupNumber(card.publicOrderId);
+  const pickupNumber = formatPickupNumber(card);
 
   return (
     <article
