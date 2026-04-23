@@ -5,9 +5,9 @@ import type { CustomerChannel } from './models/customer';
 
 export interface CustomerUpsertInput {
   restaurantId: Types.ObjectId;
+  phone: string;
   email: string;
   name?: string;
-  phone?: string;
   channel: CustomerChannel;
   totalMinor: number;
   currency: string;
@@ -23,18 +23,18 @@ export async function upsertCustomerFromOrder(
   try {
     const { Customer } = getModels(connection);
     const occurredAt = input.occurredAt ?? new Date();
-    const email = input.email.toLowerCase();
     const channelKey = `channelCounts.${input.channel}`;
 
     // Two-step upsert: Mongo rejects `$setOnInsert: { channelCounts }` in the
     // same update as `$inc: { 'channelCounts.<channel>' }` (path conflict), so
     // seed the counters-on-insert first, then increment.
     await Customer.updateOne(
-      { restaurantId: input.restaurantId, email },
+      { restaurantId: input.restaurantId, phone: input.phone },
       {
         $setOnInsert: {
           restaurantId: input.restaurantId,
-          email,
+          phone: input.phone,
+          email: input.email,
           firstChannel: input.channel,
           firstOrderAt: occurredAt,
           lifetimeOrders: 0,
@@ -48,11 +48,11 @@ export async function upsertCustomerFromOrder(
     ).exec();
 
     await Customer.updateOne(
-      { restaurantId: input.restaurantId, email },
+      { restaurantId: input.restaurantId, phone: input.phone },
       {
         $set: {
+          email: input.email,
           ...(input.name ? { name: input.name } : {}),
-          ...(input.phone ? { phone: input.phone } : {}),
           currency: input.currency,
           lastOrderAt: occurredAt,
         },

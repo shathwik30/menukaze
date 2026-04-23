@@ -240,15 +240,17 @@ export async function POST(request: NextRequest): Promise<Response> {
           },
         });
 
-        await upsertCustomerFromOrder(conn, {
-          restaurantId: ctx.restaurantId,
-          email: input.customer.email,
-          name: input.customer.name,
-          ...(input.customer.phone ? { phone: input.customer.phone } : {}),
-          channel: 'api',
-          totalMinor,
-          currency: restaurant.currency,
-        });
+        if (input.customer.phone) {
+          await upsertCustomerFromOrder(conn, {
+            restaurantId: ctx.restaurantId,
+            phone: input.customer.phone,
+            email: input.customer.email,
+            name: input.customer.name,
+            channel: 'api',
+            totalMinor,
+            currency: restaurant.currency,
+          });
+        }
 
         await enqueueWebhookEvent(conn, {
           restaurantId: ctx.restaurantId,

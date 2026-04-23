@@ -25,7 +25,8 @@ describe('upsertCustomerFromOrder', () => {
     const occurredAt = new Date('2026-04-01T10:00:00Z');
     await upsertCustomerFromOrder(mongo.connection, {
       restaurantId,
-      email: 'Alice@Example.com',
+      phone: '+919876543210',
+      email: 'alice@example.com',
       name: 'Alice',
       channel: 'storefront',
       totalMinor: 2500,
@@ -34,8 +35,9 @@ describe('upsertCustomerFromOrder', () => {
     });
 
     const { Customer } = getModels(mongo.connection);
-    const row = await Customer.findOne({ restaurantId, email: 'alice@example.com' }).lean().exec();
+    const row = await Customer.findOne({ restaurantId, phone: '+919876543210' }).lean().exec();
     expect(row).not.toBeNull();
+    expect(row?.email).toBe('alice@example.com');
     expect(row?.firstChannel).toBe('storefront');
     expect(row?.firstOrderAt.toISOString()).toBe(occurredAt.toISOString());
     expect(row?.lifetimeOrders).toBe(1);
@@ -48,6 +50,7 @@ describe('upsertCustomerFromOrder', () => {
     const second = new Date('2026-04-02T11:00:00Z');
     await upsertCustomerFromOrder(mongo.connection, {
       restaurantId,
+      phone: '+919876543211',
       email: 'bob@example.com',
       channel: 'storefront',
       totalMinor: 1000,
@@ -56,6 +59,7 @@ describe('upsertCustomerFromOrder', () => {
     });
     await upsertCustomerFromOrder(mongo.connection, {
       restaurantId,
+      phone: '+919876543211',
       email: 'bob@example.com',
       channel: 'qr_dinein',
       totalMinor: 1500,
@@ -64,7 +68,7 @@ describe('upsertCustomerFromOrder', () => {
     });
 
     const { Customer } = getModels(mongo.connection);
-    const row = await Customer.findOne({ restaurantId, email: 'bob@example.com' }).lean().exec();
+    const row = await Customer.findOne({ restaurantId, phone: '+919876543211' }).lean().exec();
     expect(row?.firstChannel).toBe('storefront');
     expect(row?.firstOrderAt.toISOString()).toBe(first.toISOString());
     expect(row?.lastOrderAt.toISOString()).toBe(second.toISOString());
@@ -74,16 +78,26 @@ describe('upsertCustomerFromOrder', () => {
     expect(row?.channelCounts.qr_dinein).toBe(1);
   });
 
-  it('normalises email to lowercase', async () => {
+  it('updates email on repeat orders from the same phone', async () => {
     await upsertCustomerFromOrder(mongo.connection, {
       restaurantId,
-      email: 'Mixed@Example.COM',
+      phone: '+919876543212',
+      email: 'old@example.com',
       channel: 'kiosk',
       totalMinor: 500,
       currency: 'USD',
     });
+    await upsertCustomerFromOrder(mongo.connection, {
+      restaurantId,
+      phone: '+919876543212',
+      email: 'new@example.com',
+      channel: 'storefront',
+      totalMinor: 800,
+      currency: 'USD',
+    });
     const { Customer } = getModels(mongo.connection);
-    const row = await Customer.findOne({ restaurantId, email: 'mixed@example.com' }).lean().exec();
-    expect(row?.email).toBe('mixed@example.com');
+    const row = await Customer.findOne({ restaurantId, phone: '+919876543212' }).lean().exec();
+    expect(row?.email).toBe('new@example.com');
+    expect(row?.lifetimeOrders).toBe(2);
   });
 });

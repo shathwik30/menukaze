@@ -53,8 +53,8 @@ const checkoutInput = z.object({
   type: z.enum(['pickup', 'delivery']),
   customer: z.object({
     name: z.string().min(1).max(200),
+    phone: z.string().min(7).max(40),
     email: z.string().email().max(320),
-    phone: z.string().max(40).optional(),
   }),
   lines: z.array(lineInput).min(1).max(50),
 });
@@ -70,7 +70,7 @@ export type CreatePaymentIntentResult =
       razorpayKeyId: string;
       amountMinor: number;
       currency: string;
-      customer: { name: string; email: string; phone?: string };
+      customer: { name: string; phone: string; email: string };
     }
   | { ok: false; error: string };
 
@@ -448,9 +448,9 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
 
   await upsertCustomerFromOrder(conn, {
     restaurantId: checkoutIds.restaurantId,
+    phone: input.customer.phone,
     email: input.customer.email,
     name: input.customer.name,
-    ...(input.customer.phone ? { phone: input.customer.phone } : {}),
     channel: 'storefront',
     totalMinor,
     currency: restaurant.currency,

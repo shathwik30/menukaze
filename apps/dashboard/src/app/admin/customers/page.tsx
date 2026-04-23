@@ -27,9 +27,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   if (query) {
     const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     filter.$or = [
+      { phone: { $regex: safe } },
       { email: { $regex: safe, $options: 'i' } },
       { name: { $regex: safe, $options: 'i' } },
-      { phone: { $regex: safe } },
     ];
   }
   const sortKey: Record<string, -1> =
@@ -42,7 +42,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-2xl font-bold">Customers</h1>
           <p className="text-muted-foreground text-sm">
-            {customers.length} record{customers.length === 1 ? '' : 's'}, deduped by email.
+            {customers.length} record{customers.length === 1 ? '' : 's'}, deduped by phone.
           </p>
         </div>
         <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
@@ -101,8 +101,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                       href={`/admin/customers/${String(c._id)}`}
                       className="font-medium hover:underline"
                     >
-                      {c.name ?? c.email}
+                      {c.name ?? c.phone}
                     </Link>
+                    <p className="text-muted-foreground text-xs">{c.phone}</p>
                     {c.name ? <p className="text-muted-foreground text-xs">{c.email}</p> : null}
                   </td>
                   <td className="px-3 py-2 text-xs uppercase">{c.firstChannel}</td>

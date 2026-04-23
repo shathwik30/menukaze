@@ -112,6 +112,12 @@ export interface RestaurantDoc {
     maxConcurrentOrders: number;
   };
 
+  /** When enabled, ordering is blocked unless the customer is within radiusKm of the restaurant. */
+  geolocationRestriction: {
+    enabled: boolean;
+    radiusKm: number;
+  };
+
   taxRules: Array<{
     name: string;
     percent: number;
@@ -248,6 +254,10 @@ const restaurantSchema = new Schema<RestaurantDoc>(
     throttling: {
       enabled: { type: Boolean, default: false },
       maxConcurrentOrders: { type: Number, default: 20 },
+    },
+    geolocationRestriction: {
+      enabled: { type: Boolean, default: false },
+      radiusKm: { type: Number, default: 5, min: 0.1, max: 100 },
     },
 
     taxRules: {

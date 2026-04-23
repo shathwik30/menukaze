@@ -8,6 +8,7 @@ import {
   updateHoursAction,
   updateHolidayModeAction,
   updateThrottlingAction,
+  updateGeolocationRestrictionAction,
   updateDeliverySettingsAction,
   updateQrDineInSettingsAction,
   updateReceiptBrandingAction,
@@ -58,6 +59,7 @@ interface InitialSettings {
   hours: DayHours[];
   holidayMode: { enabled: boolean; message: string };
   throttling: { enabled: boolean; maxConcurrentOrders: number };
+  geolocationRestriction: { enabled: boolean; radiusKm: number };
   receiptBranding: { headerColor: string; footerText: string; socials: string[] };
   notificationPrefs: { email: boolean; dashboard: boolean; sound: boolean };
   taxRules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
@@ -157,6 +159,15 @@ export function SettingsClient({
           initial={initial.throttling}
           pending={isPending}
           onSubmit={(payload) => run('throttling', () => updateThrottlingAction(payload))}
+        />
+      ) : null}
+      {permissions.canEditProfile ? (
+        <GeolocationRestrictionSection
+          initial={initial.geolocationRestriction}
+          pending={isPending}
+          onSubmit={(payload) =>
+            run('geolocation restriction', () => updateGeolocationRestrictionAction(payload))
+          }
         />
       ) : null}
       {permissions.canEditBranding ? (
@@ -586,6 +597,54 @@ function ThrottlingSection({
             className="border-input bg-background h-8 w-20 rounded-md border px-2 text-sm disabled:opacity-50"
           />
         </label>
+        <SaveButton pending={pending} />
+      </form>
+    </Section>
+  );
+}
+
+function GeolocationRestrictionSection({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: { enabled: boolean; radiusKm: number };
+  pending: boolean;
+  onSubmit: (payload: { enabled: boolean; radiusKm: number }) => void;
+}) {
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [radiusKm, setRadiusKm] = useState(initial.radiusKm);
+  return (
+    <Section title="Geolocation restriction">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit({ enabled, radiusKm });
+        }}
+        className="flex flex-col gap-3"
+      >
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Require customers to be near the restaurant to order
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <span className="w-48">Allowed radius (km)</span>
+          <Input
+            type="number"
+            min="0.1"
+            max="100"
+            step="0.1"
+            value={radiusKm}
+            onChange={(e) => setRadiusKm(parseFloat(e.target.value) || 1)}
+            disabled={!enabled}
+            className="border-input bg-background h-8 w-24 rounded-md border px-2 text-sm disabled:opacity-50"
+          />
+        </label>
+        <p className="text-muted-foreground text-xs">
+          When enabled, the storefront and QR dine-in apps will prompt customers for their location
+          and block ordering if they are outside the radius. Requires your restaurant coordinates to
+          be set in your profile.
+        </p>
         <SaveButton pending={pending} />
       </form>
     </Section>

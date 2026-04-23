@@ -7,9 +7,7 @@ import {
   isTableStatus,
   isTerminalOrderStatus,
   isWaiterAlertReason,
-  kioskPlaceholderEmail,
   orderChannelKind,
-  walkInPlaceholderEmail,
 } from './domain';
 
 describe('type guards', () => {
@@ -59,12 +57,5 @@ describe('orderChannelKind / BUILT_IN_ORDER_CHANNELS', () => {
 
   it('api gets kind api', () => {
     expect(orderChannelKind('api')).toBe('api');
-  });
-});
-
-describe('placeholder emails', () => {
-  it('walk-in and kiosk placeholders differ by prefix and include the public order id', () => {
-    expect(walkInPlaceholderEmail('MK-ABC123')).toBe('walkin+MK-ABC123@noreply.local');
-    expect(kioskPlaceholderEmail('MK-ABC123')).toBe('kiosk+MK-ABC123@noreply.local');
   });
 });

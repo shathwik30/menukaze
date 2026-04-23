@@ -22,7 +22,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!customer) notFound();
 
   const orders = await Order.find(
-    { restaurantId, 'customer.email': customer.email },
+    { restaurantId, 'customer.phone': customer.phone },
     {
       publicOrderId: 1,
       channel: 1,
@@ -48,15 +48,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{customer.name ?? customer.email}</h1>
-          {customer.name ? (
-            <p className="text-muted-foreground text-sm">
-              <a href={`mailto:${customer.email}`} className="underline">
-                {customer.email}
-              </a>
-              {customer.phone ? <> · {customer.phone}</> : null}
-            </p>
-          ) : null}
+          <h1 className="text-2xl font-bold">{customer.name ?? customer.phone}</h1>
+          <p className="text-muted-foreground text-sm">
+            {customer.phone}
+            {' · '}
+            <a href={`mailto:${customer.email}`} className="underline">
+              {customer.email}
+            </a>
+          </p>
         </div>
         <Link href="/admin/customers" className="text-foreground text-sm underline">
           ← Back

@@ -10,6 +10,7 @@ import {
   getModels,
   getMongoConnection,
   restaurantHasReachedOrderCapacity,
+  upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
@@ -20,7 +21,6 @@ import {
   computeTax,
   DEFAULT_PREP_MINUTES,
   formatMoney,
-  kioskPlaceholderEmail,
   orderWebhookChannel,
   parseCurrencyCode,
   resolvePrimaryStationId,
@@ -50,6 +50,8 @@ const kioskOrderInput = z.object({
   restaurantId: z.string().min(1),
   orderMode: z.enum(['dine_in', 'takeaway']),
   customerName: z.string().min(1).max(200),
+  customerPhone: z.string().min(7).max(40),
+  customerEmail: z.string().email().max(320),
   lines: z.array(lineInput).min(1).max(50),
 });
 
@@ -65,6 +67,8 @@ export type CreateKioskIntentResult =
       amountMinor: number;
       currency: string;
       customerName: string;
+      customerPhone: string;
+      customerEmail: string;
     }
   | { ok: false; error: string };
 
@@ -206,7 +210,6 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
   const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
   const estimatedReadyAt = new Date(Date.now() + prepMinutes * 60_000);
 
-  // Kiosk orders use a placeholder email; no receipt is sent.
   const order = await Order.create({
     restaurantId,
     publicOrderId,
@@ -214,7 +217,8 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     type: input.orderMode === 'dine_in' ? 'dine_in' : 'pickup',
     customer: {
       name: input.customerName,
-      email: kioskPlaceholderEmail(publicOrderId),
+      phone: input.customerPhone,
+      email: input.customerEmail,
     },
     items: snapshotLines,
     subtotalMinor,
@@ -243,6 +247,8 @@ export async function createKioskOrderAction(raw: unknown): Promise<CreateKioskI
     amountMinor: totalMinor,
     currency: restaurant.currency,
     customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    customerEmail: input.customerEmail,
   };
 }
 
@@ -319,6 +325,18 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
       $push: { statusHistory: { status: 'confirmed', at: now } },
     },
   ).exec();
+
+  if (order.customer.phone) {
+    await upsertCustomerFromOrder(conn, {
+      restaurantId: order.restaurantId,
+      phone: order.customer.phone,
+      email: order.customer.email,
+      name: order.customer.name,
+      channel: 'kiosk',
+      totalMinor: order.totalMinor,
+      currency: order.currency,
+    });
+  }
 
   // Publish to the dashboard orders channel
   const restaurantId = String(order.restaurantId);

@@ -40,7 +40,13 @@ function requestCoords(timeoutMs = 8000): Promise<{ lat: number; lng: number } |
   });
 }
 
-export function StartSessionForm({ qrToken }: { qrToken: string }) {
+export function StartSessionForm({
+  qrToken,
+  geolocationEnabled,
+}: {
+  qrToken: string;
+  geolocationEnabled: boolean;
+}) {
   const router = useRouter();
   const [isPending, start] = useTransition();
   const [name, setName] = useState('');
@@ -60,7 +66,7 @@ export function StartSessionForm({ qrToken }: { qrToken: string }) {
           e.preventDefault();
           setError(null);
           start(async () => {
-            const coords = await requestCoords();
+            const coords = geolocationEnabled ? await requestCoords() : null;
             const result = await startOrJoinSessionAction(
               qrToken,
               { name, email, phone },
