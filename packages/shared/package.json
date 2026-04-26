@@ -38,7 +38,7 @@
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
-    "@types/node": "22.12.0",
+    "@types/node": "25.6.0",
     "@types/react": "19.2.14",
     "typescript": "6.0.3"
   }
