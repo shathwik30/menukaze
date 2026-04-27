@@ -23,7 +23,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "20.5.0",
+    "@commitlint/cli": "20.5.2",
     "@commitlint/config-conventional": "20.5.0",
     "@menukaze/prettier-config": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
@@ -31,11 +31,11 @@
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
     "prettier": "3.8.3",
-    "prettier-plugin-tailwindcss": "0.7.2",
+    "prettier-plugin-tailwindcss": "0.7.3",
     "tsx": "4.21.0",
     "turbo": "2.9.6",
     "typescript": "6.0.3",
-    "vitest": "4.1.4"
+    "vitest": "4.1.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
