@@ -20,8 +20,8 @@
     "eslint-config-next": "16.2.4",
     "eslint-plugin-boundaries": "6.0.2",
     "eslint-plugin-unicorn": "64.0.0",
-    "globals": "17.5.0",
-    "typescript-eslint": "8.58.2"
+    "globals": "17.6.0",
+    "typescript-eslint": "8.59.1"
   },
   "peerDependencies": {
     "eslint": "^9.15.0",
