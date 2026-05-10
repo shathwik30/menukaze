@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { getModels } from './models';
+import type { OrderStatus } from './models/order';
 import { CAPACITY_ORDER_STATUSES, restaurantHasReachedOrderCapacity } from './order-capacity';
 import { startInMemoryMongo, type InMemoryMongo } from './test-utils';
 
@@ -20,7 +21,7 @@ afterAll(async () => {
   await mongo.close();
 });
 
-async function createTestOrder(status: string, publicOrderId: string): Promise<void> {
+async function createTestOrder(status: OrderStatus, publicOrderId: string): Promise<void> {
   const { Order } = getModels(mongo.connection);
   await Order.create({
     restaurantId,

@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getMongoConnection, getModels } from '@menukaze/db';
+import {
+  getMongoConnection,
+  getModels,
+  type OrderStatus,
+  type TableSessionStatus,
+} from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import { currencyCodeOrDefault, formatMoney, startOfTodayInTimezone } from '@menukaze/shared';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Eyebrow } from '@menukaze/ui';
@@ -8,8 +13,14 @@ import { requirePageFlag } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-const ACTIVE_SESSION_STATUSES = ['active', 'bill_requested', 'needs_review'];
-const ACTIVE_ORDER_STATUSES = ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
+const ACTIVE_SESSION_STATUSES: TableSessionStatus[] = ['active', 'bill_requested', 'needs_review'];
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  'received',
+  'confirmed',
+  'preparing',
+  'ready',
+  'out_for_delivery',
+];
 
 export default async function TableDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { restaurantId } = await requirePageFlag(['tables.view']);
