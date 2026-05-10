@@ -29,7 +29,7 @@
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@types/node": "22.12.0",
-    "mongodb-memory-server": "11.0.1",
+    "mongodb-memory-server": "11.1.0",
     "tsx": "4.21.0",
     "typescript": "6.0.3"
   }
