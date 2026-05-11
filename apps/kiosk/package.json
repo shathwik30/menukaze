@@ -20,13 +20,13 @@
     "@menukaze/ui": "workspace:*",
     "@t3-oss/env-nextjs": "0.13.11",
     "ably": "2.21.0",
-    "mongoose": "9.6.1",
-    "next": "16.2.4",
+    "mongoose": "9.6.2",
+    "next": "16.2.6",
     "razorpay": "2.9.6",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
-    "zod": "4.4.2",
-    "zustand": "5.0.12"
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "zod": "4.4.3",
+    "zustand": "5.0.13"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
