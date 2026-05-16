@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
 
-const assetPrefix =
-  process.env['NEXT_PUBLIC_QR_DINEIN_ASSET_URL'] ?? 'https://menukaze-qr-dinein.vercel.app';
+// When accessed through the storefront proxy (mr-beast.menukaze.com/t/*),
+// static assets must load from 'self' to pass the storefront's CSP.
+// The storefront rewrites /qr-assets/* → qr-dinein's own _next/* assets.
+const assetPrefix = '/qr-assets';
 
 const config: NextConfig = {
   reactStrictMode: true,

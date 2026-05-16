@@ -10,10 +10,14 @@ const config: NextConfig = {
     const rules: { source: string; destination: string }[] = [];
     if (qrDineinUrl) {
       rules.push({ source: '/t/:path*', destination: `${qrDineinUrl}/t/:path*` });
+      // Proxy QR dine-in static assets so they load from 'self' (passes CSP).
+      rules.push({ source: '/qr-assets/:path*', destination: `${qrDineinUrl}/:path*` });
     }
     if (kioskUrl) {
       rules.push({ source: '/kiosk', destination: `${kioskUrl}/kiosk` });
       rules.push({ source: '/kiosk/:path*', destination: `${kioskUrl}/kiosk/:path*` });
+      // Proxy kiosk static assets so they load from 'self' (passes CSP).
+      rules.push({ source: '/kiosk-assets/:path*', destination: `${kioskUrl}/:path*` });
     }
     return rules;
   },

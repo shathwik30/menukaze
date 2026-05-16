@@ -1,10 +1,9 @@
 import type { NextConfig } from 'next';
 
 // When accessed through the storefront proxy (mr-beast.menukaze.com/kiosk),
-// the browser would fetch /_next/static/* from the wrong domain. assetPrefix
-// forces all static asset URLs to be absolute, pointing at this app's own origin.
-const assetPrefix =
-  process.env['NEXT_PUBLIC_KIOSK_ASSET_URL'] ?? 'https://menukaze-kiosk.vercel.app';
+// static assets must load from 'self' to pass the storefront's CSP.
+// The storefront rewrites /kiosk-assets/* → kiosk's own _next/* assets.
+const assetPrefix = '/kiosk-assets';
 
 const config: NextConfig = {
   reactStrictMode: true,
