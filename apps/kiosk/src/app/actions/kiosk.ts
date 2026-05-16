@@ -1,6 +1,7 @@
 'use server';
 
 import { timingSafeEqual } from 'node:crypto';
+import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -17,7 +18,7 @@ import {
 import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
-import { env } from '@/env';
+import { loadTenantRestaurantFromHeaders } from '@menukaze/tenant/request';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
   computeTax,
@@ -379,14 +380,16 @@ export async function verifyKioskPaymentAction(raw: unknown): Promise<VerifyKios
 }
 
 // Constant-time compare so we don't leak the PIN one digit at a time.
-// Unconfigured KIOSK_EXIT_PIN always fails — no insecure default.
+// No configured PIN always fails — no insecure default.
 export async function verifyKioskPinAction(pin: string): Promise<{ ok: boolean }> {
-  const expected = env.KIOSK_EXIT_PIN;
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) return { ok: false };
+
+  const restaurant = await loadTenantRestaurantFromHeaders(await headers());
+  const expected = restaurant?.kioskPin;
   if (!expected) return { ok: false };
-  if (typeof pin !== 'string' || pin.length !== expected.length) return { ok: false };
+  if (pin.length !== expected.length) return { ok: false };
 
   const expectedBytes = Buffer.from(expected, 'utf8');
   const providedBytes = Buffer.from(pin, 'utf8');
-  if (providedBytes.length !== expectedBytes.length) return { ok: false };
   return { ok: timingSafeEqual(providedBytes, expectedBytes) };
 }

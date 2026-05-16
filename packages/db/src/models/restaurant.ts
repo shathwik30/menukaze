@@ -135,6 +135,9 @@ export interface RestaurantDoc {
     /** ISO YYYY-MM-DD strings in the restaurant's timezone. */
     blockedDates: string[];
   };
+  /** 4-6 digit PIN stored by the operator to lock the kiosk admin-exit overlay. */
+  kioskPin?: string;
+
   featureFlags: Map<string, boolean>;
   receiptBranding: {
     headerColor?: string;
@@ -281,6 +284,8 @@ const restaurantSchema = new Schema<RestaurantDoc>(
       reminderHours: { type: Number, default: 24, min: 0, max: 168 },
       blockedDates: { type: [String], default: [] },
     },
+    kioskPin: { type: String, match: /^\d{4,6}$/ },
+
     featureFlags: { type: Map, of: Boolean, default: () => new Map() },
     receiptBranding: {
       headerColor: String,

@@ -363,6 +363,44 @@ export async function updateGeolocationRestrictionAction(raw: unknown): Promise<
   );
 }
 
+const kioskPinInput = z.object({
+  pin: z
+    .string()
+    .regex(/^\d{4,6}$/, 'PIN must be 4-6 digits.')
+    .or(z.literal('')),
+});
+
+export async function updateKioskPinAction(raw: unknown): Promise<ActionResult> {
+  const parsed = kioskPinInput.safeParse(raw);
+  if (!parsed.success) return validationError(parsed.error);
+
+  return runRestaurantAction(
+    ['settings.edit_kiosk'],
+    { onError: 'Failed to update kiosk PIN.', onForbidden: SETTINGS_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const update =
+        parsed.data.pin === ''
+          ? { $unset: { kioskPin: '' } }
+          : { $set: { kioskPin: parsed.data.pin } };
+      await Restaurant.updateOne({ _id: restaurantId }, update).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action:
+          parsed.data.pin === '' ? 'settings.kiosk_pin.cleared' : 'settings.kiosk_pin.updated',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+      });
+      revalidatePath('/admin/settings');
+      return { ok: true };
+    },
+  );
+}
+
 const taxRulesInput = z.object({
   taxRules: z.array(taxRuleSchema).max(10),
 });

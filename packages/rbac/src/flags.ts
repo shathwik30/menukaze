@@ -50,6 +50,7 @@ export const FLAGS = [
   'settings.edit_delivery',
   'settings.edit_branding',
   'settings.edit_notifications',
+  'settings.edit_kiosk',
 
   'api_keys.manage',
   'webhooks.manage',
