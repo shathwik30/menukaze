@@ -65,7 +65,6 @@ const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: str
   ready: { next: 'completed', label: 'Complete' },
 };
 
-// Ticket age thresholds in minutes that drive the Hot / Late accents.
 const AGE_HOT_MIN = 5;
 const AGE_LATE_MIN = 10;
 
@@ -227,9 +226,9 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
           gap: 16,
           flexWrap: 'wrap',
           padding: '10px 14px',
-          background: 'oklch(1 0 0 / 0.04)',
+          background: 'white',
           borderRadius: 12,
-          border: '1px solid oklch(1 0 0 / 0.08)',
+          border: '1px solid var(--mk-ink-100)',
         }}
       >
         {/* Sound toggle */}
@@ -240,7 +239,8 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
             gap: 8,
             cursor: 'pointer',
             fontSize: 12,
-            color: 'oklch(1 0 0 / 0.65)',
+            color: 'var(--mk-ink-600)',
+            fontWeight: 500,
           }}
         >
           <span
@@ -250,7 +250,7 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
               width: 36,
               height: 20,
               borderRadius: 99,
-              background: soundEnabled ? 'var(--mk-saffron-500)' : 'oklch(1 0 0 / 0.2)',
+              background: soundEnabled ? 'var(--mk-saffron-500)' : 'var(--mk-ink-200)',
               transition: 'background 150ms',
             }}
           >
@@ -275,14 +275,14 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
           </span>
           Sound alerts
         </label>
-        <div style={{ width: 1, height: 20, background: 'oklch(1 0 0 / 0.12)' }} />
+        <div style={{ width: 1, height: 20, background: 'var(--mk-ink-200)' }} />
         {/* Channel filter */}
         <div
           style={{
             display: 'inline-flex',
             gap: 2,
             padding: 2,
-            background: 'oklch(1 0 0 / 0.06)',
+            background: 'var(--mk-canvas-100)',
             borderRadius: 8,
           }}
         >
@@ -299,11 +299,12 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
                   fontSize: 11.5,
                   fontWeight: 500,
                   borderRadius: 6,
-                  background: active ? 'var(--mk-canvas-50)' : 'transparent',
-                  color: active ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.6)',
+                  background: active ? 'white' : 'transparent',
+                  color: active ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'all 150ms',
+                  boxShadow: active ? '0 1px 2px rgb(0 0 0 / 0.06)' : 'none',
                 }}
               >
                 {f.label}
@@ -359,10 +360,10 @@ function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
         gap: '8px 24px',
         padding: '10px 16px',
         borderRadius: 12,
-        background: 'oklch(1 0 0 / 0.04)',
-        border: '1px solid oklch(1 0 0 / 0.08)',
+        background: 'white',
+        border: '1px solid var(--mk-ink-100)',
         fontSize: 11,
-        color: 'oklch(1 0 0 / 0.45)',
+        color: 'var(--mk-ink-400)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 20px' }}>
@@ -377,7 +378,7 @@ function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
             width: 6,
             height: 6,
             borderRadius: 99,
-            background: soundEnabled ? 'var(--mk-jade-500)' : 'oklch(1 0 0 / 0.25)',
+            background: soundEnabled ? 'var(--mk-jade-500)' : 'var(--mk-ink-300)',
           }}
         />
         <span
@@ -386,7 +387,7 @@ function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
             fontSize: 10.5,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
-            color: 'oklch(1 0 0 / 0.5)',
+            color: 'var(--mk-ink-400)',
           }}
         >
           {soundEnabled ? 'Sound on' : 'Muted'}
@@ -410,12 +411,12 @@ function ShortcutHint({ keys, label }: { keys: string[]; label: string }) {
             height: 18,
             padding: '0 5px',
             borderRadius: 4,
-            background: 'oklch(1 0 0 / 0.1)',
-            border: '1px solid oklch(1 0 0 / 0.18)',
+            background: 'var(--mk-canvas-100)',
+            border: '1px solid var(--mk-ink-200)',
             fontFamily: 'var(--font-mono)',
             fontSize: 10.5,
             fontWeight: 600,
-            color: 'oklch(1 0 0 / 0.7)',
+            color: 'var(--mk-ink-700)',
           }}
         >
           {k}
@@ -427,9 +428,9 @@ function ShortcutHint({ keys, label }: { keys: string[]; label: string }) {
 }
 
 const TONE_STYLE = {
-  new: { dot: 'var(--mk-lapis-400)', label: 'var(--mk-lapis-300)' },
-  preparing: { dot: 'var(--mk-saffron-400)', label: 'var(--mk-saffron-300)' },
-  ready: { dot: 'var(--mk-jade-400)', label: 'var(--mk-jade-300)' },
+  new: { dot: 'var(--mk-lapis-500)', label: 'var(--mk-lapis-700)' },
+  preparing: { dot: 'var(--mk-saffron-500)', label: 'var(--mk-saffron-700)' },
+  ready: { dot: 'var(--mk-jade-500)', label: 'var(--mk-jade-700)' },
 };
 
 function Column({
@@ -456,9 +457,9 @@ function Column({
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        background: 'oklch(1 0 0 / 0.03)',
+        background: 'var(--mk-canvas-50)',
         borderRadius: 14,
-        border: '1px solid oklch(1 0 0 / 0.07)',
+        border: '1px solid var(--mk-ink-100)',
         padding: 14,
         minHeight: 300,
       }}
@@ -470,7 +471,7 @@ function Column({
             style={{
               margin: 0,
               fontSize: 10.5,
-              fontWeight: 600,
+              fontWeight: 700,
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
               color: ts.label,
@@ -485,8 +486,8 @@ function Column({
             fontWeight: 600,
             padding: '2px 7px',
             borderRadius: 999,
-            background: 'oklch(1 0 0 / 0.08)',
-            color: 'oklch(1 0 0 / 0.65)',
+            background: 'var(--mk-ink-100)',
+            color: 'var(--mk-ink-500)',
           }}
         >
           {cards.length}
@@ -502,11 +503,11 @@ function Column({
               padding: '24px 16px',
               textAlign: 'center',
               margin: '8px 0',
-              border: '1px solid oklch(1 0 0 / 0.08)',
+              border: '1px solid var(--mk-ink-100)',
               borderRadius: 10,
             }}
           >
-            <p style={{ fontSize: 12, color: 'oklch(1 0 0 / 0.4)', margin: 0 }}>All clear</p>
+            <p style={{ fontSize: 12, color: 'var(--mk-ink-400)', margin: 0 }}>All clear</p>
           </div>
         ) : (
           cards.map((card) => (
@@ -525,12 +526,12 @@ function Column({
   );
 }
 
-const CHANNEL_CHIP_DARK: Record<string, { bg: string; fg: string }> = {
-  storefront: { bg: 'oklch(0.35 0.06 250 / 0.5)', fg: 'var(--mk-lapis-300)' },
-  qr_dinein: { bg: 'oklch(0.35 0.08 172 / 0.5)', fg: 'var(--mk-jade-300)' },
-  kiosk: { bg: 'oklch(0.35 0.08 72 / 0.5)', fg: 'var(--mk-saffron-300)' },
-  walk_in: { bg: 'oklch(1 0 0 / 0.08)', fg: 'oklch(1 0 0 / 0.65)' },
-  api: { bg: 'oklch(0.35 0.06 10 / 0.5)', fg: 'var(--mk-rose-300)' },
+const CHANNEL_CHIP: Record<string, { bg: string; fg: string }> = {
+  storefront: { bg: 'var(--mk-lapis-50)', fg: 'var(--mk-lapis-700)' },
+  qr_dinein: { bg: 'var(--mk-jade-50)', fg: 'var(--mk-jade-700)' },
+  kiosk: { bg: 'var(--mk-saffron-50)', fg: 'var(--mk-saffron-700)' },
+  walk_in: { bg: 'var(--mk-ink-100)', fg: 'var(--mk-ink-600)' },
+  api: { bg: 'var(--mk-rose-50)', fg: 'var(--mk-rose-700)' },
 };
 
 function Ticket({
@@ -556,35 +557,36 @@ function Ticket({
   const severity = ageSeverity(ageMinutes);
   const action = STAGE_ACTIONS[card.status];
   const pickupNumber = formatPickupNumber(card);
-  const chanChip = CHANNEL_CHIP_DARK[card.channel] ?? {
-    bg: 'oklch(1 0 0 / 0.08)',
-    fg: 'oklch(1 0 0 / 0.65)',
+  const chanChip = CHANNEL_CHIP[card.channel] ?? {
+    bg: 'var(--mk-ink-100)',
+    fg: 'var(--mk-ink-600)',
   };
 
   const ageColor =
     severity === 'late'
-      ? { bg: 'oklch(0.35 0.1 10 / 0.5)', fg: 'var(--mk-rose-300)' }
+      ? { bg: 'var(--mk-rose-50)', fg: 'var(--mk-rose-700)' }
       : severity === 'hot'
-        ? { bg: 'oklch(0.35 0.1 72 / 0.5)', fg: 'var(--mk-saffron-300)' }
-        : { bg: 'oklch(1 0 0 / 0.08)', fg: 'oklch(1 0 0 / 0.5)' };
+        ? { bg: 'var(--mk-saffron-50)', fg: 'var(--mk-saffron-700)' }
+        : { bg: 'var(--mk-ink-100)', fg: 'var(--mk-ink-500)' };
 
   const leftBorder =
     severity === 'late'
-      ? '3px solid var(--mk-rose-500)'
+      ? '3px solid var(--mk-rose-400)'
       : severity === 'hot'
-        ? '3px solid var(--mk-saffron-500)'
-        : '3px solid oklch(1 0 0 / 0.08)';
+        ? '3px solid var(--mk-saffron-400)'
+        : '3px solid var(--mk-ink-150, var(--mk-ink-200))';
 
   return (
     <article
       style={{
-        background: 'oklch(1 0 0 / 0.05)',
+        background: 'white',
         borderRadius: 12,
         border: card.suspicious
-          ? '1px solid var(--mk-saffron-500)'
-          : '1px solid oklch(1 0 0 / 0.1)',
+          ? '1px solid var(--mk-saffron-300)'
+          : '1px solid var(--mk-ink-150, var(--mk-ink-200))',
         borderLeft: leftBorder,
         overflow: 'hidden',
+        boxShadow: '0 1px 3px rgb(0 0 0 / 0.04)',
       }}
     >
       {/* Ticket header */}
@@ -595,8 +597,8 @@ function Ticket({
           justifyContent: 'space-between',
           gap: 8,
           padding: '12px 14px 10px',
-          background: 'oklch(1 0 0 / 0.04)',
-          borderBottom: '1px solid oklch(1 0 0 / 0.08)',
+          background: 'var(--mk-canvas-50)',
+          borderBottom: '1px solid var(--mk-ink-100)',
         }}
       >
         <div>
@@ -606,7 +608,7 @@ function Ticket({
               fontSize: 24,
               fontWeight: 700,
               letterSpacing: '-0.02em',
-              color: 'oklch(1 0 0 / 0.95)',
+              color: 'var(--mk-ink-950)',
               lineHeight: 1,
             }}
           >
@@ -625,7 +627,7 @@ function Ticket({
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 10.5,
-                color: 'oklch(1 0 0 / 0.4)',
+                color: 'var(--mk-ink-400)',
               }}
             >
               {card.publicOrderId}
@@ -637,8 +639,8 @@ function Ticket({
                   fontWeight: 500,
                   padding: '1px 6px',
                   borderRadius: 99,
-                  background: 'oklch(1 0 0 / 0.08)',
-                  color: 'oklch(1 0 0 / 0.6)',
+                  background: 'var(--mk-ink-100)',
+                  color: 'var(--mk-ink-600)',
                 }}
               >
                 Table {card.tableNumber}
@@ -659,7 +661,7 @@ function Ticket({
               {card.channel.replace('_', ' ')}
             </span>
             <span
-              style={{ fontSize: 10.5, color: 'oklch(1 0 0 / 0.45)', textTransform: 'capitalize' }}
+              style={{ fontSize: 10.5, color: 'var(--mk-ink-400)', textTransform: 'capitalize' }}
             >
               {card.type.replace('_', ' ')}
             </span>
@@ -686,7 +688,7 @@ function Ticket({
                 fontWeight: 700,
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
-                color: severity === 'late' ? 'var(--mk-rose-400)' : 'var(--mk-saffron-400)',
+                color: severity === 'late' ? 'var(--mk-rose-600)' : 'var(--mk-saffron-600)',
               }}
             >
               {severity === 'late' ? 'Late' : 'Hot'}
@@ -704,9 +706,9 @@ function Ticket({
             padding: '7px 14px',
             fontSize: 11,
             fontWeight: 500,
-            background: 'oklch(0.35 0.1 72 / 0.25)',
-            color: 'var(--mk-saffron-300)',
-            borderBottom: '1px solid oklch(1 0 0 / 0.08)',
+            background: 'var(--mk-saffron-50)',
+            color: 'var(--mk-saffron-700)',
+            borderBottom: '1px solid var(--mk-ink-100)',
           }}
         >
           <svg
@@ -735,7 +737,7 @@ function Ticket({
               key={item.id}
               style={{
                 padding: '10px 14px',
-                borderBottom: '1px solid oklch(1 0 0 / 0.06)',
+                borderBottom: '1px solid var(--mk-ink-100)',
                 opacity: isReady ? 0.5 : 1,
               }}
             >
@@ -749,8 +751,8 @@ function Ticket({
                     height: 26,
                     borderRadius: 6,
                     flexShrink: 0,
-                    background: 'oklch(1 0 0 / 0.12)',
-                    color: 'oklch(1 0 0 / 0.9)',
+                    background: 'var(--mk-canvas-100)',
+                    color: 'var(--mk-ink-800)',
                     fontFamily: 'var(--font-mono)',
                     fontSize: 12,
                     fontWeight: 700,
@@ -765,7 +767,7 @@ function Ticket({
                       fontFamily: 'var(--font-serif)',
                       fontSize: 14.5,
                       fontWeight: 500,
-                      color: 'oklch(1 0 0 / 0.9)',
+                      color: 'var(--mk-ink-950)',
                       lineHeight: 1.3,
                       textDecoration: isReady ? 'line-through' : 'none',
                     }}
@@ -777,7 +779,7 @@ function Ticket({
                       style={{
                         margin: '3px 0 0',
                         fontSize: 11.5,
-                        color: 'oklch(1 0 0 / 0.5)',
+                        color: 'var(--mk-ink-400)',
                         lineHeight: 1.4,
                       }}
                     >
@@ -793,8 +795,8 @@ function Ticket({
                         fontStyle: 'italic',
                         padding: '2px 8px',
                         borderRadius: 5,
-                        background: 'oklch(0.35 0.1 72 / 0.25)',
-                        color: 'var(--mk-saffron-300)',
+                        background: 'var(--mk-saffron-50)',
+                        color: 'var(--mk-saffron-700)',
                       }}
                     >
                       &ldquo;{item.notes}&rdquo;
@@ -809,8 +811,8 @@ function Ticket({
                         fontWeight: 500,
                         padding: '1px 6px',
                         borderRadius: 99,
-                        background: 'oklch(1 0 0 / 0.08)',
-                        color: 'oklch(1 0 0 / 0.5)',
+                        background: 'var(--mk-ink-100)',
+                        color: 'var(--mk-ink-400)',
                       }}
                     >
                       @ {item.stationName}
@@ -827,8 +829,8 @@ function Ticket({
                         fontWeight: 600,
                         padding: '1px 7px',
                         borderRadius: 99,
-                        background: 'oklch(0.35 0.1 172 / 0.4)',
-                        color: 'var(--mk-jade-300)',
+                        background: 'var(--mk-jade-50)',
+                        color: 'var(--mk-jade-700)',
                       }}
                     >
                       <CheckIcon /> Done
@@ -844,8 +846,8 @@ function Ticket({
       <footer
         style={{
           padding: '10px 14px',
-          background: 'oklch(1 0 0 / 0.03)',
-          borderTop: '1px solid oklch(1 0 0 / 0.07)',
+          background: 'var(--mk-canvas-50)',
+          borderTop: '1px solid var(--mk-ink-100)',
         }}
       >
         {stationFilter ? (
@@ -859,8 +861,8 @@ function Ticket({
               width: '100%',
               height: 34,
               borderRadius: 8,
-              background: 'var(--mk-canvas-50)',
-              color: 'var(--mk-ink-950)',
+              background: 'var(--mk-ink-950)',
+              color: 'var(--mk-canvas-50)',
               fontSize: 12.5,
               fontWeight: 600,
               letterSpacing: '-0.005em',
@@ -908,12 +910,12 @@ function StationActions({
             fontWeight: 600,
             padding: '4px 12px',
             borderRadius: 99,
-            background: 'oklch(0.35 0.1 172 / 0.4)',
-            color: 'var(--mk-jade-300)',
+            background: 'var(--mk-jade-50)',
+            color: 'var(--mk-jade-700)',
           }}
         >
           <span
-            style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--mk-jade-400)' }}
+            style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--mk-jade-500)' }}
           />
           Ready for pass
         </span>
@@ -931,11 +933,11 @@ function StationActions({
             flex: 1,
             height: 34,
             borderRadius: 8,
-            background: 'oklch(1 0 0 / 0.1)',
-            color: 'oklch(1 0 0 / 0.8)',
+            background: 'var(--mk-canvas-100)',
+            color: 'var(--mk-ink-700)',
             fontSize: 12.5,
             fontWeight: 600,
-            border: '1px solid oklch(1 0 0 / 0.15)',
+            border: '1px solid var(--mk-ink-200)',
             cursor: pending ? 'not-allowed' : 'pointer',
             opacity: pending ? 0.6 : 1,
             transition: 'opacity 150ms',
@@ -952,8 +954,8 @@ function StationActions({
           flex: 1,
           height: 34,
           borderRadius: 8,
-          background: 'var(--mk-canvas-50)',
-          color: 'var(--mk-ink-950)',
+          background: 'var(--mk-ink-950)',
+          color: 'var(--mk-canvas-50)',
           fontSize: 12.5,
           fontWeight: 600,
           border: 'none',
@@ -977,6 +979,7 @@ function CheckIcon() {
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{ width: 10, height: 10 }}
       aria-hidden
     >
       <polyline points="20 6 9 17 4 12" />

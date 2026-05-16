@@ -102,13 +102,7 @@ export default async function KdsPage({ searchParams }: PageProps) {
   const avgLabel = cards.length > 0 ? `${avgMin}:${String(avgSec).padStart(2, '0')}` : '—';
 
   return (
-    <div
-      style={{
-        background: 'var(--mk-ink-950)',
-        minHeight: 'calc(100vh - 60px)',
-        color: 'var(--mk-canvas-50)',
-      }}
-    >
+    <div style={{ background: 'var(--mk-canvas-50)', minHeight: 'calc(100vh - 60px)' }}>
       {/* KDS topbar */}
       <div
         style={{
@@ -118,23 +112,31 @@ export default async function KdsPage({ searchParams }: PageProps) {
           justifyContent: 'space-between',
           gap: 24,
           flexWrap: 'wrap',
-          borderBottom: '1px solid oklch(1 0 0 / 0.06)',
-          background: 'oklch(0.085 0.017 92 / 0.92)',
-          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
           position: 'sticky',
           top: 60,
           zIndex: 5,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 3,
+              height: 28,
+              borderRadius: 99,
+              background: 'var(--mk-saffron-500)',
+              flexShrink: 0,
+            }}
+          />
           <div>
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 600,
+                fontSize: 10,
+                fontWeight: 700,
                 letterSpacing: '0.16em',
                 textTransform: 'uppercase',
-                color: 'var(--mk-saffron-300)',
+                color: 'var(--mk-saffron-700)',
               }}
             >
               Kitchen display
@@ -145,7 +147,8 @@ export default async function KdsPage({ searchParams }: PageProps) {
                 fontSize: 22,
                 fontWeight: 500,
                 letterSpacing: '-0.02em',
-                marginTop: 2,
+                color: 'var(--mk-ink-950)',
+                lineHeight: 1.2,
               }}
             >
               {activeStation ? `${activeStation.name} station` : 'All stations'}
@@ -158,7 +161,7 @@ export default async function KdsPage({ searchParams }: PageProps) {
                   style={{
                     fontWeight: 400,
                     fontSize: 14,
-                    color: 'oklch(1 0 0 / 0.55)',
+                    color: 'var(--mk-ink-400)',
                     marginLeft: 6,
                   }}
                 >
@@ -172,16 +175,16 @@ export default async function KdsPage({ searchParams }: PageProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           {/* Live stats */}
           {cards.length > 0 ? (
-            <div style={{ display: 'flex', gap: 20 }}>
+            <div style={{ display: 'flex', gap: 24 }}>
               <KdsStat label="Avg ticket" value={avgLabel} tone="ok" />
-              <KdsStat label={`Hot (≥5m)`} value={String(hotCount)} tone="hot" />
-              <KdsStat label={`Late (≥10m)`} value={String(lateCount)} tone="late" />
+              <KdsStat label="Hot (≥5m)" value={String(hotCount)} tone="hot" />
+              <KdsStat label="Late (≥10m)" value={String(lateCount)} tone="late" />
             </div>
           ) : null}
 
           {/* Divider */}
           {cards.length > 0 && stationOptions.length > 0 ? (
-            <div style={{ width: 1, height: 28, background: 'oklch(1 0 0 / 0.1)' }} />
+            <div style={{ width: 1, height: 28, background: 'var(--mk-ink-200)' }} />
           ) : null}
 
           {/* Station filter tabs */}
@@ -191,7 +194,7 @@ export default async function KdsPage({ searchParams }: PageProps) {
                 display: 'inline-flex',
                 gap: 2,
                 padding: 3,
-                background: 'oklch(1 0 0 / 0.06)',
+                background: 'var(--mk-ink-100)',
                 borderRadius: 10,
               }}
             >
@@ -205,10 +208,11 @@ export default async function KdsPage({ searchParams }: PageProps) {
                   fontSize: 12,
                   fontWeight: 500,
                   borderRadius: 7,
-                  background: !stationFilter ? 'var(--mk-canvas-50)' : 'transparent',
-                  color: !stationFilter ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.65)',
+                  background: !stationFilter ? 'white' : 'transparent',
+                  color: !stationFilter ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
                   textDecoration: 'none',
                   transition: 'all 150ms',
+                  boxShadow: !stationFilter ? '0 1px 2px rgb(0 0 0 / 0.06)' : 'none',
                 }}
               >
                 All stations
@@ -227,10 +231,11 @@ export default async function KdsPage({ searchParams }: PageProps) {
                       fontSize: 12,
                       fontWeight: 500,
                       borderRadius: 7,
-                      background: active ? 'var(--mk-canvas-50)' : 'transparent',
-                      color: active ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.65)',
+                      background: active ? 'white' : 'transparent',
+                      color: active ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
                       textDecoration: 'none',
                       transition: 'all 150ms',
+                      boxShadow: active ? '0 1px 2px rgb(0 0 0 / 0.06)' : 'none',
                     }}
                   >
                     {station.name}
@@ -263,9 +268,9 @@ function KdsStat({
   tone: 'ok' | 'hot' | 'late';
 }) {
   const colors = {
-    ok: 'var(--mk-jade-300)',
-    hot: 'var(--mk-saffron-300)',
-    late: 'var(--mk-rose-300)',
+    ok: 'var(--mk-jade-600)',
+    hot: 'var(--mk-saffron-600)',
+    late: 'var(--mk-rose-600)',
   };
   return (
     <div>
@@ -275,7 +280,7 @@ function KdsStat({
           fontWeight: 700,
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
-          color: 'oklch(1 0 0 / 0.4)',
+          color: 'var(--mk-ink-400)',
         }}
       >
         {label}
