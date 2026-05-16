@@ -12,6 +12,7 @@ const config: NextConfig = {
       rules.push({ source: '/t/:path*', destination: `${qrDineinUrl}/t/:path*` });
     }
     if (kioskUrl) {
+      rules.push({ source: '/kiosk', destination: `${kioskUrl}/kiosk` });
       rules.push({ source: '/kiosk/:path*', destination: `${kioskUrl}/kiosk/:path*` });
     }
     return rules;
