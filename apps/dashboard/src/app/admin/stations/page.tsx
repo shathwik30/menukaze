@@ -15,28 +15,83 @@ export default async function StationsPage() {
     .exec();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">KDS stations</h1>
-          <p className="text-muted-foreground text-sm">
-            Run multiple kitchen display screens (grill, fry, drinks). Items inherit station routing
-            from their category, or override per item from the menu editor.
-          </p>
+    <div>
+      <div
+        style={{
+          padding: '14px 40px 12px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 3,
+              height: 28,
+              borderRadius: 99,
+              background: 'var(--mk-saffron-500)',
+              flexShrink: 0,
+            }}
+          />
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--mk-saffron-700)',
+              }}
+            >
+              Kitchen display
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 22,
+                fontWeight: 500,
+                letterSpacing: '-0.02em',
+                color: 'var(--mk-ink-950)',
+                lineHeight: 1.2,
+              }}
+            >
+              Stations
+            </h1>
+          </div>
         </div>
-        <Link href="/admin/kds" className="text-foreground text-sm underline underline-offset-4">
+        <Link
+          href="/admin/kds"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: 'var(--mk-ink-500)',
+            textDecoration: 'none',
+            padding: '6px 12px',
+            borderRadius: 8,
+            border: '1px solid var(--mk-ink-200)',
+          }}
+        >
           ← Back to KDS
         </Link>
-      </header>
-
-      <StationsManager
-        initial={stations.map((s) => ({
-          id: String(s._id),
-          name: s.name,
-          color: s.color ?? '',
-          soundEnabled: s.soundEnabled,
-        }))}
-      />
-    </main>
+      </div>
+      <div style={{ padding: '20px 40px 48px' }}>
+        <StationsManager
+          initial={stations.map((s) => ({
+            id: String(s._id),
+            name: s.name,
+            color: s.color ?? '',
+            soundEnabled: s.soundEnabled,
+          }))}
+        />
+      </div>
+    </div>
   );
 }

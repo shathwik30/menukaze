@@ -10,7 +10,7 @@ import {
   type OrderStatus,
 } from '@menukaze/realtime';
 import { formatPickupNumber } from '@menukaze/shared';
-import { Badge, type BadgeProps, Button, Checkbox, cn, EmptyState, Kbd } from '@menukaze/ui';
+import { Checkbox } from '@menukaze/ui';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { advanceOrderLinesAction } from '@/app/actions/stations';
 
@@ -57,14 +57,6 @@ interface Props {
   initialCards: KdsCard[];
   stationFilter?: string | null;
 }
-
-const CHANNEL_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
-  storefront: 'info',
-  qr_dinein: 'success',
-  kiosk: 'warning',
-  walk_in: 'subtle',
-  api: 'accent',
-};
 
 const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
   received: { next: 'confirmed', label: 'Confirm' },
@@ -226,20 +218,54 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <div className="border-ink-100 bg-surface dark:border-ink-800 dark:bg-ink-900 flex flex-wrap items-center gap-4 rounded-2xl border px-4 py-3">
-        <label className="text-ink-700 dark:text-ink-300 inline-flex cursor-pointer items-center gap-2 text-xs font-medium">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Controls bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+          padding: '10px 14px',
+          background: 'oklch(1 0 0 / 0.04)',
+          borderRadius: 12,
+          border: '1px solid oklch(1 0 0 / 0.08)',
+        }}
+      >
+        {/* Sound toggle */}
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            fontSize: 12,
+            color: 'oklch(1 0 0 / 0.65)',
+          }}
+        >
           <span
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-              soundEnabled ? 'bg-saffron-500' : 'bg-ink-200 dark:bg-ink-700',
-            )}
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              width: 36,
+              height: 20,
+              borderRadius: 99,
+              background: soundEnabled ? 'var(--mk-saffron-500)' : 'oklch(1 0 0 / 0.2)',
+              transition: 'background 150ms',
+            }}
           >
             <span
-              className={cn(
-                'inline-block size-4 translate-x-0.5 rounded-full bg-white shadow transition-transform',
-                soundEnabled && 'translate-x-4',
-              )}
+              style={{
+                position: 'absolute',
+                top: 2,
+                left: soundEnabled ? 18 : 2,
+                width: 16,
+                height: 16,
+                borderRadius: 99,
+                background: 'white',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                transition: 'left 150ms',
+              }}
             />
             <Checkbox
               checked={soundEnabled}
@@ -249,31 +275,45 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
           </span>
           Sound alerts
         </label>
-        <div className="flex flex-wrap items-center gap-1">
+        <div style={{ width: 1, height: 20, background: 'oklch(1 0 0 / 0.12)' }} />
+        {/* Channel filter */}
+        <div
+          style={{
+            display: 'inline-flex',
+            gap: 2,
+            padding: 2,
+            background: 'oklch(1 0 0 / 0.06)',
+            borderRadius: 8,
+          }}
+        >
           {CHANNEL_FILTERS.map((f) => {
             const active = channelFilter === f.id;
             return (
-              <Button
-                variant="plain"
-                size="none"
+              <button
                 key={f.id}
                 type="button"
                 onClick={() => setChannelFilter(f.id)}
-                className={cn(
-                  'inline-flex h-8 items-center rounded-full px-3 text-[12px] font-medium transition-colors',
-                  active
-                    ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
-                    : 'bg-canvas-100 text-ink-600 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
-                )}
+                style={{
+                  height: 26,
+                  padding: '0 10px',
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  borderRadius: 6,
+                  background: active ? 'var(--mk-canvas-50)' : 'transparent',
+                  color: active ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.6)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 150ms',
+                }}
               >
                 {f.label}
-              </Button>
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <Column
           tone="new"
           title="Incoming"
@@ -310,21 +350,45 @@ export function KdsBoard({ restaurantId, initialCards, stationFilter }: Props) {
 
 function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
   return (
-    <footer className="border-ink-100 bg-canvas-50 text-ink-500 dark:border-ink-800 dark:bg-ink-900/60 dark:text-ink-400 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-2xl border px-4 py-2.5 text-[11px]">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+    <footer
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '8px 24px',
+        padding: '10px 16px',
+        borderRadius: 12,
+        background: 'oklch(1 0 0 / 0.04)',
+        border: '1px solid oklch(1 0 0 / 0.08)',
+        fontSize: 11,
+        color: 'oklch(1 0 0 / 0.45)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 20px' }}>
         <ShortcutHint keys={['Tab']} label="Move focus" />
         <ShortcutHint keys={['Enter']} label="Advance focused ticket" />
         <ShortcutHint keys={['S']} label="Toggle sound" />
       </div>
-      <div className="flex items-center gap-2">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <span
           aria-hidden
-          className={cn(
-            'size-1.5 rounded-full',
-            soundEnabled ? 'bg-jade-500' : 'bg-ink-300 dark:bg-ink-600',
-          )}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 99,
+            background: soundEnabled ? 'var(--mk-jade-500)' : 'oklch(1 0 0 / 0.25)',
+          }}
         />
-        <span className="font-mono tracking-[0.14em] uppercase">
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: 'oklch(1 0 0 / 0.5)',
+          }}
+        >
           {soundEnabled ? 'Sound on' : 'Muted'}
         </span>
       </div>
@@ -334,14 +398,39 @@ function KdsShortcutsFooter({ soundEnabled }: { soundEnabled: boolean }) {
 
 function ShortcutHint({ keys, label }: { keys: string[]; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
       {keys.map((k) => (
-        <Kbd key={k}>{k}</Kbd>
+        <kbd
+          key={k}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 20,
+            height: 18,
+            padding: '0 5px',
+            borderRadius: 4,
+            background: 'oklch(1 0 0 / 0.1)',
+            border: '1px solid oklch(1 0 0 / 0.18)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+            fontWeight: 600,
+            color: 'oklch(1 0 0 / 0.7)',
+          }}
+        >
+          {k}
+        </kbd>
       ))}
       <span>{label}</span>
     </span>
   );
 }
+
+const TONE_STYLE = {
+  new: { dot: 'var(--mk-lapis-400)', label: 'var(--mk-lapis-300)' },
+  preparing: { dot: 'var(--mk-saffron-400)', label: 'var(--mk-saffron-300)' },
+  ready: { dot: 'var(--mk-jade-400)', label: 'var(--mk-jade-300)' },
+};
 
 function Column({
   tone,
@@ -360,56 +449,65 @@ function Column({
   pending: boolean;
   stationFilter: string | null;
 }) {
-  const toneStyles = {
-    new: {
-      accent: 'bg-lapis-500',
-      border: 'border-lapis-100 dark:border-lapis-500/30',
-      heading: 'text-lapis-800 dark:text-lapis-300',
-    },
-    preparing: {
-      accent: 'bg-saffron-500',
-      border: 'border-saffron-100 dark:border-saffron-500/30',
-      heading: 'text-saffron-800 dark:text-saffron-300',
-    },
-    ready: {
-      accent: 'bg-jade-500',
-      border: 'border-jade-100 dark:border-jade-500/30',
-      heading: 'text-jade-800 dark:text-jade-300',
-    },
-  }[tone];
-
+  const ts = TONE_STYLE[tone];
   return (
     <section
-      className={cn(
-        'bg-canvas-50 dark:bg-ink-900/60 flex min-h-0 flex-col gap-3 rounded-2xl border p-4',
-        toneStyles.border,
-      )}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        background: 'oklch(1 0 0 / 0.03)',
+        borderRadius: 14,
+        border: '1px solid oklch(1 0 0 / 0.07)',
+        padding: 14,
+        minHeight: 300,
+      }}
     >
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span aria-hidden className={cn('size-2 rounded-full', toneStyles.accent)} />
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: ts.dot }} />
           <h2
-            className={cn(
-              'text-[11px] font-semibold tracking-[0.18em] uppercase',
-              toneStyles.heading,
-            )}
+            style={{
+              margin: 0,
+              fontSize: 10.5,
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: ts.label,
+            }}
           >
             {title}
           </h2>
         </div>
-        <Badge variant="subtle" size="sm" shape="pill">
+        <span
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            padding: '2px 7px',
+            borderRadius: 999,
+            background: 'oklch(1 0 0 / 0.08)',
+            color: 'oklch(1 0 0 / 0.65)',
+          }}
+        >
           {cards.length}
-        </Badge>
+        </span>
       </header>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+      <div
+        style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflowY: 'auto' }}
+      >
         {cards.length === 0 ? (
-          <EmptyState
-            compact
-            title="All clear"
-            description="No tickets in this lane."
-            className="border-ink-200/70 bg-surface/50 dark:border-ink-800 dark:bg-ink-900/40 my-4"
-          />
+          <div
+            style={{
+              padding: '24px 16px',
+              textAlign: 'center',
+              margin: '8px 0',
+              border: '1px solid oklch(1 0 0 / 0.08)',
+              borderRadius: 10,
+            }}
+          >
+            <p style={{ fontSize: 12, color: 'oklch(1 0 0 / 0.4)', margin: 0 }}>All clear</p>
+          </div>
         ) : (
           cards.map((card) => (
             <Ticket
@@ -426,6 +524,14 @@ function Column({
     </section>
   );
 }
+
+const CHANNEL_CHIP_DARK: Record<string, { bg: string; fg: string }> = {
+  storefront: { bg: 'oklch(0.35 0.06 250 / 0.5)', fg: 'var(--mk-lapis-300)' },
+  qr_dinein: { bg: 'oklch(0.35 0.08 172 / 0.5)', fg: 'var(--mk-jade-300)' },
+  kiosk: { bg: 'oklch(0.35 0.08 72 / 0.5)', fg: 'var(--mk-saffron-300)' },
+  walk_in: { bg: 'oklch(1 0 0 / 0.08)', fg: 'oklch(1 0 0 / 0.65)' },
+  api: { bg: 'oklch(0.35 0.06 10 / 0.5)', fg: 'var(--mk-rose-300)' },
+};
 
 function Ticket({
   card,
@@ -450,67 +556,159 @@ function Ticket({
   const severity = ageSeverity(ageMinutes);
   const action = STAGE_ACTIONS[card.status];
   const pickupNumber = formatPickupNumber(card);
+  const chanChip = CHANNEL_CHIP_DARK[card.channel] ?? {
+    bg: 'oklch(1 0 0 / 0.08)',
+    fg: 'oklch(1 0 0 / 0.65)',
+  };
+
+  const ageColor =
+    severity === 'late'
+      ? { bg: 'oklch(0.35 0.1 10 / 0.5)', fg: 'var(--mk-rose-300)' }
+      : severity === 'hot'
+        ? { bg: 'oklch(0.35 0.1 72 / 0.5)', fg: 'var(--mk-saffron-300)' }
+        : { bg: 'oklch(1 0 0 / 0.08)', fg: 'oklch(1 0 0 / 0.5)' };
+
+  const leftBorder =
+    severity === 'late'
+      ? '3px solid var(--mk-rose-500)'
+      : severity === 'hot'
+        ? '3px solid var(--mk-saffron-500)'
+        : '3px solid oklch(1 0 0 / 0.08)';
 
   return (
     <article
-      className={cn(
-        'bg-surface dark:bg-ink-900 overflow-hidden rounded-xl border border-l-[3px] shadow-sm transition-shadow',
-        card.suspicious
-          ? 'border-saffron-400 ring-saffron-200 dark:ring-saffron-500/30 ring-2'
-          : 'border-ink-100 dark:border-ink-800',
-        severity === 'hot' && 'border-l-saffron-500 dark:border-l-saffron-400',
-        severity === 'late' && 'border-l-mkrose-500 dark:border-l-mkrose-400',
-      )}
+      style={{
+        background: 'oklch(1 0 0 / 0.05)',
+        borderRadius: 12,
+        border: card.suspicious
+          ? '1px solid var(--mk-saffron-500)'
+          : '1px solid oklch(1 0 0 / 0.1)',
+        borderLeft: leftBorder,
+        overflow: 'hidden',
+      }}
     >
-      <header className="border-ink-100 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/70 flex items-start justify-between gap-2 border-b px-4 py-3">
-        <div className="min-w-0">
-          <p className="mk-nums text-foreground font-mono text-3xl leading-none font-semibold tracking-tight">
+      {/* Ticket header */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 8,
+          padding: '12px 14px 10px',
+          background: 'oklch(1 0 0 / 0.04)',
+          borderBottom: '1px solid oklch(1 0 0 / 0.08)',
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 24,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: 'oklch(1 0 0 / 0.95)',
+              lineHeight: 1,
+            }}
+          >
             #{pickupNumber}
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-            <span className="text-ink-500 dark:text-ink-400 font-mono">{card.publicOrderId}</span>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 5,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10.5,
+                color: 'oklch(1 0 0 / 0.4)',
+              }}
+            >
+              {card.publicOrderId}
+            </span>
             {card.tableNumber !== undefined ? (
-              <Badge variant="outline" size="xs" shape="pill">
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 500,
+                  padding: '1px 6px',
+                  borderRadius: 99,
+                  background: 'oklch(1 0 0 / 0.08)',
+                  color: 'oklch(1 0 0 / 0.6)',
+                }}
+              >
                 Table {card.tableNumber}
-              </Badge>
+              </span>
             ) : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-            <Badge variant={CHANNEL_VARIANT[card.channel] ?? 'subtle'} size="xs" shape="pill">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 500,
+                padding: '2px 7px',
+                borderRadius: 99,
+                background: chanChip.bg,
+                color: chanChip.fg,
+              }}
+            >
               {card.channel.replace('_', ' ')}
-            </Badge>
-            <span className="text-ink-500 dark:text-ink-400">{card.type.replace('_', ' ')}</span>
+            </span>
+            <span
+              style={{ fontSize: 10.5, color: 'oklch(1 0 0 / 0.45)', textTransform: 'capitalize' }}
+            >
+              {card.type.replace('_', ' ')}
+            </span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
           <span
-            className={cn(
-              'mk-nums rounded-full px-2 py-1 font-mono text-xs font-medium tabular-nums',
-              severity === 'ok' && 'bg-canvas-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300',
-              severity === 'hot' &&
-                'bg-saffron-100 text-saffron-900 dark:bg-saffron-500/15 dark:text-saffron-200',
-              severity === 'late' &&
-                'bg-mkrose-100 text-mkrose-900 dark:bg-mkrose-500/15 dark:text-mkrose-200',
-            )}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11.5,
+              fontWeight: 600,
+              padding: '3px 8px',
+              borderRadius: 99,
+              background: ageColor.bg,
+              color: ageColor.fg,
+            }}
           >
             {ageMinutes}m
           </span>
           {severity !== 'ok' ? (
             <span
-              className={cn(
-                'text-[10px] leading-none font-semibold tracking-[0.14em] uppercase',
-                severity === 'hot' && 'text-saffron-700 dark:text-saffron-300',
-                severity === 'late' && 'text-mkrose-700 dark:text-mkrose-300',
-              )}
+              style={{
+                fontSize: 9.5,
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: severity === 'late' ? 'var(--mk-rose-400)' : 'var(--mk-saffron-400)',
+              }}
             >
-              {severity === 'hot' ? 'Hot' : 'Late'}
+              {severity === 'late' ? 'Late' : 'Hot'}
             </span>
           ) : null}
         </div>
       </header>
 
       {card.suspicious ? (
-        <div className="border-saffron-200 bg-saffron-50 text-saffron-900 dark:border-saffron-500/30 dark:bg-saffron-500/10 dark:text-saffron-200 flex items-start gap-2 border-b px-4 py-2 text-[11px] font-medium">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '7px 14px',
+            fontSize: 11,
+            fontWeight: 500,
+            background: 'oklch(0.35 0.1 72 / 0.25)',
+            color: 'var(--mk-saffron-300)',
+            borderBottom: '1px solid oklch(1 0 0 / 0.08)',
+          }}
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -518,57 +716,124 @@ function Ticket({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="mt-px size-3.5 shrink-0"
+            style={{ width: 13, height: 13, flexShrink: 0 }}
             aria-hidden
           >
             <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          Flagged for review{card.suspiciousReason ? ` · ${card.suspiciousReason}` : ''}
+          Flagged{card.suspiciousReason ? ` · ${card.suspiciousReason}` : ''}
         </div>
       ) : null}
 
-      <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {card.items.map((item) => {
           const isReady = item.lineStatus === 'ready';
           return (
-            <li key={item.id} className={cn('px-4 py-3', isReady && 'opacity-60')}>
-              <div className="flex items-start gap-3">
-                <span className="mk-nums bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950 mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md font-mono text-[13px] font-semibold tabular-nums">
+            <li
+              key={item.id}
+              style={{
+                padding: '10px 14px',
+                borderBottom: '1px solid oklch(1 0 0 / 0.06)',
+                opacity: isReady ? 0.5 : 1,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 26,
+                    height: 26,
+                    borderRadius: 6,
+                    flexShrink: 0,
+                    background: 'oklch(1 0 0 / 0.12)',
+                    color: 'oklch(1 0 0 / 0.9)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
                   {item.quantity}×
                 </span>
-                <div className="min-w-0 flex-1">
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <p
-                    className={cn(
-                      'text-foreground font-serif text-base leading-tight font-medium',
-                      isReady && 'line-through',
-                    )}
+                    style={{
+                      margin: 0,
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: 14.5,
+                      fontWeight: 500,
+                      color: 'oklch(1 0 0 / 0.9)',
+                      lineHeight: 1.3,
+                      textDecoration: isReady ? 'line-through' : 'none',
+                    }}
                   >
                     {item.name}
                   </p>
                   {item.modifiers.length > 0 ? (
-                    <p className="text-ink-600 dark:text-ink-300 mt-0.5 text-[12px]">
+                    <p
+                      style={{
+                        margin: '3px 0 0',
+                        fontSize: 11.5,
+                        color: 'oklch(1 0 0 / 0.5)',
+                        lineHeight: 1.4,
+                      }}
+                    >
                       {item.modifiers.join(' · ')}
                     </p>
                   ) : null}
                   {item.notes ? (
-                    <p className="bg-saffron-50 text-saffron-900 dark:bg-saffron-500/10 dark:text-saffron-200 mt-1 inline-block rounded px-2 py-0.5 text-[11px] italic">
+                    <p
+                      style={{
+                        margin: '5px 0 0',
+                        display: 'inline-block',
+                        fontSize: 11,
+                        fontStyle: 'italic',
+                        padding: '2px 8px',
+                        borderRadius: 5,
+                        background: 'oklch(0.35 0.1 72 / 0.25)',
+                        color: 'var(--mk-saffron-300)',
+                      }}
+                    >
                       &ldquo;{item.notes}&rdquo;
                     </p>
                   ) : null}
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {!stationFilter && item.stationName ? (
-                      <Badge variant="outline" size="xs" shape="pill">
-                        @ {item.stationName}
-                      </Badge>
-                    ) : null}
-                    {stationFilter && isReady ? (
-                      <Badge variant="success" size="xs" shape="pill">
-                        <CheckIcon /> Done
-                      </Badge>
-                    ) : null}
-                  </div>
+                  {!stationFilter && item.stationName ? (
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        marginTop: 4,
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        padding: '1px 6px',
+                        borderRadius: 99,
+                        background: 'oklch(1 0 0 / 0.08)',
+                        color: 'oklch(1 0 0 / 0.5)',
+                      }}
+                    >
+                      @ {item.stationName}
+                    </span>
+                  ) : null}
+                  {stationFilter && isReady ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        marginTop: 4,
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        padding: '1px 7px',
+                        borderRadius: 99,
+                        background: 'oklch(0.35 0.1 172 / 0.4)',
+                        color: 'var(--mk-jade-300)',
+                      }}
+                    >
+                      <CheckIcon /> Done
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </li>
@@ -576,20 +841,37 @@ function Ticket({
         })}
       </ul>
 
-      <footer className="border-ink-100 bg-canvas-50 dark:border-ink-800 dark:bg-ink-900/70 border-t px-4 py-3">
+      <footer
+        style={{
+          padding: '10px 14px',
+          background: 'oklch(1 0 0 / 0.03)',
+          borderTop: '1px solid oklch(1 0 0 / 0.07)',
+        }}
+      >
         {stationFilter ? (
           <StationActions card={card} pending={pending} onAdvanceLines={onAdvanceLines} />
         ) : action ? (
-          <Button
+          <button
             type="button"
-            variant="primary"
-            size="md"
-            full
             disabled={pending}
             onClick={() => onAdvance(card)}
+            style={{
+              width: '100%',
+              height: 34,
+              borderRadius: 8,
+              background: 'var(--mk-canvas-50)',
+              color: 'var(--mk-ink-950)',
+              fontSize: 12.5,
+              fontWeight: 600,
+              letterSpacing: '-0.005em',
+              border: 'none',
+              cursor: pending ? 'not-allowed' : 'pointer',
+              opacity: pending ? 0.6 : 1,
+              transition: 'opacity 150ms',
+            }}
           >
             {action.label}
-          </Button>
+          </button>
         ) : null}
       </footer>
     </article>
@@ -609,37 +891,79 @@ function StationActions({
   const anyPreparing = card.items.some((line) => line.lineStatus === 'preparing');
   if (allReady) {
     return (
-      <div className="flex items-center justify-center gap-2 py-2">
-        <Badge variant="success" size="md" shape="pill" dot dotColor="oklch(0.59 0.14 172)">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '4px 0',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            padding: '4px 12px',
+            borderRadius: 99,
+            background: 'oklch(0.35 0.1 172 / 0.4)',
+            color: 'var(--mk-jade-300)',
+          }}
+        >
+          <span
+            style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--mk-jade-400)' }}
+          />
           Ready for pass
-        </Badge>
+        </span>
       </div>
     );
   }
   return (
-    <div className="flex gap-2">
+    <div style={{ display: 'flex', gap: 8 }}>
       {!anyPreparing ? (
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="md"
-          full
           disabled={pending}
           onClick={() => onAdvanceLines(card, 'preparing')}
+          style={{
+            flex: 1,
+            height: 34,
+            borderRadius: 8,
+            background: 'oklch(1 0 0 / 0.1)',
+            color: 'oklch(1 0 0 / 0.8)',
+            fontSize: 12.5,
+            fontWeight: 600,
+            border: '1px solid oklch(1 0 0 / 0.15)',
+            cursor: pending ? 'not-allowed' : 'pointer',
+            opacity: pending ? 0.6 : 1,
+            transition: 'opacity 150ms',
+          }}
         >
           Start
-        </Button>
+        </button>
       ) : null}
-      <Button
+      <button
         type="button"
-        variant="primary"
-        size="md"
-        full
         disabled={pending}
         onClick={() => onAdvanceLines(card, 'ready')}
+        style={{
+          flex: 1,
+          height: 34,
+          borderRadius: 8,
+          background: 'var(--mk-canvas-50)',
+          color: 'var(--mk-ink-950)',
+          fontSize: 12.5,
+          fontWeight: 600,
+          border: 'none',
+          cursor: pending ? 'not-allowed' : 'pointer',
+          opacity: pending ? 0.6 : 1,
+          transition: 'opacity 150ms',
+        }}
       >
         Mark ready
-      </Button>
+      </button>
     </div>
   );
 }

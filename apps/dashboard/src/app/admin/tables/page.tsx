@@ -5,6 +5,15 @@ import { TablesManager, type ManagerTable } from './tables-manager';
 
 export const dynamic = 'force-dynamic';
 
+const ACTIVE_ORDER_STATUSES = [
+  'received',
+  'confirmed',
+  'preparing',
+  'ready',
+  'out_for_delivery',
+] as const;
+const ACTIVE_TABLE_SESSION_STATUSES = ['active', 'bill_requested', 'needs_review'] as const;
+
 export default async function TablesPage() {
   const { session, restaurantId, permissions } = await requirePageFlag(['tables.view']);
   const canEditTables = permissions.includes('tables.edit');
@@ -12,15 +21,25 @@ export default async function TablesPage() {
   const canProcessPayments = permissions.includes('payments.process');
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Table, TableSession } = getModels(conn);
-  const [restaurant, tables, tableSessions] = await Promise.all([
+  const { Restaurant, Table, TableSession, Order } = getModels(conn);
+  const [restaurant, tables, tableSessions, activeOrders] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Table.find({ restaurantId }).sort({ number: 1 }).lean().exec(),
     TableSession.find({
       restaurantId,
-      status: { $in: ['active', 'bill_requested', 'needs_review'] },
+      status: { $in: ACTIVE_TABLE_SESSION_STATUSES },
     })
       .sort({ startedAt: -1 })
+      .lean()
+      .exec(),
+    Order.find(
+      {
+        restaurantId,
+        status: { $in: ACTIVE_ORDER_STATUSES },
+        tableId: { $exists: true },
+      },
+      { tableId: 1 },
+    )
       .lean()
       .exec(),
   ]);
@@ -33,6 +52,11 @@ export default async function TablesPage() {
       sessionByTableId.set(key, tableSession);
     }
   }
+  const activeOrderTableIds = new Set(
+    activeOrders
+      .map((order) => (order.tableId ? String(order.tableId) : null))
+      .filter((tableId): tableId is string => Boolean(tableId)),
+  );
   const rows: ManagerTable[] = tables.map((t) => ({
     ...(sessionByTableId.get(String(t._id))
       ? {
@@ -46,50 +70,117 @@ export default async function TablesPage() {
     capacity: t.capacity,
     zone: t.zone,
     qrToken: canPrintQr ? t.qrToken : '',
-    status: t.status,
+    status: effectiveTableStatus(
+      sessionByTableId.get(String(t._id))?.status,
+      activeOrderTableIds.has(String(t._id)),
+    ),
     qrUrl: canPrintQr ? `https://${slug}.menukaze.com/t/${t.qrToken}` : '',
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 24,
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold">Tables</h1>
-          <p className="text-muted-foreground text-sm">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--mk-saffron-700)',
+              marginBottom: 8,
+            }}
+          >
+            Floor plan
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 32,
+              fontWeight: 500,
+              letterSpacing: '-0.025em',
+              color: 'var(--mk-ink-950)',
+            }}
+          >
+            Tables &amp; QR
+          </h1>
+          <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)' }}>
             Dine-in tables and QR codes for {restaurant?.name}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {rows.length > 0 && canPrintQr ? (
             <>
               <Link
                 href="/admin/tables/print"
                 target="_blank"
-                className="text-foreground text-sm underline underline-offset-4"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--mk-ink-600)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 3,
+                }}
               >
                 Print all QRs
               </Link>
               <Link
                 href="/admin/tables/print/download"
-                className="text-foreground text-sm underline underline-offset-4"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--mk-ink-600)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 3,
+                }}
               >
                 Download PDF
               </Link>
             </>
           ) : null}
-          <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
+          <Link
+            href="/admin"
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--mk-ink-500)',
+              textDecoration: 'none',
+            }}
+          >
             ← Back
           </Link>
         </div>
-      </header>
-
-      <TablesManager
-        restaurantId={session.restaurantId}
-        tables={rows}
-        canEdit={canEditTables}
-        canPrintQr={canPrintQr}
-        canProcessPayments={canProcessPayments}
-      />
-    </main>
+      </div>
+      <div style={{ padding: '24px 40px 48px' }}>
+        <TablesManager
+          restaurantId={session.restaurantId}
+          tables={rows}
+          canEdit={canEditTables}
+          canPrintQr={canPrintQr}
+          canProcessPayments={canProcessPayments}
+        />
+      </div>
+    </div>
   );
+}
+
+function effectiveTableStatus(
+  sessionStatus: string | undefined,
+  hasActiveOrder: boolean,
+): ManagerTable['status'] {
+  if (sessionStatus === 'bill_requested' || sessionStatus === 'needs_review') return sessionStatus;
+  if (sessionStatus === 'active' || hasActiveOrder) return 'occupied';
+  return 'available';
 }

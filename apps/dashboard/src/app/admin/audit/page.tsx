@@ -42,92 +42,228 @@ export default async function AuditLogPage({ searchParams }: PageProps) {
   const userById = new Map(users.map((u) => [String(u._id), u]));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 24,
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold">Audit log</h1>
-          <p className="text-muted-foreground text-sm">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--mk-saffron-700)',
+              marginBottom: 8,
+            }}
+          >
+            Security
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 32,
+              fontWeight: 500,
+              letterSpacing: '-0.025em',
+              color: 'var(--mk-ink-950)',
+            }}
+          >
+            Audit log
+          </h1>
+          <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)' }}>
             {entries.length} most recent entr{entries.length === 1 ? 'y' : 'ies'}.
             {scope === 'me' ? ' Showing only your actions.' : ' Showing every action.'}
           </p>
         </div>
-        <div className="flex gap-2 text-sm">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {canViewAll ? (
-            <>
+            <div
+              style={{
+                display: 'inline-flex',
+                gap: 2,
+                padding: 2,
+                background: 'var(--mk-canvas-100)',
+                borderRadius: 8,
+              }}
+            >
               <Link
                 href="/admin/audit"
-                className={`border-border rounded-md border px-3 py-1 ${
-                  scope === 'all' ? 'bg-foreground text-background' : 'hover:bg-muted'
-                }`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  height: 28,
+                  padding: '0 12px',
+                  borderRadius: 6,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                  background: scope === 'all' ? 'white' : 'transparent',
+                  color: scope === 'all' ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
+                  boxShadow: scope === 'all' ? 'var(--shadow-xs)' : 'none',
+                }}
               >
                 Everyone
               </Link>
               <Link
                 href="/admin/audit?scope=me"
-                className={`border-border rounded-md border px-3 py-1 ${
-                  scope === 'me' ? 'bg-foreground text-background' : 'hover:bg-muted'
-                }`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  height: 28,
+                  padding: '0 12px',
+                  borderRadius: 6,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                  background: scope === 'me' ? 'white' : 'transparent',
+                  color: scope === 'me' ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
+                  boxShadow: scope === 'me' ? 'var(--shadow-xs)' : 'none',
+                }}
               >
                 Just me
               </Link>
-            </>
+            </div>
           ) : null}
-          <Link href="/admin" className="text-foreground underline underline-offset-4">
+          <Link
+            href="/admin"
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--mk-ink-500)',
+              textDecoration: 'none',
+            }}
+          >
             ← Back
           </Link>
         </div>
-      </header>
+      </div>
 
-      {entries.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No actions recorded yet.</p>
-      ) : (
-        <table className="border-border w-full border text-sm">
-          <thead className="bg-muted/50 text-left text-xs tracking-wide uppercase">
-            <tr>
-              <th className="px-3 py-2">When</th>
-              <th className="px-3 py-2">Who</th>
-              <th className="px-3 py-2">Action</th>
-              <th className="px-3 py-2">Resource</th>
-              <th className="px-3 py-2">IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => {
-              const user = entry.userId ? userById.get(String(entry.userId)) : null;
-              return (
-                <tr key={String(entry._id)} className="border-border border-t">
-                  <td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-                    {new Date(entry.at).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {user ? (
-                      <>
-                        <span className="font-medium">{user.name || user.email}</span>
-                        <span className="text-muted-foreground ml-2">{entry.role}</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">{entry.userEmail ?? 'system'}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{entry.action}</td>
-                  <td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-                    {entry.resourceType ? `${entry.resourceType} ${entry.resourceId ?? ''}` : '—'}
-                  </td>
-                  <td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-                    {entry.ip ?? '—'}
-                  </td>
+      <div style={{ padding: '24px 40px 48px' }}>
+        {entries.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: 'var(--mk-ink-500)' }}>No actions recorded yet.</p>
+        ) : (
+          <div
+            style={{
+              background: 'white',
+              border: '1px solid var(--mk-ink-100)',
+              borderRadius: 14,
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-xs)',
+            }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr
+                  style={{
+                    background: 'var(--mk-canvas-50)',
+                    borderBottom: '1px solid var(--mk-ink-100)',
+                  }}
+                >
+                  {['When', 'Who', 'Action', 'Resource', 'IP'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: '10px 16px',
+                        textAlign: 'left',
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        color: 'var(--mk-ink-500)',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-
-      {canViewAll ? (
-        <p className="text-muted-foreground text-xs">
-          Each row is hash-chained to the previous: tampering with history is detectable.
-        </p>
-      ) : null}
-    </main>
+              </thead>
+              <tbody>
+                {entries.map((entry) => {
+                  const user = entry.userId ? userById.get(String(entry.userId)) : null;
+                  return (
+                    <tr
+                      key={String(entry._id)}
+                      style={{ borderBottom: '1px solid var(--mk-ink-100)' }}
+                    >
+                      <td
+                        style={{
+                          padding: '10px 16px',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11.5,
+                          color: 'var(--mk-ink-400)',
+                        }}
+                      >
+                        {new Date(entry.at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '10px 16px', fontSize: 12.5 }}>
+                        {user ? (
+                          <span style={{ fontWeight: 500, color: 'var(--mk-ink-900)' }}>
+                            {user.name || user.email}{' '}
+                            <span style={{ color: 'var(--mk-ink-400)', fontWeight: 400 }}>
+                              {entry.role}
+                            </span>
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--mk-ink-400)' }}>
+                            {entry.userEmail ?? 'system'}
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 16px',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11.5,
+                          color: 'var(--mk-ink-700)',
+                        }}
+                      >
+                        {entry.action}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 16px',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11.5,
+                          color: 'var(--mk-ink-400)',
+                        }}
+                      >
+                        {entry.resourceType
+                          ? `${entry.resourceType} ${entry.resourceId ?? ''}`
+                          : '—'}
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 16px',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11.5,
+                          color: 'var(--mk-ink-400)',
+                        }}
+                      >
+                        {entry.ip ?? '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {canViewAll ? (
+          <p style={{ marginTop: 12, fontSize: 11.5, color: 'var(--mk-ink-400)' }}>
+            Each row is hash-chained to the previous: tampering with history is detectable.
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }

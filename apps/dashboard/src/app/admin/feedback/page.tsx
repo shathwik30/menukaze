@@ -44,65 +44,193 @@ export default async function FeedbackPage() {
         ) / total;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 24,
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold">Customer feedback</h1>
-          <p className="text-muted-foreground text-sm">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--mk-saffron-700)',
+              marginBottom: 8,
+            }}
+          >
+            Guest experience
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 32,
+              fontWeight: 500,
+              letterSpacing: '-0.025em',
+              color: 'var(--mk-ink-950)',
+            }}
+          >
+            Feedback
+          </h1>
+          <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)' }}>
             {total > 0
               ? `Average ${weighted.toFixed(2)} from ${total} review${total === 1 ? '' : 's'}.`
               : 'No reviews yet — they appear after an order is marked ready.'}
           </p>
         </div>
-        <Link href="/admin" className="text-foreground text-sm underline underline-offset-4">
+        <Link
+          href="/admin"
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: 'var(--mk-ink-500)',
+            textDecoration: 'none',
+          }}
+        >
           ← Back
         </Link>
-      </header>
+      </div>
 
-      {total > 0 ? (
-        <section className="border-border space-y-2 rounded-md border p-4">
-          {[5, 4, 3, 2, 1].map((rating) => {
-            const count = counts[rating] ?? 0;
-            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-            return (
-              <div key={rating} className="flex items-center gap-3 text-sm">
-                <span className="w-8 text-amber-500">{'★'.repeat(rating)}</span>
-                <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
-                  <div className="h-full bg-amber-400" style={{ width: `${pct}%` }} />
+      <div style={{ padding: '24px 40px 48px', maxWidth: 720 }}>
+        {total > 0 ? (
+          <div
+            style={{
+              background: 'white',
+              border: '1px solid var(--mk-ink-100)',
+              borderRadius: 14,
+              padding: '20px 24px',
+              marginBottom: 24,
+              boxShadow: 'var(--shadow-xs)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            {[5, 4, 3, 2, 1].map((rating) => {
+              const count = counts[rating] ?? 0;
+              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+              return (
+                <div
+                  key={rating}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}
+                >
+                  <span style={{ width: 32, color: 'var(--mk-saffron-500)', fontSize: 12 }}>
+                    {'★'.repeat(rating)}
+                  </span>
+                  <div
+                    style={{
+                      flex: 1,
+                      height: 6,
+                      borderRadius: 99,
+                      background: 'var(--mk-canvas-200)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '100%',
+                        background: 'var(--mk-saffron-400)',
+                        borderRadius: 99,
+                        width: `${pct}%`,
+                      }}
+                    />
+                  </div>
+                  <span
+                    style={{
+                      width: 56,
+                      textAlign: 'right',
+                      fontSize: 12,
+                      color: 'var(--mk-ink-400)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {count} · {pct}%
+                  </span>
                 </div>
-                <span className="text-muted-foreground w-12 text-right text-xs">
-                  {count} · {pct}%
-                </span>
-              </div>
-            );
-          })}
-        </section>
-      ) : null}
+              );
+            })}
+          </div>
+        ) : null}
 
-      {recent.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold tracking-wide uppercase">Latest reviews</h2>
-          <ul className="border-border divide-border divide-y rounded-md border">
-            {recent.map((entry) => (
-              <li key={String(entry._id)} className="flex flex-col gap-1 p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-amber-500">{'★'.repeat(entry.rating)}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {publicOrderIdById.get(String(entry.orderId)) ?? entry.orderId.toString()}
-                  </span>
-                  <span className="text-muted-foreground ml-auto text-xs">
-                    {new Date(entry.createdAt).toLocaleString()}
-                  </span>
+        {recent.length > 0 ? (
+          <div>
+            <h2
+              style={{
+                margin: '0 0 12px',
+                fontSize: 10.5,
+                fontWeight: 600,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--mk-ink-500)',
+              }}
+            >
+              Latest reviews
+            </h2>
+            <div
+              style={{
+                background: 'white',
+                border: '1px solid var(--mk-ink-100)',
+                borderRadius: 14,
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-xs)',
+              }}
+            >
+              {recent.map((entry) => (
+                <div
+                  key={String(entry._id)}
+                  style={{ padding: '14px 20px', borderBottom: '1px solid var(--mk-ink-100)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 13, color: 'var(--mk-saffron-500)' }}>
+                      {'★'.repeat(entry.rating)}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11.5,
+                        color: 'var(--mk-ink-400)',
+                      }}
+                    >
+                      {publicOrderIdById.get(String(entry.orderId)) ?? entry.orderId.toString()}
+                    </span>
+                    <span
+                      style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--mk-ink-400)' }}
+                    >
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {entry.comment ? (
+                    <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'var(--mk-ink-800)' }}>
+                      {entry.comment}
+                    </p>
+                  ) : null}
+                  {entry.customerName ? (
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: 12,
+                        color: 'var(--mk-ink-400)',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      — {entry.customerName}
+                    </p>
+                  ) : null}
                 </div>
-                {entry.comment ? <p className="text-sm">{entry.comment}</p> : null}
-                {entry.customerName ? (
-                  <p className="text-muted-foreground text-xs">— {entry.customerName}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </main>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

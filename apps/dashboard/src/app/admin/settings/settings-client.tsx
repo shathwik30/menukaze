@@ -113,10 +113,36 @@ export function SettingsClient({
   return (
     <>
       {toast ? (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{toast}</p>
+        <p
+          style={{
+            padding: '10px 16px',
+            marginBottom: 16,
+            borderRadius: 10,
+            background: 'var(--mk-jade-50)',
+            border: '1px solid var(--mk-jade-200)',
+            fontSize: 13.5,
+            fontWeight: 500,
+            color: 'var(--mk-jade-800)',
+          }}
+        >
+          {toast}
+        </p>
       ) : null}
       {error ? (
-        <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>
+        <p
+          style={{
+            padding: '10px 16px',
+            marginBottom: 16,
+            borderRadius: 10,
+            background: 'var(--mk-rose-50)',
+            border: '1px solid var(--mk-rose-200)',
+            fontSize: 13.5,
+            fontWeight: 500,
+            color: 'var(--mk-rose-700)',
+          }}
+        >
+          {error}
+        </p>
       ) : null}
 
       {permissions.canEditProfile ? (
@@ -199,9 +225,29 @@ export function SettingsClient({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-border rounded-lg border p-5">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
+    <section
+      style={{
+        background: 'white',
+        border: '1px solid var(--mk-ink-100)',
+        borderRadius: 14,
+        padding: '20px 24px',
+        marginBottom: 16,
+        boxShadow: 'var(--shadow-xs)',
+      }}
+    >
+      <h2
+        style={{
+          margin: '0 0 16px',
+          fontFamily: 'var(--font-serif)',
+          fontSize: 18,
+          fontWeight: 500,
+          letterSpacing: '-0.01em',
+          color: 'var(--mk-ink-950)',
+        }}
+      >
+        {title}
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children}</div>
     </section>
   );
 }
@@ -218,8 +264,8 @@ function InputRow({
   type?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-foreground">{label}</span>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13.5 }}>
+      <span style={{ fontWeight: 500, color: 'var(--mk-ink-700)' }}>{label}</span>
       <Input
         type={type}
         value={value}
@@ -232,15 +278,27 @@ function InputRow({
 
 function SaveButton({ pending }: { pending: boolean }) {
   return (
-    <Button
-      variant="plain"
-      size="none"
+    <button
       type="submit"
       disabled={pending}
-      className="bg-primary text-primary-foreground mt-2 h-9 self-start rounded-md px-4 text-sm font-medium disabled:opacity-50"
+      style={{
+        marginTop: 8,
+        height: 36,
+        padding: '0 18px',
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+        background: 'var(--mk-ink-950)',
+        color: 'var(--mk-canvas-50)',
+        fontSize: 13.5,
+        fontWeight: 500,
+        border: 'none',
+        cursor: pending ? 'not-allowed' : 'pointer',
+        opacity: pending ? 0.5 : 1,
+        transition: 'opacity 150ms',
+      }}
     >
       Save
-    </Button>
+    </button>
   );
 }
 

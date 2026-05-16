@@ -71,6 +71,37 @@ const settingsInput = z.object({
   blockedDates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(366),
 });
 
+export async function deleteReservationAction(raw: unknown): Promise<ActionResult> {
+  const parsed = z.object({ reservationId: z.string().min(1) }).safeParse(raw);
+  if (!parsed.success) return validationError(parsed.error);
+  const reservationId = parseObjectId(parsed.data.reservationId);
+  if (!reservationId) return invalidEntityError('reservation');
+
+  return runRestaurantAction(
+    ['reservations.edit'],
+    { onError: 'Failed to delete reservation.', onForbidden: RESERVATION_PERMISSION_ERROR },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Reservation } = getModels(conn);
+      const reservation = await Reservation.findOne({ restaurantId, _id: reservationId }).exec();
+      if (!reservation) throw new Error('Reservation not found.');
+      await Reservation.deleteOne({ restaurantId, _id: reservationId }).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'reservation.deleted',
+        resourceType: 'reservation',
+        resourceId: String(reservationId),
+        metadata: { name: reservation.name, date: reservation.date, status: reservation.status },
+      });
+      revalidatePath('/admin/reservations');
+      return { ok: true };
+    },
+  );
+}
+
 export async function updateReservationSettingsAction(raw: unknown): Promise<ActionResult> {
   const parsed = settingsInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);

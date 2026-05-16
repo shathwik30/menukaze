@@ -1,5 +1,4 @@
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { WebhooksManager } from './webhooks-manager';
 
@@ -21,45 +20,79 @@ export default async function WebhooksPage() {
     .exec();
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
-      <header>
-        <Eyebrow withBar tone="accent">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--mk-saffron-700)',
+            marginBottom: 8,
+          }}
+        >
           Developers
-        </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
+        </div>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: 'var(--font-serif)',
+            fontSize: 32,
+            fontWeight: 500,
+            letterSpacing: '-0.025em',
+            color: 'var(--mk-ink-950)',
+          }}
+        >
           Webhooks
         </h1>
-        <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-2xl text-sm">
+        <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)', maxWidth: 580 }}>
           HTTPS endpoints that receive event notifications. Each delivery is signed with HMAC
           SHA-256 in the{' '}
-          <code className="bg-canvas-100 text-ink-700 dark:bg-ink-800 dark:text-ink-300 rounded px-1.5 py-0.5 font-mono text-[12px]">
+          <code
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              background: 'var(--mk-canvas-100)',
+              color: 'var(--mk-ink-700)',
+              padding: '1px 6px',
+              borderRadius: 4,
+            }}
+          >
             X-Menukaze-Signature
           </code>{' '}
           header.
         </p>
-      </header>
-
-      <WebhooksManager
-        subscriptions={subscriptions.map((s) => ({
-          id: String(s._id),
-          url: s.url,
-          events: s.events,
-          enabled: s.enabled,
-          description: s.description ?? '',
-          createdAt: new Date(s.createdAt).toISOString(),
-        }))}
-        deliveries={deliveries.map((d) => ({
-          id: String(d._id),
-          subscriptionId: String(d.subscriptionId),
-          eventType: d.eventType,
-          status: d.status,
-          attempts: d.attempts,
-          createdAt: new Date(d.createdAt).toISOString(),
-          deliveredAt: d.deliveredAt ? new Date(d.deliveredAt).toISOString() : null,
-          lastResponseStatus: d.lastResponseStatus ?? null,
-          lastError: d.lastError ?? null,
-        }))}
-      />
+      </div>
+      <div style={{ padding: '24px 40px 48px' }}>
+        <WebhooksManager
+          subscriptions={subscriptions.map((s) => ({
+            id: String(s._id),
+            url: s.url,
+            events: s.events,
+            enabled: s.enabled,
+            description: s.description ?? '',
+            createdAt: new Date(s.createdAt).toISOString(),
+          }))}
+          deliveries={deliveries.map((d) => ({
+            id: String(d._id),
+            subscriptionId: String(d.subscriptionId),
+            eventType: d.eventType,
+            status: d.status,
+            attempts: d.attempts,
+            createdAt: new Date(d.createdAt).toISOString(),
+            deliveredAt: d.deliveredAt ? new Date(d.deliveredAt).toISOString() : null,
+            lastResponseStatus: d.lastResponseStatus ?? null,
+            lastError: d.lastError ?? null,
+          }))}
+        />
+      </div>
     </div>
   );
 }

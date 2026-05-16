@@ -1,7 +1,7 @@
 'use client';
 
-import { Button, Input } from '@menukaze/ui';
-import { useState, useTransition } from 'react';
+import { Input } from '@menukaze/ui';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import {
   deleteCustomerDataAction,
   exportCustomerDataAction,
@@ -60,106 +60,219 @@ export function DataRequestsClient({ canExport, canDelete }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      {canExport ? (
-        <section className="border-border space-y-3 rounded-md border p-4">
-          <h2 className="text-lg font-semibold">Export</h2>
-          <p className="text-muted-foreground text-sm">
-            Build a JSON bundle of every order and dine-in session associated with the
-            customer&apos;s email. Downloaded directly to your browser.
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="flex flex-1 flex-col gap-1 text-sm">
-              <span className="font-medium">Customer email</span>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="customer@example.com"
-                className="border-border h-9 rounded-md border px-3"
-                autoComplete="off"
-              />
-            </label>
-            <Button
-              variant="plain"
-              size="none"
-              type="button"
-              onClick={onExport}
-              disabled={!email || exporting}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium disabled:opacity-50"
-            >
-              {exporting ? 'Exporting…' : 'Export JSON'}
-            </Button>
-          </div>
-          {exportStatus.kind === 'success' ? (
-            <p className="text-sm text-emerald-600">{exportStatus.message}</p>
-          ) : null}
-          {exportStatus.kind === 'error' ? (
-            <p className="text-sm text-red-600">{exportStatus.message}</p>
-          ) : null}
-        </section>
-      ) : null}
-
-      {canDelete ? (
-        <section className="space-y-3 rounded-md border border-red-200 bg-red-50/40 p-4 dark:border-red-900/50 dark:bg-red-950/20">
-          <h2 className="text-lg font-semibold text-red-700 dark:text-red-300">
-            Anonymise (right to erasure)
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Replaces name, email, and phone on every order and session for this email with
-            placeholder values. Order totals, items, and tax records are preserved (required for tax
-            / accounting law). This action cannot be undone.
-          </p>
-          <div className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Customer email</span>
-              <Input
-                type="email"
-                value={deleteEmail}
-                onChange={(e) => setDeleteEmail(e.target.value)}
-                placeholder="customer@example.com"
-                className="border-border bg-background h-9 rounded-md border px-3"
-                autoComplete="off"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">
-                Type <code className="font-mono">DELETE</code> to confirm
-              </span>
-              <Input
-                type="text"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="border-border bg-background h-9 rounded-md border px-3"
-                autoComplete="off"
-              />
-            </label>
-            <Button
-              variant="plain"
-              size="none"
-              type="button"
-              onClick={onDelete}
-              disabled={!deleteEmail || confirm !== 'DELETE' || deleting}
-              className="inline-flex h-9 w-fit items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {deleting ? 'Anonymising…' : 'Anonymise data'}
-            </Button>
-          </div>
-          {deleteStatus.kind === 'success' ? (
-            <p className="text-sm text-emerald-600">{deleteStatus.message}</p>
-          ) : null}
-          {deleteStatus.kind === 'error' ? (
-            <p className="text-sm text-red-600">{deleteStatus.message}</p>
-          ) : null}
-        </section>
-      ) : null}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={summaryGridStyle}>
+        <SummaryCard label="Request type" value={canExport ? 'Export' : 'Locked'} />
+        <SummaryCard
+          label="Erasure"
+          value={canDelete ? 'Enabled' : 'Locked'}
+          tone={canDelete ? 'danger' : undefined}
+        />
+        <SummaryCard label="Fulfilment" value="Manual" />
+      </div>
 
       {!canExport && !canDelete ? (
-        <p className="text-muted-foreground text-sm">
-          Your role doesn&apos;t include any data request permissions.
-        </p>
-      ) : null}
+        <section style={emptyStyle}>
+          Your role does not include data export or erasure permissions.
+        </section>
+      ) : (
+        <div style={requestGridStyle}>
+          {canExport ? (
+            <section style={cardStyle}>
+              <CardHeader
+                eyebrow="Export"
+                title="Customer data bundle"
+                description="Build a JSON bundle of every order and dine-in session associated with the customer's email."
+              />
+              <div
+                style={{
+                  padding: '0 22px 22px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <Field label="Customer email">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="customer@example.com"
+                    autoComplete="off"
+                  />
+                </Field>
+                <div style={checklistStyle}>
+                  <ChecklistItem label="Orders" detail="Line items, totals, status history" />
+                  <ChecklistItem
+                    label="Dine-in sessions"
+                    detail="Table session metadata and receipts"
+                  />
+                  <ChecklistItem
+                    label="Customer profile"
+                    detail="Name, phone, email, lifetime metrics"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={onExport}
+                  disabled={!email || exporting}
+                  style={primaryButton(!email || exporting)}
+                >
+                  {exporting ? 'Exporting...' : 'Export JSON'}
+                </button>
+                <StatusMessage status={exportStatus} />
+              </div>
+            </section>
+          ) : null}
+
+          {canDelete ? (
+            <section
+              style={{
+                ...cardStyle,
+                borderColor: 'var(--mk-rose-200)',
+                background: 'var(--mk-rose-50)',
+              }}
+            >
+              <CardHeader
+                eyebrow="Right to erasure"
+                title="Anonymise customer data"
+                description="Replace personal fields while preserving order totals, tax records, items, and operational history."
+              />
+              <div
+                style={{
+                  padding: '0 22px 22px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <Field label="Customer email">
+                  <Input
+                    type="email"
+                    value={deleteEmail}
+                    onChange={(event) => setDeleteEmail(event.target.value)}
+                    placeholder="customer@example.com"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Confirmation">
+                  <Input
+                    type="text"
+                    value={confirm}
+                    onChange={(event) => setConfirm(event.target.value)}
+                    placeholder="Type DELETE"
+                    autoComplete="off"
+                  />
+                </Field>
+                <div style={dangerNoticeStyle}>
+                  This action cannot be undone. Verify identity before running erasure.
+                </div>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={!deleteEmail || confirm !== 'DELETE' || deleting}
+                  style={dangerButton(!deleteEmail || confirm !== 'DELETE' || deleting)}
+                >
+                  {deleting ? 'Anonymising...' : 'Anonymise data'}
+                </button>
+                <StatusMessage status={deleteStatus} />
+              </div>
+            </section>
+          ) : null}
+        </div>
+      )}
+
+      <section style={infoPanelStyle}>
+        <div style={infoIconStyle}>i</div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mk-lapis-700)' }}>
+            Always verify identity before fulfilling.
+          </div>
+          <p
+            style={{
+              margin: '4px 0 0',
+              fontSize: 12.5,
+              color: 'var(--mk-lapis-700)',
+              lineHeight: 1.5,
+            }}
+          >
+            Match the request against an order phone, email, or saved receipt trail, then record the
+            decision in the audit log.
+          </p>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function CardHeader({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div style={{ padding: '20px 22px 16px' }}>
+      <div style={eyebrowStyle}>{eyebrow}</div>
+      <h2 style={titleStyle}>{title}</h2>
+      <p style={descriptionStyle}>{description}</p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={fieldLabelStyle}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function SummaryCard({ label, value, tone }: { label: string; value: string; tone?: 'danger' }) {
+  return (
+    <div style={summaryCardStyle}>
+      <div style={eyebrowStyle}>{label}</div>
+      <div
+        style={{
+          marginTop: 6,
+          fontFamily: 'var(--font-serif)',
+          fontSize: 28,
+          fontWeight: 500,
+          letterSpacing: '-0.02em',
+          color: tone === 'danger' ? 'var(--mk-rose-700)' : 'var(--mk-ink-950)',
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ChecklistItem({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <span style={checkDotStyle} />
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--mk-ink-900)' }}>{label}</div>
+        <div style={{ marginTop: 2, fontSize: 11.5, color: 'var(--mk-ink-500)' }}>{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatusMessage({ status }: { status: Status }) {
+  if (status.kind === 'idle') return null;
+  return (
+    <p
+      role={status.kind === 'error' ? 'alert' : 'status'}
+      style={status.kind === 'error' ? errorStatusStyle : successStatusStyle}
+    >
+      {status.message}
+    </p>
   );
 }
 
@@ -173,4 +286,173 @@ function downloadJson(payload: DsarBundle, filename: string): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+const summaryGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 12,
+};
+
+const requestGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+  gap: 16,
+  alignItems: 'start',
+};
+
+const summaryCardStyle: CSSProperties = {
+  padding: 14,
+  borderRadius: 12,
+  border: '1px solid var(--mk-ink-100)',
+  background: 'var(--mk-canvas-50)',
+};
+
+const cardStyle: CSSProperties = {
+  borderRadius: 14,
+  border: '1px solid var(--mk-ink-100)',
+  background: 'white',
+  boxShadow: 'var(--shadow-xs)',
+  overflow: 'hidden',
+};
+
+const checklistStyle: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+  padding: 14,
+  borderRadius: 10,
+  border: '1px solid var(--mk-ink-100)',
+  background: 'var(--mk-canvas-50)',
+};
+
+const dangerNoticeStyle: CSSProperties = {
+  padding: '10px 12px',
+  borderRadius: 9,
+  border: '1px solid var(--mk-rose-200)',
+  background: 'white',
+  color: 'var(--mk-rose-700)',
+  fontSize: 12.5,
+  fontWeight: 700,
+};
+
+const infoPanelStyle: CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  alignItems: 'flex-start',
+  padding: '14px 18px',
+  borderRadius: 12,
+  border: '1px solid var(--mk-lapis-100)',
+  background: 'var(--mk-lapis-50)',
+};
+
+const infoIconStyle: CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid var(--mk-lapis-200)',
+  background: 'white',
+  color: 'var(--mk-lapis-700)',
+  fontFamily: 'var(--font-serif)',
+  fontWeight: 700,
+  flexShrink: 0,
+};
+
+const emptyStyle: CSSProperties = {
+  padding: '48px 24px',
+  borderRadius: 14,
+  border: '1.5px dashed var(--mk-ink-200)',
+  background: 'var(--mk-canvas-50)',
+  textAlign: 'center',
+  color: 'var(--mk-ink-500)',
+  fontSize: 13.5,
+};
+
+const eyebrowStyle: CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: 'var(--mk-ink-400)',
+};
+
+const titleStyle: CSSProperties = {
+  margin: '7px 0 0',
+  fontFamily: 'var(--font-serif)',
+  fontSize: 24,
+  fontWeight: 500,
+  letterSpacing: '-0.02em',
+  color: 'var(--mk-ink-950)',
+};
+
+const descriptionStyle: CSSProperties = {
+  margin: '7px 0 0',
+  fontSize: 13,
+  lineHeight: 1.5,
+  color: 'var(--mk-ink-500)',
+};
+
+const fieldLabelStyle: CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  color: 'var(--mk-ink-500)',
+};
+
+const checkDotStyle: CSSProperties = {
+  width: 8,
+  height: 8,
+  marginTop: 4,
+  borderRadius: 99,
+  background: 'var(--mk-jade-500)',
+  flexShrink: 0,
+};
+
+const successStatusStyle: CSSProperties = {
+  margin: 0,
+  padding: '9px 11px',
+  borderRadius: 9,
+  background: 'var(--mk-jade-50)',
+  color: 'var(--mk-jade-700)',
+  fontSize: 12.5,
+  fontWeight: 700,
+};
+
+const errorStatusStyle: CSSProperties = {
+  margin: 0,
+  padding: '9px 11px',
+  borderRadius: 9,
+  background: 'var(--mk-rose-50)',
+  color: 'var(--mk-rose-700)',
+  fontSize: 12.5,
+  fontWeight: 700,
+};
+
+function primaryButton(disabled: boolean): CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 38,
+    padding: '0 14px',
+    borderRadius: 9,
+    border: '1px solid var(--mk-ink-950)',
+    background: 'var(--mk-ink-950)',
+    color: 'var(--mk-canvas-50)',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function dangerButton(disabled: boolean): CSSProperties {
+  return {
+    ...primaryButton(disabled),
+    border: '1px solid var(--mk-rose-700)',
+    background: 'var(--mk-rose-700)',
+  };
 }

@@ -1,6 +1,5 @@
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { resolveFlags, type StaffRole } from '@menukaze/rbac';
-import { Eyebrow } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { StaffClient, type StaffMember, type StaffInviteRow } from './staff-client';
 
@@ -68,29 +67,54 @@ export default async function StaffPage() {
   }));
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
-      <header>
-        <Eyebrow withBar tone="accent">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--mk-saffron-700)',
+            marginBottom: 8,
+          }}
+        >
           Team &amp; Admin
-        </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
+        </div>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: 'var(--font-serif)',
+            fontSize: 32,
+            fontWeight: 500,
+            letterSpacing: '-0.025em',
+            color: 'var(--mk-ink-950)',
+          }}
+        >
           Staff
         </h1>
-        <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+        <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)', maxWidth: 560 }}>
           Invite team members and control their access with role-based permissions.
         </p>
-      </header>
-
-      <StaffClient
-        currentUserId={session.user.id}
-        currentUserRole={role}
-        members={members}
-        invites={inviteRows}
-        canInvite={canInvite}
-        canEdit={canEdit}
-        canRemove={canRemove}
-        roleOptions={roleOptions}
-      />
+      </div>
+      <div style={{ padding: '24px 40px 48px' }}>
+        <StaffClient
+          currentUserId={session.user.id}
+          currentUserRole={role}
+          members={members}
+          invites={inviteRows}
+          canInvite={canInvite}
+          canEdit={canEdit}
+          canRemove={canRemove}
+          roleOptions={roleOptions}
+        />
+      </div>
     </div>
   );
 }

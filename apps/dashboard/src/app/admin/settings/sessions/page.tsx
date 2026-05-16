@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Eyebrow } from '@menukaze/ui';
 import { requireSession } from '@/lib/session';
 import { listMySessionsAction } from '@/app/actions/sessions';
 import { SessionsManager } from './sessions-manager';
@@ -11,37 +10,83 @@ export default async function SessionsPage() {
   const result = await listMySessionsAction();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-start justify-between gap-4">
+    <div>
+      <div
+        style={{
+          padding: '28px 40px 24px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 24,
+        }}
+      >
         <div>
-          <Eyebrow withBar tone="accent">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--mk-saffron-700)',
+              marginBottom: 8,
+            }}
+          >
             Account
-          </Eyebrow>
-          <h1 className="text-foreground mt-3 font-serif text-3xl font-medium tracking-tight">
-            Devices & sessions
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 32,
+              fontWeight: 500,
+              letterSpacing: '-0.025em',
+              color: 'var(--mk-ink-950)',
+            }}
+          >
+            Devices &amp; sessions
           </h1>
-          <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm">
+          <p
+            style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)', maxWidth: 500 }}
+          >
             Each browser or device that&apos;s signed in appears below. Revoke anything you
             don&apos;t recognise.
           </p>
         </div>
-        <Link href="/admin" className="text-sm underline underline-offset-4">
+        <Link
+          href="/admin/settings"
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: 'var(--mk-ink-500)',
+            textDecoration: 'none',
+          }}
+        >
           ← Back
         </Link>
-      </header>
-
-      {result.ok ? (
-        <SessionsManager initialSessions={result.data.sessions} />
-      ) : (
-        <Card variant="surface" radius="lg">
-          <CardHeader>
-            <CardTitle>Couldn&apos;t load sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-ink-500 text-sm">{result.error}</p>
-          </CardContent>
-        </Card>
-      )}
-    </main>
+      </div>
+      <div style={{ padding: '24px 40px 48px', maxWidth: 680 }}>
+        {result.ok ? (
+          <SessionsManager initialSessions={result.data.sessions} />
+        ) : (
+          <div
+            style={{
+              padding: '20px 24px',
+              borderRadius: 14,
+              border: '1px solid var(--mk-ink-100)',
+              background: 'white',
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: 'var(--mk-ink-800)' }}>
+              Couldn&apos;t load sessions
+            </p>
+            <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)' }}>
+              {result.error}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

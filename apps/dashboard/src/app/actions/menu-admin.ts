@@ -404,8 +404,12 @@ export async function updateItemAction(raw: unknown): Promise<ActionResult> {
       if ('comboOf' in patch) {
         const comboIds = await resolveComboItemIds(restaurantId, patch.comboOf, itemId);
         if (!comboIds.ok) return comboIds;
-        if (comboIds.ids.length > 0) set['comboOf'] = comboIds.ids;
-        else unset['comboOf'] = 1;
+        if (comboIds.ids.length > 0) {
+          set['comboOf'] = comboIds.ids;
+        } else {
+          delete set['comboOf'];
+          unset['comboOf'] = 1;
+        }
       }
       if (patch.imageUrl === null) {
         delete set['imageUrl'];

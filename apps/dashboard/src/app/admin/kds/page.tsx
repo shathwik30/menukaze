@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { Badge, Eyebrow, cn } from '@menukaze/ui';
 import { requirePageFlag } from '@/lib/session';
 import { KdsBoard, type KdsCard, type KdsLine, type KdsStation } from './kds-board';
 
@@ -18,7 +17,7 @@ export default async function KdsPage({ searchParams }: PageProps) {
   const conn = await getMongoConnection('live');
   const { Restaurant, Order, Table, Station } = getModels(conn);
 
-  const [restaurant, orders, stations] = await Promise.all([
+  const [, orders, stations] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Order.find({
       restaurantId,
@@ -84,72 +83,214 @@ export default async function KdsPage({ searchParams }: PageProps) {
   }));
   const activeStation = stationFilter ? stationOptions.find((s) => s.id === stationFilter) : null;
 
+  // Stats computed from server-time snapshot
+  const nowMs = Date.now();
+  const totalItems = cards.reduce((n, c) => n + c.items.length, 0);
+  const lateCount = cards.filter(
+    (c) => nowMs - new Date(c.createdAt).getTime() >= 10 * 60_000,
+  ).length;
+  const hotCount = cards.filter((c) => {
+    const age = (nowMs - new Date(c.createdAt).getTime()) / 60_000;
+    return age >= 5 && age < 10;
+  }).length;
+  const avgMs =
+    cards.length > 0
+      ? cards.reduce((s, c) => s + (nowMs - new Date(c.createdAt).getTime()), 0) / cards.length
+      : 0;
+  const avgMin = Math.floor(avgMs / 60_000);
+  const avgSec = Math.floor((avgMs % 60_000) / 1_000);
+  const avgLabel = cards.length > 0 ? `${avgMin}:${String(avgSec).padStart(2, '0')}` : '—';
+
   return (
-    <div className="flex min-h-screen flex-col gap-5 px-6 py-6 sm:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Eyebrow tone="accent">
-            <span className="bg-mkrose-500 relative inline-flex size-2 rounded-full">
-              <span className="bg-mkrose-500 absolute inset-0 animate-ping rounded-full opacity-60" />
-            </span>
-            Kitchen display · Live
-          </Eyebrow>
-          <h1 className="text-foreground mt-2 font-serif text-3xl font-medium tracking-tight sm:text-4xl">
-            {activeStation ? `${activeStation.name} station` : 'Kitchen Display'}
-          </h1>
-          <p className="text-ink-500 dark:text-ink-400 mt-1 text-sm">
-            {restaurant?.name} · {cards.length} open ticket{cards.length === 1 ? '' : 's'}
-          </p>
+    <div
+      style={{
+        background: 'var(--mk-ink-950)',
+        minHeight: 'calc(100vh - 60px)',
+        color: 'var(--mk-canvas-50)',
+      }}
+    >
+      {/* KDS topbar */}
+      <div
+        style={{
+          padding: '14px 32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 24,
+          flexWrap: 'wrap',
+          borderBottom: '1px solid oklch(1 0 0 / 0.06)',
+          background: 'oklch(0.085 0.017 92 / 0.92)',
+          backdropFilter: 'blur(20px)',
+          position: 'sticky',
+          top: 60,
+          zIndex: 5,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--mk-saffron-300)',
+              }}
+            >
+              Kitchen display
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 22,
+                fontWeight: 500,
+                letterSpacing: '-0.02em',
+                marginTop: 2,
+              }}
+            >
+              {activeStation ? `${activeStation.name} station` : 'All stations'}
+              {' · '}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18 }}>{cards.length}</span>
+              {' ticket'}
+              {cards.length !== 1 ? 's' : ''}
+              {totalItems > 0 ? (
+                <span
+                  style={{
+                    fontWeight: 400,
+                    fontSize: 14,
+                    color: 'oklch(1 0 0 / 0.55)',
+                    marginLeft: 6,
+                  }}
+                >
+                  · {totalItems} item{totalItems !== 1 ? 's' : ''} in flight
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </header>
 
-      {stationOptions.length > 0 ? (
-        <nav className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/admin/kds"
-            className={cn(
-              'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-medium transition-colors',
-              !stationFilter
-                ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
-                : 'bg-canvas-100 text-ink-700 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
-            )}
-          >
-            All stations
-            <Badge variant="subtle" size="xs" shape="pill" className="ml-2 bg-transparent">
-              {stationOptions.length}
-            </Badge>
-          </Link>
-          {stationOptions.map((station) => {
-            const active = stationFilter === station.id;
-            return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          {/* Live stats */}
+          {cards.length > 0 ? (
+            <div style={{ display: 'flex', gap: 20 }}>
+              <KdsStat label="Avg ticket" value={avgLabel} tone="ok" />
+              <KdsStat label={`Hot (≥5m)`} value={String(hotCount)} tone="hot" />
+              <KdsStat label={`Late (≥10m)`} value={String(lateCount)} tone="late" />
+            </div>
+          ) : null}
+
+          {/* Divider */}
+          {cards.length > 0 && stationOptions.length > 0 ? (
+            <div style={{ width: 1, height: 28, background: 'oklch(1 0 0 / 0.1)' }} />
+          ) : null}
+
+          {/* Station filter tabs */}
+          {stationOptions.length > 0 ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                gap: 2,
+                padding: 3,
+                background: 'oklch(1 0 0 / 0.06)',
+                borderRadius: 10,
+              }}
+            >
               <Link
-                key={station.id}
-                href={`/admin/kds?station=${encodeURIComponent(station.id)}`}
-                className={cn(
-                  'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-medium transition-colors',
-                  active
-                    ? 'bg-ink-950 text-canvas-50 dark:bg-canvas-50 dark:text-ink-950'
-                    : 'bg-canvas-100 text-ink-700 hover:bg-canvas-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700',
-                )}
+                href="/admin/kds"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  height: 28,
+                  padding: '0 12px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  borderRadius: 7,
+                  background: !stationFilter ? 'var(--mk-canvas-50)' : 'transparent',
+                  color: !stationFilter ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.65)',
+                  textDecoration: 'none',
+                  transition: 'all 150ms',
+                }}
               >
-                {station.name}
+                All stations
               </Link>
-            );
-          })}
-          <Link
-            href="/admin/stations"
-            className="text-ink-500 hover:text-ink-950 dark:text-ink-400 dark:hover:text-canvas-50 ml-auto text-xs font-medium underline-offset-4 hover:underline"
-          >
-            Manage stations →
-          </Link>
-        </nav>
-      ) : null}
+              {stationOptions.map((station) => {
+                const active = stationFilter === station.id;
+                return (
+                  <Link
+                    key={station.id}
+                    href={`/admin/kds?station=${encodeURIComponent(station.id)}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      height: 28,
+                      padding: '0 12px',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 7,
+                      background: active ? 'var(--mk-canvas-50)' : 'transparent',
+                      color: active ? 'var(--mk-ink-950)' : 'oklch(1 0 0 / 0.65)',
+                      textDecoration: 'none',
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    {station.name}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
 
-      <KdsBoard
-        restaurantId={session.restaurantId}
-        initialCards={cards}
-        stationFilter={stationFilter}
-      />
+      <div style={{ padding: '20px 32px 40px' }}>
+        <KdsBoard
+          restaurantId={session.restaurantId}
+          initialCards={cards}
+          stationFilter={stationFilter}
+        />
+      </div>
+    </div>
+  );
+}
+
+function KdsStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'ok' | 'hot' | 'late';
+}) {
+  const colors = {
+    ok: 'var(--mk-jade-300)',
+    hot: 'var(--mk-saffron-300)',
+    late: 'var(--mk-rose-300)',
+  };
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 9.5,
+          fontWeight: 700,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'oklch(1 0 0 / 0.4)',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 17,
+          fontWeight: 700,
+          color: colors[tone],
+          marginTop: 2,
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

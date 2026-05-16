@@ -1,6 +1,5 @@
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
-import { Eyebrow } from '@menukaze/ui';
 import { requireAnyPageFlag } from '@/lib/session';
 import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
 
@@ -84,26 +83,106 @@ export default async function MenuManagementPage() {
   }));
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10">
-      <header>
-        <Eyebrow withBar tone="accent">
-          Catalog
-        </Eyebrow>
-        <h1 className="text-foreground mt-3 font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
-          Menu
-        </h1>
-        <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-xl text-sm">
-          Organise menus, categories, dishes, modifiers, schedules and live availability.
-        </p>
-      </header>
+    <div>
+      {/* Page header */}
+      <div
+        style={{
+          padding: '14px 40px 12px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 3,
+              height: 28,
+              borderRadius: 99,
+              background: 'var(--mk-saffron-500)',
+              flexShrink: 0,
+            }}
+          />
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--mk-saffron-700)',
+              }}
+            >
+              Catalog
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 22,
+                fontWeight: 500,
+                letterSpacing: '-0.02em',
+                color: 'var(--mk-ink-950)',
+                lineHeight: 1.2,
+              }}
+            >
+              Menu
+            </h1>
+          </div>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--mk-ink-400)', maxWidth: 400 }}>
+            Curate categories and items. Changes publish to your storefront, kiosk and QR menus
+            instantly.
+          </p>
+        </div>
+        {canEditMenu ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 36,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: '1px solid var(--mk-ink-200)',
+                background: 'white',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--mk-ink-700)',
+                cursor: 'pointer',
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                style={{ width: 14, height: 14 }}
+                aria-hidden
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              Import CSV
+            </button>
+          </div>
+        ) : null}
+      </div>
 
-      <MenuManagerClient
-        menus={menuTree}
-        currencyLabel={`${currency} (${locale})`}
-        availableItems={availableItems}
-        canEdit={canEditMenu}
-        canToggleAvailability={canToggleAvailability}
-      />
+      <div style={{ padding: '20px 40px 48px' }}>
+        <MenuManagerClient
+          menus={menuTree}
+          currencyLabel={`${currency} (${locale})`}
+          availableItems={availableItems}
+          canEdit={canEditMenu}
+          canToggleAvailability={canToggleAvailability}
+        />
+      </div>
     </div>
   );
 }

@@ -46,35 +46,95 @@ export default async function DashboardReservationsPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Reservations</h1>
-          <p className="text-muted-foreground text-sm">
-            {restaurant.reservationSettings?.enabled
-              ? 'Online bookings are open.'
-              : 'Online bookings are turned off — turn them on in settings.'}
-          </p>
+    <div>
+      <div
+        style={{
+          padding: '14px 40px 12px',
+          borderBottom: '1px solid var(--mk-ink-100)',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 3,
+              height: 28,
+              borderRadius: 99,
+              background: 'var(--mk-saffron-500)',
+              flexShrink: 0,
+            }}
+          />
+          <div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--mk-saffron-700)',
+              }}
+            >
+              Bookings
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 22,
+                fontWeight: 500,
+                letterSpacing: '-0.02em',
+                color: 'var(--mk-ink-950)',
+                lineHeight: 1.2,
+              }}
+            >
+              Reservations
+            </h1>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {!restaurant.reservationSettings?.enabled ? (
+            <span
+              style={{
+                fontSize: 12,
+                color: 'var(--mk-rose-700)',
+                background: 'var(--mk-rose-50)',
+                padding: '3px 10px',
+                borderRadius: 6,
+                fontWeight: 500,
+              }}
+            >
+              Bookings off
+            </span>
+          ) : null}
           {permissions.includes('reservations.configure') ? (
             <Link
               href="/admin/reservations/settings"
-              className="border-input hover:bg-accent inline-flex h-9 items-center rounded-md border px-3 text-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: 32,
+                padding: '0 12px',
+                borderRadius: 8,
+                fontSize: 12.5,
+                fontWeight: 500,
+                textDecoration: 'none',
+                border: '1px solid var(--mk-ink-200)',
+                color: 'var(--mk-ink-700)',
+              }}
             >
               Settings
             </Link>
           ) : null}
-          <Link
-            href="/admin"
-            className="text-foreground inline-flex h-9 items-center text-sm underline underline-offset-4"
-          >
-            ← Back
-          </Link>
         </div>
-      </header>
-
-      <ReservationsBoard reservations={all} canEdit={permissions.includes('reservations.edit')} />
-    </main>
+      </div>
+      <div style={{ padding: '14px 40px 48px' }}>
+        <ReservationsBoard reservations={all} canEdit={permissions.includes('reservations.edit')} />
+      </div>
+    </div>
   );
 }
