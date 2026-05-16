@@ -17,4 +17,4 @@ RUN pnpm install --frozen-lockfile --filter @menukaze/worker...
 ENV NODE_ENV=production
 EXPOSE 8080
 
-CMD ["pnpm", "--filter", "@menukaze/worker", "start"]
+CMD ["pnpm", "--filter", "@menukaze/worker", "exec", "tsx", "src/index.ts"]
