@@ -80,10 +80,14 @@ export function createTenantMiddleware(options: TenantMiddlewareOptions = {}): {
     const reqHeaders = new Headers(request.headers);
 
     if (parseTenant) {
-      const parsed = parseHost(request.headers.get('host'));
-      reqHeaders.set('x-tenant-kind', parsed.kind);
-      if (parsed.kind === 'subdomain') reqHeaders.set('x-tenant-slug', parsed.slug);
-      if (parsed.kind === 'custom') reqHeaders.set('x-tenant-host', parsed.host);
+      // Don't overwrite x-tenant-kind if an upstream proxy (e.g. storefront rewrite) already set it.
+      const existingKind = request.headers.get('x-tenant-kind');
+      if (!existingKind || (existingKind !== 'subdomain' && existingKind !== 'custom')) {
+        const parsed = parseHost(request.headers.get('host'));
+        reqHeaders.set('x-tenant-kind', parsed.kind);
+        if (parsed.kind === 'subdomain') reqHeaders.set('x-tenant-slug', parsed.slug);
+        if (parsed.kind === 'custom') reqHeaders.set('x-tenant-host', parsed.host);
+      }
     }
 
     const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
