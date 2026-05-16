@@ -1,0 +1,60 @@
+# flyctl launch added from .gitignore
+# dependencies
+**/node_modules
+**/.pnpm-store
+
+# build outputs
+**/.next
+**/out
+**/dist
+**/build
+**/.turbo
+**/*.tsbuildinfo
+
+# env (NEVER commit secrets)
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.production
+**/.env.staging
+!**/.env.example
+
+# IDE / OS
+**/.vscode/*
+!**/.vscode/settings.json
+!**/.vscode/extensions.json
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+**/*.swp
+**/*.swo
+
+# logs
+**/*.log
+**/npm-debug.log*
+**/pnpm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Vercel
+**/.vercel
+
+# Fly.io
+**/.fly
+**/fly.toml.local
+
+# Claude Code
+**/.claude
+
+# local notes / testing checklists (never commit)
+**/*.local.md
+
+# scratch + credentials (never commit)
+**/*.pem
+**/*.key
+**/*.p12
+**/secrets
+
+# flyctl launch added from .husky/_/.gitignore
+.husky/_/**/*

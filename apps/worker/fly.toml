@@ -1,32 +1,25 @@
-# Menukaze worker Fly.io app config.
-# This file is the canonical production worker deployment config.
+# fly.toml app configuration file generated for menukaze-worker on 2026-05-16T18:19:59+05:30
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "menukaze-worker"
-primary_region = "bom"  # Mumbai, closest to launch tenants.
+app = 'menukaze-worker'
+primary_region = 'bom'
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  NODE_ENV = "production"
-  LOG_LEVEL = "info"
-
-[[vm]]
-  cpu_kind = "shared"
-  cpus = 1
-  memory_mb = 256
+  dockerfile = 'Dockerfile'
 
 [deploy]
-  release_command = ""
-  strategy = "rolling"
+  strategy = 'rolling'
 
-# Worker is always-on (no HTTP port, no autoscale).
+[env]
+  LOG_LEVEL = 'info'
+  NODE_ENV = 'production'
+
 [processes]
-  worker = "pnpm --filter @menukaze/worker start"
+  worker = 'pnpm --filter @menukaze/worker start'
 
-[[services]]
-  protocol = "tcp"
-  internal_port = 8080
-  auto_stop_machines = "off"
-  auto_start_machines = true
-  min_machines_running = 1
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
