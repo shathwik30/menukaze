@@ -18,7 +18,7 @@ type CspMap = Partial<Record<CspDirective, string>>;
 
 const BASELINE_CSP: CspMap = {
   'default-src': "'self'",
-  'script-src': "'self' 'nonce-{nonce}' 'strict-dynamic'",
+  'script-src': "'self' 'nonce-{nonce}' 'unsafe-inline'",
   'style-src': "'self' 'unsafe-inline'",
   'img-src': "'self' data: blob: https://utfs.io",
   'font-src': "'self' data:",
