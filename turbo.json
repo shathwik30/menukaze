@@ -33,6 +33,8 @@
         "WORKER_SESSION_SWEEP_INTERVAL_MS",
         "WORKER_WEBHOOK_INTERVAL_MS",
         "NEXT_PUBLIC_STOREFRONT_HOST",
+        "QR_DINEIN_URL",
+        "KIOSK_URL",
         "SKIP_ENV_VALIDATION"
       ]
     },
