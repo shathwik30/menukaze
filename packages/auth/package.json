@@ -19,8 +19,8 @@
     "@menukaze/db": "workspace:*",
     "@menukaze/monitoring": "workspace:*",
     "@menukaze/shared": "workspace:*",
-    "better-auth": "1.6.5",
-    "resend": "6.12.0"
+    "better-auth": "1.6.9",
+    "resend": "6.12.2"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
