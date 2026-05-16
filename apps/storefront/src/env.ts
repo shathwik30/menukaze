@@ -19,6 +19,8 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM_ADDRESS: z.string().default('Menukaze <noreply@menukaze.com>'),
     MENUKAZE_SKIP_EMAIL: booleanFromString,
+    QR_DINEIN_URL: z.string().url().optional(),
+    KIOSK_URL: z.string().url().optional(),
   },
   client: {
     NEXT_PUBLIC_STOREFRONT_HOST: z.string().optional(),
@@ -33,6 +35,8 @@ export const env = createEnv({
     RESEND_API_KEY: process.env['RESEND_API_KEY'],
     RESEND_FROM_ADDRESS: process.env['RESEND_FROM_ADDRESS'],
     MENUKAZE_SKIP_EMAIL: process.env['MENUKAZE_SKIP_EMAIL'],
+    QR_DINEIN_URL: process.env['QR_DINEIN_URL'],
+    KIOSK_URL: process.env['KIOSK_URL'],
     NEXT_PUBLIC_STOREFRONT_HOST: process.env['NEXT_PUBLIC_STOREFRONT_HOST'],
   },
   skipValidation: process.env['SKIP_ENV_VALIDATION'] === 'true',

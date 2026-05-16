@@ -19,15 +19,15 @@ export function getTenantLocator(rawHeaders: Headers): TenantRequestLocator {
     return { kind: headerKind, slug: headerSlug, host: headerHost };
   }
 
-  const parsed = parseHost(rawHeaders.get('host'));
-  if (parsed.kind === 'subdomain') {
-    return { kind: parsed.kind, slug: parsed.slug, host: null };
-  }
-  if (parsed.kind === 'custom') {
-    return { kind: parsed.kind, slug: null, host: parsed.host };
+  // Check host then x-forwarded-host so storefront rewrites to qr-dinein
+  // and kiosk preserve the original subdomain for tenant resolution.
+  for (const candidate of [rawHeaders.get('host'), rawHeaders.get('x-forwarded-host')]) {
+    const parsed = parseHost(candidate);
+    if (parsed.kind === 'subdomain') return { kind: parsed.kind, slug: parsed.slug, host: null };
+    if (parsed.kind === 'custom') return { kind: parsed.kind, slug: null, host: parsed.host };
   }
 
-  return { kind: parsed.kind, slug: null, host: null };
+  return { kind: 'invalid', slug: null, host: null };
 }
 
 export async function loadTenantRestaurantFromHeaders(
