@@ -17,7 +17,7 @@ primary_region = 'bom'
   NODE_ENV = 'production'
 
 [processes]
-  worker = 'pnpm --filter @menukaze/worker start'
+  worker = 'pnpm --filter @menukaze/worker exec tsx src/index.ts'
 
 [[vm]]
   cpu_kind = 'shared'
