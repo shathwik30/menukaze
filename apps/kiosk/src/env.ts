@@ -10,8 +10,11 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   },
-  client: {},
+  client: {
+    NEXT_PUBLIC_KIOSK_ASSET_URL: z.string().url().optional(),
+  },
   runtimeEnv: {
+    NEXT_PUBLIC_KIOSK_ASSET_URL: process.env['NEXT_PUBLIC_KIOSK_ASSET_URL'],
     MONGODB_URI: process.env['MONGODB_URI'],
     MONGODB_DB_LIVE: process.env['MONGODB_DB_LIVE'],
     ENCRYPTION_KEY: process.env['ENCRYPTION_KEY'],

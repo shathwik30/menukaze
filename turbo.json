@@ -35,6 +35,7 @@
         "NEXT_PUBLIC_STOREFRONT_HOST",
         "QR_DINEIN_URL",
         "KIOSK_URL",
+        "NEXT_PUBLIC_KIOSK_ASSET_URL",
         "SKIP_ENV_VALIDATION"
       ]
     },
