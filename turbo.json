@@ -7,7 +7,34 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**", "build/**"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*.local"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*.local"],
+      "env": [
+        "MONGODB_URI",
+        "MONGODB_DB_LIVE",
+        "MONGODB_DB_SANDBOX",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "SUPER_ADMIN_BETTER_AUTH_URL",
+        "ENCRYPTION_KEY",
+        "ABLY_API_KEY",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "RESEND_API_KEY",
+        "RESEND_FROM_ADDRESS",
+        "MENUKAZE_REQUIRE_EMAIL_VERIFICATION",
+        "MENUKAZE_SKIP_EMAIL",
+        "MENUKAZE_SKIP_RAZORPAY_VERIFICATION",
+        "AXIOM_TOKEN",
+        "AXIOM_DATASET",
+        "AXIOM_DOMAIN",
+        "KIOSK_EXIT_PIN",
+        "KIOSK_RESTAURANT_SLUG",
+        "WORKER_HEALTH_PORT",
+        "WORKER_SESSION_SWEEP_INTERVAL_MS",
+        "WORKER_WEBHOOK_INTERVAL_MS",
+        "NEXT_PUBLIC_STOREFRONT_HOST",
+        "SKIP_ENV_VALIDATION"
+      ]
     },
     "dev": {
       "cache": false,
