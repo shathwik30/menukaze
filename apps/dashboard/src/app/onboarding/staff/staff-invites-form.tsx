@@ -53,7 +53,7 @@ export function StaffInvitesForm({
         setError(result.error);
         return;
       }
-      setSuccess(`Invite sent to ${email}.`);
+      setSuccess(`Invite created for ${email}. They'll receive an email shortly.`);
       setEmail('');
       router.refresh();
     });
@@ -87,7 +87,7 @@ export function StaffInvitesForm({
     });
   };
 
-  const slotsLeft = Math.max(0, remainingSlots - 0);
+  const slotsLeft = remainingSlots;
   const inviteDisabled = !canInvite || slotsLeft === 0;
 
   return (
