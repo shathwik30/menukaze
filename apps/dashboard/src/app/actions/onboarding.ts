@@ -23,6 +23,10 @@ const inputSchema = z.object({
     postalCode: z.string().optional(),
     country: z.string().length(2),
   }),
+  // Coordinates from Google Places — stored on the geo 2dsphere index.
+  // GeoJSON order is [lng, lat]; we accept them separately for clarity.
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 
 export type CreateRestaurantInput = z.infer<typeof inputSchema>;
@@ -66,7 +70,13 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
             locale: input.locale,
             timezone: input.timezone,
             addressStructured: input.addressStructured,
-            geo: { type: 'Point', coordinates: [0, 0] },
+            geo: {
+              type: 'Point',
+              coordinates:
+                typeof input.lng === 'number' && typeof input.lat === 'number'
+                  ? [input.lng, input.lat] // GeoJSON: [longitude, latitude]
+                  : [0, 0],
+            },
             wifiPublicIps: [],
             hours: [],
             subscriptionStatus: 'trial',

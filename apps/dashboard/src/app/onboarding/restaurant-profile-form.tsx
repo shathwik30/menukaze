@@ -13,6 +13,7 @@ import {
   Select,
 } from '@menukaze/ui';
 import { createRestaurantAction } from '@/app/actions/onboarding';
+import { AddressAutocomplete, type AddressResult } from './address-autocomplete';
 
 // Currency is locked at creation; locale/timezone can be overridden later.
 const COUNTRY_DEFAULTS = {
@@ -65,10 +66,15 @@ export function RestaurantProfileForm() {
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [country, setCountry] = useState<CountryCode>('IN');
+
+  // Address fields — filled by autocomplete or typed manually
   const [line1, setLine1] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  // Coordinates from Places API — null until autocomplete is used
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
 
   const defaults = COUNTRY_DEFAULTS[country];
 
@@ -80,6 +86,26 @@ export function RestaurantProfileForm() {
   function onSlugChange(value: string) {
     setSlugTouched(true);
     setSlug(toSlug(value));
+  }
+
+  function onCountryChange(code: CountryCode) {
+    setCountry(code);
+    // Clear address when country changes — the previous place is in the wrong country
+    setLine1('');
+    setCity('');
+    setState('');
+    setPostalCode('');
+    setLat(null);
+    setLng(null);
+  }
+
+  function onAddressSelect(result: AddressResult) {
+    setLine1(result.line1);
+    setCity(result.city);
+    setState(result.state);
+    setPostalCode(result.postalCode);
+    setLat(result.lat);
+    setLng(result.lng);
   }
 
   function onSubmit(event: FormEvent) {
@@ -101,6 +127,8 @@ export function RestaurantProfileForm() {
           postalCode: postalCode.trim() || undefined,
           country,
         },
+        lat: lat ?? undefined,
+        lng: lng ?? undefined,
       });
 
       if (!result.ok) {
@@ -154,7 +182,7 @@ export function RestaurantProfileForm() {
           required
           value={country}
           onChange={(event) => {
-            if (isCountryCode(event.target.value)) setCountry(event.target.value);
+            if (isCountryCode(event.target.value)) onCountryChange(event.target.value);
           }}
         >
           {COUNTRY_CODES.map((code) => (
@@ -173,37 +201,48 @@ export function RestaurantProfileForm() {
         </CardContent>
       </Card>
 
-      <Field label="Address line 1">
-        <Input
-          type="text"
-          required
-          value={line1}
-          onChange={(event) => setLine1(event.target.value)}
-        />
-      </Field>
+      <div className="space-y-3">
+        <div>
+          <Label>Address</Label>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Search to auto-fill, or type directly below.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="City">
+        <AddressAutocomplete countryCode={country} onSelect={onAddressSelect} disabled={pending} />
+
+        <Field label="Address line 1">
           <Input
             type="text"
             required
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
+            value={line1}
+            onChange={(event) => setLine1(event.target.value)}
           />
         </Field>
 
-        <Field label="State / region">
-          <Input type="text" value={state} onChange={(event) => setState(event.target.value)} />
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="City">
+            <Input
+              type="text"
+              required
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+            />
+          </Field>
+
+          <Field label="State / region">
+            <Input type="text" value={state} onChange={(event) => setState(event.target.value)} />
+          </Field>
+        </div>
+
+        <Field label="Postal code">
+          <Input
+            type="text"
+            value={postalCode}
+            onChange={(event) => setPostalCode(event.target.value)}
+          />
         </Field>
       </div>
-
-      <Field label="Postal code">
-        <Input
-          type="text"
-          value={postalCode}
-          onChange={(event) => setPostalCode(event.target.value)}
-        />
-      </Field>
 
       {error ? <FieldError>{error}</FieldError> : null}
 

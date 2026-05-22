@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@googlemaps/js-api-loader": "2.0.2",
     "@menukaze/auth": "workspace:*",
     "@menukaze/db": "workspace:*",
     "@menukaze/monitoring": "workspace:*",
@@ -38,6 +39,7 @@
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@tailwindcss/postcss": "4.2.2",
+    "@types/google.maps": "3.64.1",
     "@types/node": "22.12.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
