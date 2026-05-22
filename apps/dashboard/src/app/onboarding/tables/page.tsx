@@ -23,9 +23,7 @@ export default async function OnboardingTablesPage() {
         <p className="text-muted-foreground text-sm">Step 3 of 6</p>
         <h1 className="mt-1 text-3xl font-bold">Tables &amp; QR codes</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          If you have dine-in seating, enter how many tables you run. We&apos;ll auto-create them
-          and generate a unique QR code for each one. You can rename, adjust capacity, and assign
-          zones later from the Table Management dashboard.
+          Set up your tables and we&apos;ll generate a unique QR code for each one.
         </p>
       </header>
 
