@@ -7,7 +7,7 @@ import {
 import { cn } from '../lib/cn';
 
 const fieldBase =
-  'w-full rounded-lg border border-ink-200 bg-surface px-3.5 py-2.5 text-[15px] text-ink-950 placeholder:text-ink-400 shadow-xs transition-all duration-200 focus:border-saffron-400 focus:outline-none focus:ring-[3px] focus:ring-saffron-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-ink-800 dark:bg-ink-900 dark:text-canvas-50 dark:placeholder:text-ink-500 dark:focus:border-saffron-500 dark:focus:ring-saffron-500/25';
+  'w-full rounded-md border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-950 placeholder:text-ink-400 transition-colors focus-visible:border-ink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-950/8 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ink-800 dark:bg-ink-900 dark:text-canvas-50 dark:placeholder:text-ink-500 dark:focus-visible:border-ink-600 dark:focus-visible:ring-canvas-50/10';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;

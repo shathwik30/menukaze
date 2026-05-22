@@ -21,10 +21,7 @@ export default async function OnboardingTablesPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-12">
       <header>
         <p className="text-muted-foreground text-sm">Step 3 of 6</p>
-        <h1 className="mt-1 text-3xl font-bold">Tables &amp; QR codes</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Set up your tables and we&apos;ll generate a unique QR code for each one.
-        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Tables</h1>
       </header>
 
       <TablesSetupForm />
