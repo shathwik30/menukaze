@@ -4,7 +4,7 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { APIError } from '@menukaze/shared';
-import { runRestaurantAction, validationError } from '@/lib/action-helpers';
+import { runRestaurantAction, validationError, type ActionResult } from '@/lib/action-helpers';
 import { parseMenuCsvImport } from '@/lib/menu-import';
 import { recordAudit } from '@/lib/audit';
 
@@ -20,8 +20,15 @@ const itemInputSchema = z.object({
 const manualInputSchema = z.object({
   mode: z.literal('manual'),
   menuName: z.string().trim().min(1).max(120).default('Main Menu'),
-  categoryName: z.string().trim().min(1).max(120),
-  items: z.array(itemInputSchema).min(1).max(50),
+  categories: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        items: z.array(itemInputSchema).min(1).max(50),
+      }),
+    )
+    .min(1)
+    .max(20),
 });
 
 const csvInputSchema = z.object({
@@ -70,7 +77,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
       try {
         categoriesToCreate =
           input.mode === 'manual'
-            ? [{ name: input.categoryName.trim(), items: input.items }]
+            ? input.categories
             : parseMenuCsvImport(input.csvText, input.defaultCategoryName);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Invalid CSV input.';
@@ -160,6 +167,34 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
       } finally {
         await dbSession.endSession();
       }
+    },
+  );
+}
+
+export async function skipMenuStepAction(): Promise<ActionResult> {
+  return runRestaurantAction(
+    ['menu.edit'],
+    { onError: 'Failed to skip the menu step.' },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      const restaurant = await Restaurant.findById(restaurantId).exec();
+      if (!restaurant) throw new Error('Restaurant not found.');
+      if (restaurant.onboardingStep !== 'menu') return { ok: true };
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { onboardingStep: 'tables' } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: 'onboarding.menu.skipped',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+      });
+      return { ok: true };
     },
   );
 }
