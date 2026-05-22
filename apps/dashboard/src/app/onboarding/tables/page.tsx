@@ -14,7 +14,7 @@ export default async function OnboardingTablesPage() {
   if (!restaurant) redirect('/onboarding');
 
   if (restaurant.onboardingStep !== 'tables') {
-    redirect('/admin');
+    redirect('/onboarding');
   }
 
   return (

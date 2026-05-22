@@ -97,7 +97,6 @@ export function MenuSetupForm({ currency }: Props) {
         return;
       }
       router.push('/onboarding/tables');
-      router.refresh();
     });
   }
 

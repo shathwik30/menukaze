@@ -79,6 +79,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
               maxSessionsPerTable: 1,
               geofenceRadiusM: 100,
             },
+            onboardingStep: 'menu',
             taxRules: [],
             receiptBranding: { socials: [] },
             notificationPrefs: { email: true, dashboard: true, sound: true },
@@ -136,8 +137,11 @@ export async function completeStaffStepAction(): Promise<ActionResult> {
       const { Restaurant } = getModels(conn);
       const restaurant = await Restaurant.findById(restaurantId).exec();
       if (!restaurant) throw new Error('Restaurant not found.');
+      if (restaurant.onboardingStep === 'go-live' || restaurant.onboardingStep === 'complete') {
+        return { ok: true };
+      }
       if (restaurant.onboardingStep !== 'staff') {
-        throw new Error('This restaurant has already moved past the staff step.');
+        throw new Error('Cannot complete staff step from current onboarding state.');
       }
       await Restaurant.updateOne(
         { _id: restaurantId },

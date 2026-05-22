@@ -34,7 +34,6 @@ export function TablesSetupForm() {
         return;
       }
       router.push('/onboarding/razorpay');
-      router.refresh();
     });
   }
 

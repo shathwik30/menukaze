@@ -108,7 +108,6 @@ export function RestaurantProfileForm() {
         return;
       }
       router.push('/onboarding/menu');
-      router.refresh();
     });
   }
 

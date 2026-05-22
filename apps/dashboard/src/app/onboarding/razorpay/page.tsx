@@ -14,7 +14,7 @@ export default async function OnboardingRazorpayPage() {
   if (!restaurant) redirect('/onboarding');
 
   if (restaurant.onboardingStep !== 'razorpay') {
-    redirect('/admin');
+    redirect('/onboarding');
   }
 
   return (
