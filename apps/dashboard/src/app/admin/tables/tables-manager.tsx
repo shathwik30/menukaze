@@ -1,12 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { Input } from '@menukaze/ui';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
 import { channels, isTableStatusChangedEvent, isWaiterCalledEvent } from '@menukaze/realtime';
 import { QRCodeSVG } from 'qrcode.react';
+import {
+  Button,
+  Input,
+  Label,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  cn,
+} from '@menukaze/ui';
 import {
   createTableAction,
   updateTableAction,
@@ -40,45 +51,50 @@ type TableView = 'floor' | 'list' | 'qr';
 
 const TABLE_VIEWS: Array<{ value: TableView; label: string }> = [
   { value: 'floor', label: 'Floor plan' },
-  { value: 'list', label: 'Table list' },
+  { value: 'list', label: 'List' },
   { value: 'qr', label: 'QR codes' },
 ];
 
-const STATUS_CONFIG: Record<
-  ManagerTable['status'],
-  { label: string; dot: string; bg: string; fg: string }
-> = {
+const STATUS_CONFIG = {
   available: {
     label: 'Available',
-    dot: 'var(--mk-jade-500)',
-    bg: 'var(--mk-jade-50)',
-    fg: 'var(--mk-jade-700)',
+    dot: 'bg-jade-500',
+    text: 'text-jade-700',
+    bg: 'bg-jade-50',
+    border: 'border-jade-200',
   },
   occupied: {
     label: 'Occupied',
-    dot: 'var(--mk-saffron-500)',
-    bg: 'var(--mk-saffron-50)',
-    fg: 'var(--mk-saffron-800)',
+    dot: 'bg-saffron-500',
+    text: 'text-saffron-800',
+    bg: 'bg-saffron-50',
+    border: 'border-saffron-200',
   },
   bill_requested: {
     label: 'Bill requested',
-    dot: 'var(--mk-lapis-500)',
-    bg: 'var(--mk-lapis-50)',
-    fg: 'var(--mk-lapis-700)',
+    dot: 'bg-lapis-500',
+    text: 'text-lapis-700',
+    bg: 'bg-lapis-50',
+    border: 'border-lapis-200',
   },
   paid: {
-    label: 'Paid - clearing',
-    dot: 'var(--mk-ink-400)',
-    bg: 'var(--mk-canvas-200)',
-    fg: 'var(--mk-ink-600)',
+    label: 'Paid – clearing',
+    dot: 'bg-ink-400',
+    text: 'text-ink-600',
+    bg: 'bg-canvas-200',
+    border: 'border-ink-200',
   },
   needs_review: {
     label: 'Needs review',
-    dot: 'var(--mk-rose-500)',
-    bg: 'var(--mk-rose-50)',
-    fg: 'var(--mk-rose-700)',
+    dot: 'bg-mkrose-500',
+    text: 'text-mkrose-700',
+    bg: 'bg-mkrose-50',
+    border: 'border-mkrose-200',
   },
-};
+} satisfies Record<
+  ManagerTable['status'],
+  { label: string; dot: string; text: string; bg: string; border: string }
+>;
 
 interface TableAlert {
   id: string;
@@ -106,7 +122,7 @@ export function TablesManager({
 
   useEffect(() => {
     setRows(tables);
-    setSelectedId((current) => current ?? tables[0]?.id ?? null);
+    setSelectedId((c) => c ?? tables[0]?.id ?? null);
   }, [tables]);
 
   useEffect(() => {
@@ -120,44 +136,37 @@ export function TablesManager({
     const channel = client.channels.get(channels.tables(restaurantId));
 
     const upsertAlert = (tableId: string, createdAt: string, message: string) => {
-      setAlerts((prev) => {
-        const next = [
-          { id: `${tableId}:${createdAt}:${message}`, tableId, createdAt, message },
-          ...prev,
-        ];
-        return next.slice(0, 6);
-      });
+      setAlerts((prev) =>
+        [{ id: `${tableId}:${createdAt}:${message}`, tableId, createdAt, message }, ...prev].slice(
+          0,
+          6,
+        ),
+      );
     };
 
     const handler = (message: Ably.Message) => {
       const payload: unknown = message.data;
-
       if (isTableStatusChangedEvent(payload)) {
         setRows((prev) =>
-          prev.map((table) =>
-            table.id === payload.tableId ? { ...table, status: payload.status } : table,
-          ),
+          prev.map((t) => (t.id === payload.tableId ? { ...t, status: payload.status } : t)),
         );
         if (payload.status === 'needs_review') {
-          const tableName =
-            rowsRef.current.find((table) => table.id === payload.tableId)?.name ?? 'Table';
+          const name = rowsRef.current.find((t) => t.id === payload.tableId)?.name ?? 'Table';
           upsertAlert(
             payload.tableId,
             payload.changedAt,
-            `${tableName} needs review. Payment is still outstanding.`,
+            `${name} needs review. Payment is still outstanding.`,
           );
         }
       }
-
       if (isWaiterCalledEvent(payload)) {
-        const tableName =
-          rowsRef.current.find((table) => table.id === payload.tableId)?.name ?? 'Table';
+        const name = rowsRef.current.find((t) => t.id === payload.tableId)?.name ?? 'Table';
         upsertAlert(
           payload.tableId,
           payload.calledAt,
           payload.reason === 'payment_help'
-            ? `${tableName} requested payment assistance.`
-            : `${tableName} called for a waiter.`,
+            ? `${name} requested payment assistance.`
+            : `${name} called for a waiter.`,
         );
       }
     };
@@ -169,10 +178,11 @@ export function TablesManager({
     };
   }, [restaurantId]);
 
-  const selected = rows.find((table) => table.id === selectedId) ?? rows[0] ?? null;
+  const selected = rows.find((t) => t.id === selectedId) ?? rows[0] ?? null;
+
   const countsByStatus = useMemo(() => {
     const counts = new Map<ManagerTable['status'], number>();
-    for (const table of rows) counts.set(table.status, (counts.get(table.status) ?? 0) + 1);
+    for (const t of rows) counts.set(t.status, (counts.get(t.status) ?? 0) + 1);
     return counts;
   }, [rows]);
 
@@ -188,38 +198,29 @@ export function TablesManager({
   }
 
   const updateTable = (
-    table: ManagerTable,
+    t: ManagerTable,
     patch: { name?: string; capacity?: number; zone?: string },
-  ) => run(() => updateTableAction({ id: table.id, ...patch }));
+  ) => run(() => updateTableAction({ id: t.id, ...patch }));
 
-  const deleteTable = (table: ManagerTable) => {
+  const deleteTable = (t: ManagerTable) => {
     if (
       window.confirm(
-        `Delete ${table.name}? This cannot be undone. Make sure the physical QR sticker is removed first.`,
+        `Delete ${t.name}? This cannot be undone. Make sure the physical QR sticker is removed first.`,
       )
-    ) {
-      run(() => deleteTableAction(table.id));
-    }
+    )
+      run(() => deleteTableAction(t.id));
   };
 
-  const regenerateQr = (table: ManagerTable) => {
-    if (
-      window.confirm(`Regenerate the QR for ${table.name}? Existing stickers will stop resolving.`)
-    ) {
-      run(() => regenerateQrTokenAction(table.id));
-    }
+  const regenerateQr = (t: ManagerTable) => {
+    if (window.confirm(`Regenerate the QR for ${t.name}? Existing stickers will stop resolving.`))
+      run(() => regenerateQrTokenAction(t.id));
   };
 
-  const settleAtCounter = (table: ManagerTable, method: 'cash' | 'terminal') =>
-    run(() =>
-      settleSessionAtCounterAction({
-        sessionId: table.activeSessionId,
-        method,
-      }),
-    );
+  const settleAtCounter = (t: ManagerTable, method: 'cash' | 'terminal') =>
+    run(() => settleSessionAtCounterAction({ sessionId: t.activeSessionId, method }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="flex flex-col gap-4">
       {canEdit ? (
         <CreateTableForm
           nextNumber={(rows.at(-1)?.number ?? 0) + 1}
@@ -228,99 +229,40 @@ export function TablesManager({
         />
       ) : null}
 
-      <section
-        style={{
-          padding: '12px 14px',
-          borderRadius: 12,
-          border: '1px solid var(--mk-ink-100)',
-          background: 'white',
-          boxShadow: 'var(--shadow-xs)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 12.5,
-              color: 'var(--mk-ink-600)',
-            }}
-          >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 99,
-                background: connected ? 'var(--mk-jade-500)' : 'var(--mk-ink-300)',
-              }}
-            />
-            {connected ? 'Live table sync is active' : 'Connecting live table sync...'}
+      {/* Live sync + alerts */}
+      <div className="border-border rounded-md border bg-white px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-ink-600 flex items-center gap-2 text-xs">
+            <span className={cn('size-2 rounded-full', connected ? 'bg-jade-500' : 'bg-ink-300')} />
+            {connected ? 'Live sync active' : 'Connecting...'}
           </div>
           {alerts.length > 0 ? (
             <button
               type="button"
               onClick={() => setAlerts([])}
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--mk-ink-500)',
-                textDecoration: 'underline',
-                textUnderlineOffset: 3,
-              }}
+              className="text-ink-500 text-xs font-medium underline underline-offset-2"
             >
-              Clear alerts
+              Clear all
             </button>
           ) : null}
         </div>
         {alerts.length > 0 ? (
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: '12px 0 0',
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
+          <ul className="mt-3 flex flex-col gap-2">
             {alerts.map((alert) => (
               <li
                 key={alert.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '10px 12px',
-                  borderRadius: 9,
-                  background: 'var(--mk-saffron-50)',
-                  color: 'var(--mk-saffron-800)',
-                  fontSize: 12.5,
-                }}
+                className="bg-saffron-50 flex items-start justify-between gap-3 rounded-md px-3 py-2.5"
               >
                 <div>
-                  <p style={{ margin: 0, fontWeight: 600 }}>{alert.message}</p>
-                  <p style={{ margin: '3px 0 0', fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>
+                  <p className="text-saffron-800 text-xs font-semibold">{alert.message}</p>
+                  <p className="text-saffron-600 mt-0.5 font-mono text-[10px]">
                     {new Date(alert.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAlerts((prev) => prev.filter((item) => item.id !== alert.id))}
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    textDecoration: 'underline',
-                    textUnderlineOffset: 3,
-                  }}
+                  onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                  className="text-saffron-700 shrink-0 text-xs font-medium underline underline-offset-2"
                 >
                   Dismiss
                 </button>
@@ -328,115 +270,61 @@ export function TablesManager({
             ))}
           </ul>
         ) : null}
-      </section>
+      </div>
 
       {error ? (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            padding: '10px 12px',
-            borderRadius: 9,
-            background: 'var(--mk-rose-50)',
-            color: 'var(--mk-rose-700)',
-            fontSize: 13,
-            fontWeight: 600,
-          }}
+          className="bg-mkrose-50 text-mkrose-700 rounded-md px-3 py-2.5 text-xs font-semibold"
         >
           {error}
         </p>
       ) : null}
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div
-          style={{
-            display: 'inline-flex',
-            gap: 2,
-            padding: 3,
-            borderRadius: 10,
-            background: 'var(--mk-canvas-100)',
-          }}
-        >
-          {TABLE_VIEWS.map((option) => {
-            const active = view === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setView(option.value)}
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  borderRadius: 8,
-                  background: active ? 'white' : 'transparent',
-                  color: active ? 'var(--mk-ink-950)' : 'var(--mk-ink-500)',
-                  boxShadow: active ? 'var(--shadow-xs)' : 'none',
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {option.label}
-              </button>
-            );
-          })}
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="border-border bg-canvas-100 inline-flex gap-0.5 rounded-md border p-1">
+          {TABLE_VIEWS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              className={cn(
+                'h-7 rounded px-3 text-xs font-semibold transition-colors',
+                view === value
+                  ? 'text-ink-950 bg-white shadow-xs'
+                  : 'text-ink-500 hover:text-ink-800',
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <div className="flex flex-wrap gap-4">
           {(
             Object.entries(STATUS_CONFIG) as Array<
               [ManagerTable['status'], (typeof STATUS_CONFIG)[ManagerTable['status']]]
             >
-          )
-            .slice(0, 5)
-            .map(([status, config]) => (
-              <div
-                key={status}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  color: 'var(--mk-ink-600)',
-                  fontSize: 12,
-                }}
-              >
-                <span style={{ width: 8, height: 8, borderRadius: 99, background: config.dot }} />
-                <span>{config.label}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--mk-ink-400)' }}>
-                  {countsByStatus.get(status) ?? 0}
-                </span>
-              </div>
-            ))}
+          ).map(([status, cfg]) => (
+            <div key={status} className="text-ink-600 flex items-center gap-1.5 text-xs">
+              <span className={cn('size-2 rounded-full', cfg.dot)} />
+              {cfg.label}
+              <span className="text-ink-400 font-mono">{countsByStatus.get(status) ?? 0}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <div
-          style={{
-            padding: '48px 24px',
-            borderRadius: 14,
-            border: '1.5px dashed var(--mk-ink-200)',
-            background: 'var(--mk-canvas-50)',
-            textAlign: 'center',
-            color: 'var(--mk-ink-500)',
-            fontSize: 13.5,
-          }}
-        >
+        <div className="border-ink-200 bg-canvas-50 text-ink-500 rounded-md border border-dashed py-16 text-center text-sm">
           No tables yet.
         </div>
       ) : view === 'floor' ? (
         <FloorPlan
           tables={rows}
           selected={selected}
-          onSelect={(table) => setSelectedId(table.id)}
+          onSelect={(t) => setSelectedId(t.id)}
           canEdit={canEdit}
           canPrintQr={canPrintQr}
           canProcessPayments={canProcessPayments}
@@ -450,8 +338,8 @@ export function TablesManager({
         <TableList
           tables={rows}
           canPrintQr={canPrintQr}
-          onSelect={(table) => {
-            setSelectedId(table.id);
+          onSelect={(t) => {
+            setSelectedId(t.id);
             setView('floor');
           }}
         />
@@ -478,8 +366,8 @@ function CreateTableForm({
 
   return (
     <form
-      onSubmit={(event) => {
-        event.preventDefault();
+      onSubmit={(e) => {
+        e.preventDefault();
         const parsedNumber = Number.parseInt(number, 10);
         const parsedCapacity = Number.parseInt(capacity, 10) || 4;
         if (!Number.isFinite(parsedNumber) || parsedNumber < 1) return;
@@ -493,67 +381,39 @@ function CreateTableForm({
         setName('');
         setZone('');
       }}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '92px minmax(160px, 1fr) 96px minmax(140px, 180px) auto',
-        gap: 10,
-        alignItems: 'end',
-        padding: 14,
-        borderRadius: 14,
-        border: '1.5px dashed var(--mk-ink-200)',
-        background: 'var(--mk-canvas-50)',
-      }}
+      className="border-ink-200 bg-canvas-50 grid items-end gap-2 rounded-md border border-dashed p-3"
+      style={{ gridTemplateColumns: '80px 1fr 80px 1fr auto' }}
     >
-      <Field label="Number">
-        <Input
-          type="number"
-          min="1"
-          value={number}
-          onChange={(event) => setNumber(event.target.value)}
-        />
-      </Field>
-      <Field label="Name">
+      <FormField label="No.">
+        <Input type="number" min="1" value={number} onChange={(e) => setNumber(e.target.value)} />
+      </FormField>
+      <FormField label="Name">
         <Input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(e) => setName(e.target.value)}
           placeholder={`Table ${number}`}
         />
-      </Field>
-      <Field label="Capacity">
+      </FormField>
+      <FormField label="Capacity">
         <Input
           type="number"
           min="1"
           value={capacity}
-          onChange={(event) => setCapacity(event.target.value)}
+          onChange={(e) => setCapacity(e.target.value)}
         />
-      </Field>
-      <Field label="Zone">
+      </FormField>
+      <FormField label="Zone">
         <Input
           type="text"
           value={zone}
-          onChange={(event) => setZone(event.target.value)}
+          onChange={(e) => setZone(e.target.value)}
           placeholder="Patio"
         />
-      </Field>
-      <button
-        type="submit"
-        disabled={pending}
-        style={{
-          height: 38,
-          padding: '0 14px',
-          borderRadius: 9,
-          background: 'var(--mk-ink-950)',
-          color: 'var(--mk-canvas-50)',
-          border: '1px solid var(--mk-ink-950)',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: pending ? 'not-allowed' : 'pointer',
-          opacity: pending ? 0.6 : 1,
-        }}
-      >
+      </FormField>
+      <Button type="submit" size="sm" disabled={pending}>
         Add table
-      </button>
+      </Button>
     </form>
   );
 }
@@ -573,90 +433,48 @@ function FloorPlan({
 }: {
   tables: ManagerTable[];
   selected: ManagerTable | null;
-  onSelect: (table: ManagerTable) => void;
+  onSelect: (t: ManagerTable) => void;
   canEdit: boolean;
   canPrintQr: boolean;
   canProcessPayments: boolean;
   pending: boolean;
-  onUpdate: (
-    table: ManagerTable,
-    patch: { name?: string; capacity?: number; zone?: string },
-  ) => void;
-  onDelete: (table: ManagerTable) => void;
-  onRegenerate: (table: ManagerTable) => void;
-  onSettleAtCounter: (table: ManagerTable, method: 'cash' | 'terminal') => void;
+  onUpdate: (t: ManagerTable, patch: { name?: string; capacity?: number; zone?: string }) => void;
+  onDelete: (t: ManagerTable) => void;
+  onRegenerate: (t: ManagerTable) => void;
+  onSettleAtCounter: (t: ManagerTable, method: 'cash' | 'terminal') => void;
 }) {
   const zones = useMemo(() => {
     const map = new Map<string, ManagerTable[]>();
-    for (const table of tables) {
-      const zone = table.zone?.trim() || 'Main floor';
-      const list = map.get(zone) ?? [];
-      list.push(table);
-      map.set(zone, list);
+    for (const t of tables) {
+      const zone = t.zone?.trim() || 'Main floor';
+      map.set(zone, [...(map.get(zone) ?? []), t]);
     }
     return Array.from(map.entries()).map(([zone, rows]) => ({ zone, rows }));
   }, [tables]);
 
   return (
     <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: selected ? '1fr 360px' : '1fr',
-        gap: 16,
-        alignItems: 'flex-start',
-      }}
+      className={cn('grid items-start gap-4', selected ? 'grid-cols-[1fr_340px]' : 'grid-cols-1')}
     >
-      <section
-        style={{
-          minHeight: 540,
-          position: 'relative',
-          overflow: 'hidden',
-          borderRadius: 14,
-          border: '1px solid var(--mk-ink-100)',
-          background: 'white',
-          boxShadow: 'var(--shadow-xs)',
-        }}
-      >
+      {/* Floor grid */}
+      <section className="border-border relative min-h-[520px] overflow-hidden rounded-md border bg-white">
         <div
           aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
           style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(var(--mk-ink-100) 1px, transparent 1px), linear-gradient(90deg, var(--mk-ink-100) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-            opacity: 0.55,
+            backgroundImage: 'radial-gradient(var(--mk-ink-200) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
           }}
         />
-        <div
-          style={{
-            position: 'relative',
-            padding: 22,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 20,
-          }}
-        >
+        <div className="relative flex flex-col gap-5 p-5">
           {zones.map(({ zone, rows }) => (
             <div key={zone}>
-              <div
-                style={{
-                  marginBottom: 10,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mk-ink-500)',
-                }}
-              >
+              <p className="text-ink-400 mb-2.5 text-[10px] font-bold tracking-[0.18em] uppercase">
                 {zone}
-              </div>
+              </p>
               <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(82px, 1fr))',
-                  gap: 12,
-                }}
+                className="grid gap-3"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))' }}
               >
                 {rows.map((table) => (
                   <TableTile
@@ -698,56 +516,27 @@ function TableTile({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const status = STATUS_CONFIG[table.status];
+  const cfg = STATUS_CONFIG[table.status];
   const round = table.capacity <= 2;
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      style={{
-        minHeight: round ? 82 : 92,
-        aspectRatio: round ? '1' : '1.12',
-        borderRadius: round ? 999 : 12,
-        background: status.bg,
-        color: 'var(--mk-ink-950)',
-        border: `1.5px solid ${selected ? 'var(--mk-ink-950)' : status.dot}`,
-        boxShadow: selected
-          ? '0 0 0 3px var(--mk-saffron-200), var(--shadow-md)'
-          : 'var(--shadow-xs)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 3,
-        position: 'relative',
-        cursor: 'pointer',
-      }}
+      className={cn(
+        'relative flex min-h-[84px] flex-col items-center justify-center gap-0.5 border transition-all',
+        round ? 'aspect-square rounded-full' : 'rounded-md',
+        cfg.bg,
+        selected
+          ? 'border-ink-950 ring-saffron-200 ring-2 ring-offset-1'
+          : cn('hover:border-ink-300', cfg.border),
+      )}
     >
-      <span
-        style={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          width: 7,
-          height: 7,
-          borderRadius: 99,
-          background: status.dot,
-        }}
-      />
-      <span style={{ fontSize: 12.5, fontWeight: 700 }}>{table.name}</span>
-      <span style={{ fontSize: 10.5, color: 'var(--mk-ink-500)' }}>{table.capacity} seats</span>
+      <span className={cn('absolute top-2 right-2 size-1.5 rounded-full', cfg.dot)} />
+      <span className="text-ink-950 text-xs font-bold">{table.name}</span>
+      <span className="text-ink-500 text-[10px]">{table.capacity}p</span>
       {table.activeSessionCustomer ? (
-        <span
-          style={{
-            marginTop: 2,
-            maxWidth: '90%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: 10.5,
-            color: status.fg,
-          }}
-        >
+        <span className={cn('max-w-[88%] truncate text-[10px] font-medium', cfg.text)}>
           {table.activeSessionCustomer}
         </span>
       ) : null}
@@ -780,7 +569,7 @@ function TableDetail({
   const [name, setName] = useState(table.name);
   const [capacity, setCapacity] = useState(String(table.capacity));
   const [zone, setZone] = useState(table.zone ?? '');
-  const status = STATUS_CONFIG[table.status];
+  const cfg = STATUS_CONFIG[table.status];
 
   useEffect(() => {
     setName(table.name);
@@ -790,239 +579,141 @@ function TableDetail({
   }, [table.id, table.name, table.capacity, table.zone]);
 
   return (
-    <aside
-      style={{
-        position: 'sticky',
-        top: 80,
-        borderRadius: 14,
-        border: '1px solid var(--mk-ink-100)',
-        background: 'white',
-        boxShadow: 'var(--shadow-xs)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ padding: 22, borderBottom: '1px solid var(--mk-ink-100)' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--mk-ink-400)',
-            }}
-          >
-            {table.zone ?? 'Main floor'} · {table.capacity} seats
-          </div>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 11.5,
-              color: status.fg,
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: 99, background: status.dot }} />
-            {status.label}
+    <aside className="border-border sticky top-20 overflow-hidden rounded-md border bg-white">
+      {/* Header */}
+      <div className="border-border border-b px-5 py-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-ink-400 text-[10px] font-bold tracking-[0.16em] uppercase">
+            {table.zone ?? 'Main floor'} · {table.capacity}p
+          </span>
+          <span className={cn('flex items-center gap-1.5 text-[11px] font-semibold', cfg.text)}>
+            <span className={cn('size-1.5 rounded-full', cfg.dot)} />
+            {cfg.label}
           </span>
         </div>
-        <h3
-          style={{
-            margin: '8px 0 0',
-            fontFamily: 'var(--font-serif)',
-            fontSize: 28,
-            fontWeight: 500,
-            letterSpacing: '-0.02em',
-            color: 'var(--mk-ink-950)',
-          }}
-        >
+        <h3 className="text-ink-950 mt-1.5 font-serif text-2xl font-medium -tracking-tight">
           {table.name}
         </h3>
       </div>
 
+      {/* QR */}
       {canPrintQr && table.qrUrl ? (
-        <div
-          style={{
-            padding: 22,
-            borderBottom: '1px solid var(--mk-ink-100)',
-            display: 'flex',
-            gap: 16,
-            alignItems: 'center',
-          }}
-        >
-          <div
-            style={{
-              padding: 10,
-              borderRadius: 10,
-              border: '1px solid var(--mk-ink-100)',
-              background: 'white',
-              flexShrink: 0,
-            }}
-          >
-            <QRCodeSVG value={table.qrUrl} size={112} level="M" />
+        <div className="border-border flex gap-4 border-b px-5 py-4">
+          <div className="border-border shrink-0 rounded-md border p-2">
+            <QRCodeSVG value={table.qrUrl} size={96} level="M" />
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--mk-ink-400)',
-              }}
-            >
-              Scan-to-order URL
-            </div>
-            <div
-              style={{
-                marginTop: 5,
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--mk-ink-700)',
-                wordBreak: 'break-all',
-              }}
-            >
+          <div className="min-w-0">
+            <p className="text-ink-400 text-[10px] font-bold tracking-[0.16em] uppercase">
+              Scan-to-order
+            </p>
+            <p className="text-ink-600 mt-1 font-mono text-[11px] leading-relaxed break-all">
               {table.qrUrl}
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-              <Link
-                href={`/admin/tables/${table.id}/print`}
-                target="_blank"
-                style={smallActionLink()}
-              >
-                Print
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <Link href={`/admin/tables/${table.id}/print`} target="_blank">
+                <Button size="xs" variant="outline">
+                  Print
+                </Button>
               </Link>
               {canEdit ? (
-                <button
-                  type="button"
-                  onClick={onRegenerate}
-                  disabled={pending}
-                  style={smallActionButton(pending)}
-                >
+                <Button size="xs" variant="outline" onClick={onRegenerate} disabled={pending}>
                   Regenerate
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
         </div>
       ) : null}
 
-      <div style={{ padding: 22, borderBottom: '1px solid var(--mk-ink-100)' }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-            color: 'var(--mk-ink-400)',
-            marginBottom: 10,
-          }}
-        >
+      {/* Session */}
+      <div className="border-border border-b px-5 py-4">
+        <p className="text-ink-400 mb-2 text-[10px] font-bold tracking-[0.16em] uppercase">
           Current session
-        </div>
+        </p>
         {table.activeSessionCustomer ? (
           <>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--mk-ink-950)' }}>
-              {table.activeSessionCustomer}
-            </div>
-            <div style={{ marginTop: 2, fontSize: 12, color: 'var(--mk-ink-500)' }}>
-              Status: {status.label.toLowerCase()}
-            </div>
+            <p className="text-ink-950 text-sm font-semibold">{table.activeSessionCustomer}</p>
+            <p className="text-ink-500 mt-0.5 text-xs">Status: {cfg.label.toLowerCase()}</p>
             {canProcessPayments &&
             table.activeSessionId &&
             (table.status === 'bill_requested' || table.status === 'needs_review') ? (
-              <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onSettleAtCounter('cash')}
-                  style={primaryButton(pending)}
-                >
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" onClick={() => onSettleAtCounter('cash')} disabled={pending}>
                   Settle cash
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => onSettleAtCounter('terminal')}
-                  style={outlineButton(pending)}
+                  disabled={pending}
                 >
                   Terminal
-                </button>
+                </Button>
               </div>
             ) : null}
           </>
         ) : (
-          <div style={{ fontSize: 12.5, color: 'var(--mk-ink-500)' }}>
-            No active dining session.
-          </div>
+          <p className="text-ink-500 text-xs">No active dining session.</p>
         )}
       </div>
 
-      <div style={{ padding: 22 }}>
+      {/* Edit / actions */}
+      <div className="px-5 py-4">
         {editing ? (
           <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const nextCapacity = Number.parseInt(capacity, 10) || table.capacity;
+            onSubmit={(e) => {
+              e.preventDefault();
               onUpdate({
                 name: name.trim() || undefined,
-                capacity: nextCapacity,
+                capacity: Number.parseInt(capacity, 10) || table.capacity,
                 zone: zone.trim() || undefined,
               });
               setEditing(false);
             }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            className="flex flex-col gap-3"
           >
-            <Field label="Name">
-              <Input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-            </Field>
-            <Field label="Capacity">
+            <FormField label="Name">
+              <Input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+            </FormField>
+            <FormField label="Capacity">
               <Input
                 type="number"
                 min="1"
                 value={capacity}
-                onChange={(event) => setCapacity(event.target.value)}
+                onChange={(e) => setCapacity(e.target.value)}
               />
-            </Field>
-            <Field label="Zone">
-              <Input type="text" value={zone} onChange={(event) => setZone(event.target.value)} />
-            </Field>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="submit" disabled={pending} style={primaryButton(pending)}>
+            </FormField>
+            <FormField label="Zone">
+              <Input type="text" value={zone} onChange={(e) => setZone(e.target.value)} />
+            </FormField>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={pending}>
                 Save
-              </button>
-              <button type="button" onClick={() => setEditing(false)} style={outlineButton(false)}>
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <Link href={`/admin/tables/${table.id}`} style={primaryLink()}>
-              Details
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/admin/tables/${table.id}`}>
+              <Button size="sm">Details</Button>
             </Link>
             {canEdit ? (
               <>
-                <button type="button" onClick={() => setEditing(true)} style={outlineButton(false)}>
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                   Edit
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={onDelete}
                   disabled={pending}
-                  style={dangerButton(pending)}
+                  className="border-mkrose-200 text-mkrose-700 hover:bg-mkrose-50"
                 >
                   Delete
-                </button>
+                </Button>
               </>
             ) : null}
           </div>
@@ -1039,94 +730,51 @@ function TableList({
 }: {
   tables: ManagerTable[];
   canPrintQr: boolean;
-  onSelect: (table: ManagerTable) => void;
+  onSelect: (t: ManagerTable) => void;
 }) {
   return (
-    <section
-      style={{
-        background: 'white',
-        border: '1px solid var(--mk-ink-100)',
-        borderRadius: 14,
-        boxShadow: 'var(--shadow-xs)',
-        overflow: 'hidden',
-      }}
-    >
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ background: 'var(--mk-canvas-50)' }}>
-            {['Table', 'Zone', 'Capacity', 'Status', 'QR token', ''].map((heading) => (
-              <th
-                key={heading}
-                style={{
-                  padding: '11px 16px',
-                  textAlign: heading === '' ? 'right' : 'left',
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.14em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mk-ink-500)',
-                  borderBottom: '1px solid var(--mk-ink-100)',
-                }}
-              >
-                {heading}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <section className="border-border overflow-hidden rounded-md border bg-white">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-canvas-50">
+            <TableHead>Table</TableHead>
+            <TableHead>Zone</TableHead>
+            <TableHead>Capacity</TableHead>
+            <TableHead>Status</TableHead>
+            {canPrintQr ? <TableHead>QR token</TableHead> : null}
+            <TableHead className="text-right" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {tables.map((table) => {
-            const status = STATUS_CONFIG[table.status];
+            const cfg = STATUS_CONFIG[table.status];
             return (
-              <tr key={table.id}>
-                <td style={tableCell()}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--mk-ink-950)' }}>
-                    {table.name}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 1,
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 11,
-                      color: 'var(--mk-ink-400)',
-                    }}
-                  >
-                    #{table.number}
-                  </div>
-                </td>
-                <td style={tableCell()}>{table.zone ?? 'Main floor'}</td>
-                <td style={tableCell('mono')}>{table.capacity}</td>
-                <td style={tableCell()}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: status.fg,
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <span
-                      style={{ width: 7, height: 7, borderRadius: 99, background: status.dot }}
-                    />
-                    {status.label}
+              <TableRow key={table.id}>
+                <TableCell>
+                  <div className="text-ink-950 text-sm font-semibold">{table.name}</div>
+                  <div className="text-ink-400 font-mono text-[11px]">#{table.number}</div>
+                </TableCell>
+                <TableCell className="text-ink-700 text-sm">{table.zone ?? 'Main floor'}</TableCell>
+                <TableCell className="text-ink-700 font-mono text-sm">{table.capacity}</TableCell>
+                <TableCell>
+                  <span className={cn('flex items-center gap-1.5 text-xs font-semibold', cfg.text)}>
+                    <span className={cn('size-1.5 rounded-full', cfg.dot)} />
+                    {cfg.label}
                   </span>
-                </td>
-                <td style={tableCell('mono')}>{canPrintQr ? table.qrToken : 'hidden'}</td>
-                <td style={{ ...tableCell(), textAlign: 'right' }}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(table)}
-                    style={smallActionButton(false)}
-                  >
+                </TableCell>
+                {canPrintQr ? (
+                  <TableCell className="text-ink-400 font-mono text-xs">{table.qrToken}</TableCell>
+                ) : null}
+                <TableCell className="text-right">
+                  <Button size="xs" variant="outline" onClick={() => onSelect(table)}>
                     Inspect
-                  </button>
-                </td>
-              </tr>
+                  </Button>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </section>
   );
 }
@@ -1134,15 +782,7 @@ function TableList({
 function QRGallery({ tables, canPrintQr }: { tables: ManagerTable[]; canPrintQr: boolean }) {
   if (!canPrintQr) {
     return (
-      <div
-        style={{
-          padding: '48px 24px',
-          borderRadius: 14,
-          border: '1.5px dashed var(--mk-ink-200)',
-          textAlign: 'center',
-          color: 'var(--mk-ink-500)',
-        }}
-      >
+      <div className="border-ink-200 text-ink-500 rounded-md border border-dashed py-12 text-center text-sm">
         You do not have permission to view QR tokens.
       </div>
     );
@@ -1150,55 +790,29 @@ function QRGallery({ tables, canPrintQr }: { tables: ManagerTable[]; canPrintQr:
 
   return (
     <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-        gap: 14,
-      }}
+      className="grid gap-3"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
     >
       {tables.map((table) => (
         <article
           key={table.id}
-          style={{
-            padding: 16,
-            textAlign: 'center',
-            background: 'white',
-            border: '1px solid var(--mk-ink-100)',
-            borderRadius: 14,
-            boxShadow: 'var(--shadow-xs)',
-          }}
+          className="border-border flex flex-col items-center gap-3 rounded-md border bg-white p-4 text-center"
         >
-          <div
-            style={{
-              display: 'inline-block',
-              padding: 12,
-              border: '1px solid var(--mk-ink-100)',
-              borderRadius: 9,
-              background: 'white',
-            }}
-          >
-            <QRCodeSVG value={table.qrUrl} size={120} level="M" />
+          <div className="border-border rounded-md border p-2.5">
+            <QRCodeSVG value={table.qrUrl} size={110} level="M" />
           </div>
-          <div
-            style={{
-              marginTop: 10,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 18,
-              fontWeight: 500,
-              letterSpacing: '-0.015em',
-            }}
-          >
-            {table.name}
+          <div>
+            <p className="text-ink-950 font-serif text-lg font-medium -tracking-tight">
+              {table.name}
+            </p>
+            <p className="text-ink-500 text-xs">
+              {table.zone ?? 'Main floor'} · {table.capacity}p
+            </p>
           </div>
-          <div style={{ marginTop: 1, fontSize: 11, color: 'var(--mk-ink-500)' }}>
-            {table.zone ?? 'Main floor'} · {table.capacity} seats
-          </div>
-          <Link
-            href={`/admin/tables/${table.id}/print`}
-            target="_blank"
-            style={{ ...smallActionLink(), marginTop: 10 }}
-          >
-            Print
+          <Link href={`/admin/tables/${table.id}/print`} target="_blank">
+            <Button size="xs" variant="outline">
+              Print
+            </Button>
           </Link>
         </article>
       ))}
@@ -1206,100 +820,11 @@ function QRGallery({ tables, canPrintQr }: { tables: ManagerTable[]; canPrintQr:
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <span
-        style={{
-          fontSize: 10.5,
-          fontWeight: 700,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--mk-ink-500)',
-        }}
-      >
-        {label}
-      </span>
+    <label className="flex flex-col gap-1">
+      <Label>{label}</Label>
       {children}
     </label>
   );
-}
-
-function tableCell(kind?: 'mono') {
-  return {
-    padding: '12px 16px',
-    fontSize: 13,
-    color: 'var(--mk-ink-800)',
-    borderBottom: '1px solid var(--mk-ink-100)',
-    verticalAlign: 'middle',
-    fontFamily: kind === 'mono' ? 'var(--font-mono)' : undefined,
-  };
-}
-
-function primaryButton(disabled: boolean) {
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 32,
-    padding: '0 12px',
-    borderRadius: 8,
-    border: '1px solid var(--mk-ink-950)',
-    background: 'var(--mk-ink-950)',
-    color: 'var(--mk-canvas-50)',
-    fontSize: 12.5,
-    fontWeight: 600,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.6 : 1,
-  };
-}
-
-function outlineButton(disabled: boolean) {
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 32,
-    padding: '0 12px',
-    borderRadius: 8,
-    border: '1px solid var(--mk-ink-200)',
-    background: 'white',
-    color: 'var(--mk-ink-700)',
-    fontSize: 12.5,
-    fontWeight: 600,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.6 : 1,
-  };
-}
-
-function dangerButton(disabled: boolean) {
-  return {
-    ...outlineButton(disabled),
-    color: 'var(--mk-rose-700)',
-    border: '1px solid var(--mk-rose-200)',
-  };
-}
-
-function smallActionButton(disabled: boolean) {
-  return {
-    ...outlineButton(disabled),
-    height: 28,
-    padding: '0 10px',
-    fontSize: 11.5,
-  };
-}
-
-function primaryLink() {
-  return {
-    ...primaryButton(false),
-    textDecoration: 'none',
-  };
-}
-
-function smallActionLink() {
-  return {
-    ...smallActionButton(false),
-    display: 'inline-flex',
-    textDecoration: 'none',
-  };
 }
