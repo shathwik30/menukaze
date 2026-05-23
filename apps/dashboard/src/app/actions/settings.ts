@@ -327,6 +327,8 @@ export async function updateNotificationPrefsAction(raw: unknown): Promise<Actio
 const geolocationRestrictionInput = z.object({
   enabled: z.boolean(),
   radiusKm: z.number().min(0.1).max(100),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 export async function updateGeolocationRestrictionAction(raw: unknown): Promise<ActionResult> {
   const parsed = geolocationRestrictionInput.safeParse(raw);
@@ -341,9 +343,14 @@ export async function updateGeolocationRestrictionAction(raw: unknown): Promise<
     async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant } = getModels(conn);
+      const { lat, lng, ...geoRestriction } = parsed.data;
+      const locationUpdate =
+        lat !== undefined && lng !== undefined
+          ? { geo: { type: 'Point', coordinates: [lng, lat] } }
+          : {};
       await Restaurant.updateOne(
         { _id: restaurantId },
-        { $set: { geolocationRestriction: parsed.data } },
+        { $set: { geolocationRestriction: geoRestriction, ...locationUpdate } },
       ).exec();
       await recordAudit({
         restaurantId,
