@@ -15,6 +15,7 @@ import {
   updateNotificationPrefsAction,
   updateTaxRulesAction,
 } from '@/app/actions/settings';
+import { GeolocationMapPicker } from './geolocation-map-picker';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 const DAY_KEYS = [
@@ -687,32 +688,19 @@ function GeolocationRestrictionSection({
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [radiusKm, setRadiusKm] = useState(initial.radiusKm);
-  const [lat, setLat] = useState(initial.lat !== null ? String(initial.lat) : '');
-  const [lng, setLng] = useState(initial.lng !== null ? String(initial.lng) : '');
-
-  const parsedLat = parseFloat(lat);
-  const parsedLng = parseFloat(lng);
-  const coordsValid =
-    (!lat && !lng) ||
-    (!Number.isNaN(parsedLat) &&
-      !Number.isNaN(parsedLng) &&
-      parsedLat >= -90 &&
-      parsedLat <= 90 &&
-      parsedLng >= -180 &&
-      parsedLng <= 180);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    initial.lat !== null && initial.lng !== null ? { lat: initial.lat, lng: initial.lng } : null,
+  );
 
   return (
     <Section title="Geolocation restriction">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!coordsValid) return;
-          const hasCoords =
-            lat.trim() && lng.trim() && !Number.isNaN(parsedLat) && !Number.isNaN(parsedLng);
           onSubmit({
             enabled,
             radiusKm,
-            ...(hasCoords ? { lat: parsedLat, lng: parsedLng } : {}),
+            ...(location ? { lat: location.lat, lng: location.lng } : {}),
           });
         }}
         className="flex flex-col gap-3"
@@ -734,41 +722,11 @@ function GeolocationRestrictionSection({
             className="border-input bg-background h-8 w-24 rounded-md border px-2 text-sm disabled:opacity-50"
           />
         </label>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="w-48">Restaurant latitude</span>
-          <Input
-            type="number"
-            step="any"
-            min="-90"
-            max="90"
-            placeholder="e.g. 12.9716"
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            className="border-input bg-background h-8 w-36 rounded-md border px-2 text-sm"
-          />
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="w-48">Restaurant longitude</span>
-          <Input
-            type="number"
-            step="any"
-            min="-180"
-            max="180"
-            placeholder="e.g. 77.5946"
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-            className="border-input bg-background h-8 w-36 rounded-md border px-2 text-sm"
-          />
-        </div>
-        {!coordsValid ? (
-          <p className="text-mkrose-600 text-xs">
-            Enter valid latitude (−90 to 90) and longitude (−180 to 180).
-          </p>
-        ) : null}
+        <GeolocationMapPicker value={location} onChange={setLocation} disabled={pending} />
         <p className="text-muted-foreground text-xs">
           When enabled, QR dine-in will prompt customers for location and block ordering if they are
-          outside the radius. Set the restaurant coordinates above — find them on Google Maps by
-          right-clicking your restaurant location.
+          outside the radius. Choose the restaurant point on the map so the geofence has the correct
+          center.
         </p>
         <SaveButton pending={pending} />
       </form>

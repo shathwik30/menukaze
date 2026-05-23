@@ -607,8 +607,7 @@ export async function startOrJoinSessionAction(
         : (restaurant.hardening?.geofenceRadiusM ?? restaurant.geofenceRadiusM),
       wifiPublicIps: restaurant.wifiPublicIps,
       hardening: {
-        // Only enforce strictMode when geolocation restriction is active.
-        strictMode: geoEnabled ? (restaurant.hardening?.strictMode ?? false) : false,
+        strictMode: geoEnabled || (restaurant.hardening?.strictMode ?? false),
         wifiGate: restaurant.hardening?.wifiGate,
       },
     },

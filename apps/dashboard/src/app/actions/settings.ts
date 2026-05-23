@@ -324,12 +324,21 @@ export async function updateNotificationPrefsAction(raw: unknown): Promise<Actio
   );
 }
 
-const geolocationRestrictionInput = z.object({
-  enabled: z.boolean(),
-  radiusKm: z.number().min(0.1).max(100),
-  lat: z.number().min(-90).max(90).optional(),
-  lng: z.number().min(-180).max(180).optional(),
-});
+const geolocationRestrictionInput = z
+  .object({
+    enabled: z.boolean(),
+    radiusKm: z.number().min(0.1).max(100),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+  })
+  .refine((value) => (value.lat === undefined) === (value.lng === undefined), {
+    message: 'Select a complete restaurant location.',
+    path: ['lat'],
+  })
+  .refine((value) => !value.enabled || (value.lat !== undefined && value.lng !== undefined), {
+    message: 'Select the restaurant location before enabling geolocation restriction.',
+    path: ['lat'],
+  });
 export async function updateGeolocationRestrictionAction(raw: unknown): Promise<ActionResult> {
   const parsed = geolocationRestrictionInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
