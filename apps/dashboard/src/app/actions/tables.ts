@@ -57,6 +57,7 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
                 number,
                 name: `Table ${number}`,
                 capacity: input.defaultCapacity,
+                zone: 'Main floor',
                 qrToken: generateQrToken(),
                 status: 'available' as const,
               };

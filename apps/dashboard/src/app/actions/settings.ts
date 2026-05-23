@@ -149,6 +149,35 @@ export async function updateHolidayModeAction(raw: unknown): Promise<ActionResul
   );
 }
 
+export async function updateQrOrderingPausedAction(paused: boolean): Promise<ActionResult> {
+  return runRestaurantAction(
+    ['tables.view'],
+    {
+      onError: 'Failed to update QR ordering.',
+      onForbidden: 'You do not have permission to do that.',
+    },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { qrOrderingPaused: paused } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: paused ? 'settings.qr_ordering.paused' : 'settings.qr_ordering.resumed',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+      });
+      revalidatePath('/admin/tables');
+      return { ok: true };
+    },
+  );
+}
+
 const throttlingInput = z.object({
   enabled: z.boolean(),
   maxConcurrentOrders: z.number().int().min(1).max(500),

@@ -136,9 +136,15 @@ export type {
   QrPreCheckResult,
 } from './qr-prevention';
 
-export { isoWeekdayKey, computeAvailableSlots, isReservationSlotValid } from './reservations';
+export {
+  isoWeekdayKey,
+  computeAvailableSlots,
+  isReservationSlotValid,
+  getRestaurantOpenStatus,
+} from './reservations';
 export type {
   RestaurantHourEntry,
+  RestaurantOpenStatus,
   ReservationSettings,
   BookedSlot,
   SlotOption,

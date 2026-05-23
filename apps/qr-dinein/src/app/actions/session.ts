@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 import {
   enqueueWebhookEvent,
   envelopeDecrypt,
@@ -25,6 +26,7 @@ import {
   DEFAULT_DEVICE_WINDOW_HOURS,
   deviceFingerprint,
   formatMoney,
+  getRestaurantOpenStatus,
   ipFromHeaders,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
@@ -58,7 +60,11 @@ const customerSchema = z.object({
     .string()
     .min(7)
     .max(40)
-    .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .')
+    .regex(/^\+\d[\d\s\-().]{4,}$/, 'Phone must include a country code (e.g. +91 98765 43210).')
+    .refine(
+      (v) => isValidPhoneNumber(v.replace(/\s/g, '')),
+      'Invalid phone number for the selected country.',
+    )
     .optional(),
 });
 
@@ -588,6 +594,13 @@ export async function startOrJoinSessionAction(
       error: restaurant.holidayMode.message ?? 'The restaurant is currently closed.',
     };
   }
+  if (restaurant.qrOrderingPaused) {
+    return {
+      ok: false,
+      error:
+        'New dine-in sessions are temporarily paused. Please ask a staff member for assistance.',
+    };
+  }
 
   const requestHeaders = await headers();
   const ip = ipFromHeaders(requestHeaders);
@@ -620,12 +633,25 @@ export async function startOrJoinSessionAction(
   }
 
   const now = new Date();
+
+  // Block new sessions outside operating hours. Joining an existing session is
+  // still allowed because the customer already seated themselves during hours.
+  const openStatus = getRestaurantOpenStatus(restaurant.hours, restaurant.timezone, now);
+
   const existing = await TableSession.findOne({
     restaurantId,
     tableId: table._id,
-    status: { $in: ['active', 'bill_requested'] },
+    status: { $in: ['active', 'bill_requested', 'needs_review'] },
   }).exec();
   if (existing) {
+    // Needs-review sessions need staff involvement — don't let the customer rejoin.
+    if (existing.status === 'needs_review') {
+      return {
+        ok: false,
+        error:
+          'This table needs staff assistance before a new session can start. Please call a waiter.',
+      };
+    }
     if (await expireSessionIfTimedOut({ Table, TableSession, Order }, existing, restaurant)) {
       return {
         ok: false,
@@ -666,12 +692,18 @@ export async function startOrJoinSessionAction(
     };
   }
 
+  // Block new session creation outside operating hours.
+  if (!openStatus.isOpen) {
+    const hint = openStatus.opensAt ? ` We open at ${openStatus.opensAt}.` : '';
+    return { ok: false, error: `The restaurant is currently closed.${hint}` };
+  }
+
   // Configurable per-table cap enables large-table split-bill workflows.
   const maxSessionsPerTable = restaurant.hardening?.maxSessionsPerTable ?? 1;
   const activeSessionsForTable = await TableSession.countDocuments({
     restaurantId,
     tableId: table._id,
-    status: { $in: ['active', 'bill_requested'] },
+    status: { $in: ['active', 'bill_requested', 'needs_review'] },
   }).exec();
   if (activeSessionsForTable >= maxSessionsPerTable) {
     return {
@@ -772,6 +804,12 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const restaurantId = session.restaurantId;
   const restaurant = await loadSessionRestaurant(Restaurant, restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (restaurant.holidayMode?.enabled) {
+    return {
+      ok: false,
+      error: restaurant.holidayMode.message ?? 'The restaurant is not accepting orders right now.',
+    };
+  }
   if (await expireSessionIfTimedOut({ TableSession, Order, Table }, session, restaurant)) {
     return {
       ok: false,

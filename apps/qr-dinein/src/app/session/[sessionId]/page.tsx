@@ -7,7 +7,7 @@ import {
   normalizeDineInSessionTimeoutMinutes,
   parseCurrencyCode,
 } from '@menukaze/shared';
-import { Avatar, Badge, Eyebrow } from '@menukaze/ui';
+import { Badge } from '@menukaze/ui';
 import { SessionClient, type SessionItem, type SessionRound } from './session-client';
 
 export const dynamic = 'force-dynamic';
@@ -99,25 +99,31 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const totalMinor = orders.reduce((s, o) => s + o.totalMinor, 0);
 
   return (
-    <div className="bg-canvas-100 dark:bg-ink-950 min-h-screen">
-      <header className="border-ink-100 bg-surface/80 dark:border-ink-900 dark:bg-ink-900/70 sticky top-0 z-20 border-b backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <div className="bg-canvas-50 min-h-screen">
+      <header className="border-ink-100/80 sticky top-0 z-20 border-b bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3.5 sm:px-6">
+          {/* Restaurant wordmark */}
           <div className="min-w-0 flex-1">
-            <Eyebrow tone="accent">Dine-in</Eyebrow>
-            <p className="text-foreground truncate font-serif text-lg leading-tight font-medium tracking-tight">
+            <p className="text-ink-950 truncate font-serif text-[17px] leading-tight font-medium tracking-tight">
               {restaurant.name}
             </p>
+            <p className="text-ink-400 mt-0.5 text-[11px] font-medium tracking-wide uppercase">
+              Dine-in
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Customer name + table badge */}
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-ink-500 max-w-[7rem] truncate text-xs font-medium">
+              {session.customer.name}
+            </span>
             <Badge variant="subtle" size="md" shape="pill">
               {table.name}
             </Badge>
-            <Avatar fallback={session.customer.name} size="sm" />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 pt-5 pb-10 sm:px-6">
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 pt-4 pb-10 sm:px-6">
         <SessionClient
           restaurantId={String(restaurantId)}
           sessionId={String(session._id)}

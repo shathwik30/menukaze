@@ -4,18 +4,23 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Ably from 'ably';
-import { channels, isTableStatusChangedEvent, isWaiterCalledEvent } from '@menukaze/realtime';
+import {
+  channels,
+  isTableStatusChangedEvent,
+  isWaiterCalledEvent,
+  isOrderStatusChangedEvent,
+  isOrderCreatedEvent,
+} from '@menukaze/realtime';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Button,
+  Dialog,
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   Label,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   cn,
 } from '@menukaze/ui';
 import {
@@ -23,8 +28,13 @@ import {
   updateTableAction,
   deleteTableAction,
   regenerateQrTokenAction,
+  requestBillAction,
+  getTableActiveOrdersAction,
+  type TableSessionInfo,
 } from '@/app/actions/tables-admin';
+import { updateOrderStatusAction } from '@/app/actions/orders';
 import { settleSessionAtCounterAction } from '@/app/actions/session-payments';
+import { updateQrOrderingPausedAction } from '@/app/actions/settings';
 
 export interface ManagerTable {
   id: string;
@@ -45,15 +55,13 @@ interface Props {
   canEdit: boolean;
   canPrintQr: boolean;
   canProcessPayments: boolean;
+  canToggleHoliday: boolean;
+  canPauseQr: boolean;
+  holidayModeEnabled: boolean;
+  holidayModeMessage: string;
+  qrOrderingPaused: boolean;
+  downloadPdfUrl?: string;
 }
-
-type TableView = 'floor' | 'list' | 'qr';
-
-const TABLE_VIEWS: Array<{ value: TableView; label: string }> = [
-  { value: 'floor', label: 'Floor plan' },
-  { value: 'list', label: 'List' },
-  { value: 'qr', label: 'QR codes' },
-];
 
 const STATUS_CONFIG = {
   available: {
@@ -103,12 +111,28 @@ interface TableAlert {
   createdAt: string;
 }
 
+function formatMinutes(isoStart: string): string {
+  const mins = Math.floor((Date.now() - new Date(isoStart).getTime()) / 60_000);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+function formatMoney(minor: number): string {
+  return `₹${(minor / 100).toFixed(2)}`;
+}
+
 export function TablesManager({
   restaurantId,
   tables,
   canEdit,
   canPrintQr,
   canProcessPayments,
+  canToggleHoliday: _canToggleHoliday,
+  canPauseQr,
+  holidayModeEnabled,
+  holidayModeMessage,
+  qrOrderingPaused,
+  downloadPdfUrl,
 }: Props) {
   const router = useRouter();
   const [isPending, start] = useTransition();
@@ -116,13 +140,14 @@ export function TablesManager({
   const [connected, setConnected] = useState(false);
   const [alerts, setAlerts] = useState<TableAlert[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<TableView>('floor');
-  const [selectedId, setSelectedId] = useState<string | null>(tables[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [holidayOpen] = useState(holidayModeEnabled);
+  const [qrPaused, setQrPaused] = useState(qrOrderingPaused);
   const rowsRef = useRef(rows);
 
   useEffect(() => {
     setRows(tables);
-    setSelectedId((c) => c ?? tables[0]?.id ?? null);
   }, [tables]);
 
   useEffect(() => {
@@ -178,13 +203,7 @@ export function TablesManager({
     };
   }, [restaurantId]);
 
-  const selected = rows.find((t) => t.id === selectedId) ?? rows[0] ?? null;
-
-  const countsByStatus = useMemo(() => {
-    const counts = new Map<ManagerTable['status'], number>();
-    for (const t of rows) counts.set(t.status, (counts.get(t.status) ?? 0) + 1);
-    return counts;
-  }, [rows]);
+  const selected = rows.find((t) => t.id === selectedId) ?? null;
 
   function run(
     fn: () => Promise<{ ok: true } | { ok: true; data: unknown } | { ok: false; error: string }>,
@@ -207,8 +226,10 @@ export function TablesManager({
       window.confirm(
         `Delete ${t.name}? This cannot be undone. Make sure the physical QR sticker is removed first.`,
       )
-    )
+    ) {
       run(() => deleteTableAction(t.id));
+      setSelectedId(null);
+    }
   };
 
   const regenerateQr = (t: ManagerTable) => {
@@ -216,61 +237,127 @@ export function TablesManager({
       run(() => regenerateQrTokenAction(t.id));
   };
 
-  const settleAtCounter = (t: ManagerTable, method: 'cash' | 'terminal') =>
-    run(() => settleSessionAtCounterAction({ sessionId: t.activeSessionId, method }));
+  const settleAtCounter = (sessionId: string, method: 'cash' | 'terminal') =>
+    run(() => settleSessionAtCounterAction({ sessionId, method }));
+
+  const requestBill = (sessionId: string) => run(() => requestBillAction(sessionId));
+
+  const toggleQrPaused = () => {
+    const next = !qrPaused;
+    setQrPaused(next);
+    run(() => updateQrOrderingPausedAction(next));
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {canEdit ? (
-        <CreateTableForm
-          nextNumber={(rows.at(-1)?.number ?? 0) + 1}
-          onSubmit={(input) => run(() => createTableAction(input))}
-          pending={isPending}
-        />
+    <div className="flex flex-col gap-5">
+      {/* Full-viewport backdrop tinted by connection state */}
+      <div
+        className="fixed inset-0 -z-10 transition-colors duration-700"
+        style={{ backgroundColor: connected ? '#dcfce7' : '#fee2e2' }}
+      />
+      {/* Holiday mode banner (separate — affects all channels, set in Settings) */}
+      {holidayOpen ? (
+        <div className="bg-mkrose-50 border-mkrose-200 flex items-center justify-between gap-3 rounded-md border px-4 py-3">
+          <p className="text-mkrose-800 text-xs font-semibold">
+            Holiday mode is on — all ordering is paused.{' '}
+            {holidayModeMessage ? holidayModeMessage : 'Manage this in Settings.'}
+          </p>
+        </div>
       ) : null}
-
-      {/* Live sync + alerts */}
-      <div className="border-border rounded-md border bg-white px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-ink-600 flex items-center gap-2 text-xs">
-            <span className={cn('size-2 rounded-full', connected ? 'bg-jade-500' : 'bg-ink-300')} />
-            {connected ? 'Live sync active' : 'Connecting...'}
-          </div>
-          {alerts.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setAlerts([])}
-              className="text-ink-500 text-xs font-medium underline underline-offset-2"
+      {/* QR ordering paused banner */}
+      {qrPaused ? (
+        <div className="bg-saffron-50 border-saffron-200 flex items-center justify-between gap-3 rounded-md border px-4 py-3">
+          <p className="text-saffron-800 text-xs font-semibold">
+            QR dine-in ordering is paused. Existing sessions are unaffected.
+          </p>
+          {canPauseQr ? (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={toggleQrPaused}
+              disabled={isPending}
+              className="border-mkrose-300 text-mkrose-700 hover:bg-mkrose-100 shrink-0"
             >
-              Clear all
-            </button>
+              Resume ordering
+            </Button>
           ) : null}
         </div>
-        {alerts.length > 0 ? (
-          <ul className="mt-3 flex flex-col gap-2">
-            {alerts.map((alert) => (
-              <li
-                key={alert.id}
-                className="bg-saffron-50 flex items-start justify-between gap-3 rounded-md px-3 py-2.5"
-              >
-                <div>
-                  <p className="text-saffron-800 text-xs font-semibold">{alert.message}</p>
-                  <p className="text-saffron-600 mt-0.5 font-mono text-[10px]">
-                    {new Date(alert.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
-                  className="text-saffron-700 shrink-0 text-xs font-medium underline underline-offset-2"
-                >
-                  Dismiss
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      ) : null}
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left: pause/resume QR ordering */}
+        <div>
+          {canPauseQr ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleQrPaused}
+              disabled={isPending}
+              className={
+                qrPaused
+                  ? 'border-jade-200 text-jade-700 hover:bg-jade-50'
+                  : 'border-saffron-200 text-saffron-700 hover:bg-saffron-50'
+              }
+            >
+              {qrPaused ? 'Resume QR ordering' : 'Pause QR ordering'}
+            </Button>
+          ) : null}
+        </div>
+
+        {/* Right: live pill + download pdf + add table */}
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors',
+              connected ? 'bg-jade-100 text-jade-700' : 'bg-mkrose-50 text-mkrose-600',
+            )}
+          >
+            <span
+              className={cn('size-1.5 rounded-full', connected ? 'bg-jade-500' : 'bg-mkrose-400')}
+            />
+            {connected ? 'Live' : 'Not connected'}
+          </span>
+          {downloadPdfUrl ? (
+            <Link href={downloadPdfUrl}>
+              <Button size="sm" variant="outline">
+                Download PDF
+              </Button>
+            </Link>
+          ) : null}
+          {canEdit ? (
+            <Button size="sm" onClick={() => setAddModalOpen(true)}>
+              Add table
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      {/* Alert notifications */}
+      {alerts.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="bg-saffron-50 border-saffron-200 flex items-start justify-between gap-3 rounded-md border px-3 py-2.5"
+            >
+              <div>
+                <p className="text-saffron-800 text-xs font-semibold">{alert.message}</p>
+                <p className="text-saffron-600 mt-0.5 font-mono text-[10px]">
+                  {new Date(alert.createdAt).toLocaleTimeString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                className="text-saffron-700 shrink-0 text-xs font-medium underline underline-offset-2"
+              >
+                Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <p
@@ -281,172 +368,88 @@ export function TablesManager({
         </p>
       ) : null}
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="border-border bg-canvas-100 inline-flex gap-0.5 rounded-md border p-1">
-          {TABLE_VIEWS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setView(value)}
-              className={cn(
-                'h-7 rounded px-3 text-xs font-semibold transition-colors',
-                view === value
-                  ? 'text-ink-950 bg-white shadow-xs'
-                  : 'text-ink-500 hover:text-ink-800',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-4">
-          {(
-            Object.entries(STATUS_CONFIG) as Array<
-              [ManagerTable['status'], (typeof STATUS_CONFIG)[ManagerTable['status']]]
-            >
-          ).map(([status, cfg]) => (
-            <div key={status} className="text-ink-600 flex items-center gap-1.5 text-xs">
-              <span className={cn('size-2 rounded-full', cfg.dot)} />
-              {cfg.label}
-              <span className="text-ink-400 font-mono">{countsByStatus.get(status) ?? 0}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {rows.length === 0 ? (
-        <div className="border-ink-200 bg-canvas-50 text-ink-500 rounded-md border border-dashed py-16 text-center text-sm">
-          No tables yet.
+        <div className="border-ink-200 bg-canvas-50 text-ink-500 rounded-md border border-dashed py-20 text-center text-sm">
+          No tables yet.{' '}
+          {canEdit ? (
+            <button
+              type="button"
+              className="text-ink-700 font-medium underline underline-offset-2"
+              onClick={() => setAddModalOpen(true)}
+            >
+              Add your first table.
+            </button>
+          ) : null}
         </div>
-      ) : view === 'floor' ? (
-        <FloorPlan
+      ) : canEdit ? (
+        <ManagerFloor
           tables={rows}
           selected={selected}
-          onSelect={(t) => setSelectedId(t.id)}
-          canEdit={canEdit}
           canPrintQr={canPrintQr}
-          canProcessPayments={canProcessPayments}
           pending={isPending}
+          onSelect={(t) => setSelectedId(t.id === selectedId ? null : t.id)}
           onUpdate={updateTable}
           onDelete={deleteTable}
           onRegenerate={regenerateQr}
-          onSettleAtCounter={settleAtCounter}
-        />
-      ) : view === 'list' ? (
-        <TableList
-          tables={rows}
-          canPrintQr={canPrintQr}
-          onSelect={(t) => {
-            setSelectedId(t.id);
-            setView('floor');
-          }}
         />
       ) : (
-        <QRGallery tables={rows} canPrintQr={canPrintQr} />
+        <WaiterFloor
+          restaurantId={restaurantId}
+          tables={rows}
+          selectedId={selectedId}
+          canProcessPayments={canProcessPayments}
+          pending={isPending}
+          onSelect={(t) => setSelectedId(t.id === selectedId ? null : t.id)}
+          onClose={() => setSelectedId(null)}
+          onRequestBill={requestBill}
+          onSettleAtCounter={settleAtCounter}
+        />
       )}
+
+      {canEdit ? (
+        <AddTableModal
+          open={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          nextNumber={(rows.at(-1)?.number ?? 0) + 1}
+          existingZones={Array.from(
+            new Set(rows.map((t) => t.zone?.trim() ?? 'Main floor').filter(Boolean)),
+          )}
+          onSubmit={(input) => {
+            run(() => createTableAction(input));
+            setAddModalOpen(false);
+          }}
+          pending={isPending}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CreateTableForm({
-  nextNumber,
-  onSubmit,
-  pending,
-}: {
-  nextNumber: number;
-  onSubmit: (input: { number: number; name?: string; capacity: number; zone?: string }) => void;
-  pending: boolean;
-}) {
-  const [number, setNumber] = useState(String(nextNumber));
-  const [name, setName] = useState('');
-  const [capacity, setCapacity] = useState('4');
-  const [zone, setZone] = useState('');
+// ─── Manager floor ────────────────────────────────────────────────────────────
 
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const parsedNumber = Number.parseInt(number, 10);
-        const parsedCapacity = Number.parseInt(capacity, 10) || 4;
-        if (!Number.isFinite(parsedNumber) || parsedNumber < 1) return;
-        onSubmit({
-          number: parsedNumber,
-          ...(name.trim() ? { name: name.trim() } : {}),
-          capacity: parsedCapacity,
-          ...(zone.trim() ? { zone: zone.trim() } : {}),
-        });
-        setNumber(String(parsedNumber + 1));
-        setName('');
-        setZone('');
-      }}
-      className="border-ink-200 bg-canvas-50 grid items-end gap-2 rounded-md border border-dashed p-3"
-      style={{ gridTemplateColumns: '80px 1fr 80px 1fr auto' }}
-    >
-      <FormField label="No.">
-        <Input type="number" min="1" value={number} onChange={(e) => setNumber(e.target.value)} />
-      </FormField>
-      <FormField label="Name">
-        <Input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={`Table ${number}`}
-        />
-      </FormField>
-      <FormField label="Capacity">
-        <Input
-          type="number"
-          min="1"
-          value={capacity}
-          onChange={(e) => setCapacity(e.target.value)}
-        />
-      </FormField>
-      <FormField label="Zone">
-        <Input
-          type="text"
-          value={zone}
-          onChange={(e) => setZone(e.target.value)}
-          placeholder="Patio"
-        />
-      </FormField>
-      <Button type="submit" size="sm" disabled={pending}>
-        Add table
-      </Button>
-    </form>
-  );
-}
-
-function FloorPlan({
+function ManagerFloor({
   tables,
   selected,
-  onSelect,
-  canEdit,
   canPrintQr,
-  canProcessPayments,
   pending,
+  onSelect,
   onUpdate,
   onDelete,
   onRegenerate,
-  onSettleAtCounter,
 }: {
   tables: ManagerTable[];
   selected: ManagerTable | null;
-  onSelect: (t: ManagerTable) => void;
-  canEdit: boolean;
   canPrintQr: boolean;
-  canProcessPayments: boolean;
   pending: boolean;
+  onSelect: (t: ManagerTable) => void;
   onUpdate: (t: ManagerTable, patch: { name?: string; capacity?: number; zone?: string }) => void;
   onDelete: (t: ManagerTable) => void;
   onRegenerate: (t: ManagerTable) => void;
-  onSettleAtCounter: (t: ManagerTable, method: 'cash' | 'terminal') => void;
 }) {
   const zones = useMemo(() => {
     const map = new Map<string, ManagerTable[]>();
     for (const t of tables) {
-      const zone = t.zone?.trim() || 'Main floor';
+      const zone = t.zone?.trim() ?? 'Main floor';
       map.set(zone, [...(map.get(zone) ?? []), t]);
     }
     return Array.from(map.entries()).map(([zone, rows]) => ({ zone, rows }));
@@ -456,7 +459,6 @@ function FloorPlan({
     <div
       className={cn('grid items-start gap-4', selected ? 'grid-cols-[1fr_340px]' : 'grid-cols-1')}
     >
-      {/* Floor grid */}
       <section className="border-border relative min-h-[520px] overflow-hidden rounded-md border bg-white">
         <div
           aria-hidden
@@ -466,55 +468,162 @@ function FloorPlan({
             backgroundSize: '24px 24px',
           }}
         />
-        <div className="relative flex flex-col gap-5 p-5">
-          {zones.map(({ zone, rows }) => (
-            <div key={zone}>
-              <p className="text-ink-400 mb-2.5 text-[10px] font-bold tracking-[0.18em] uppercase">
-                {zone}
-              </p>
-              <div
-                className="grid gap-3"
-                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))' }}
-              >
-                {rows.map((table) => (
-                  <TableTile
-                    key={table.id}
-                    table={table}
-                    selected={table.id === selected?.id}
-                    onSelect={() => onSelect(table)}
-                  />
-                ))}
+        <div className="relative flex flex-col gap-6 p-5">
+          {zones.map(({ zone, rows }) => {
+            const availableCount = rows.filter((t) => t.status === 'available').length;
+            return (
+              <div key={zone}>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-ink-400 text-[10px] font-bold tracking-[0.18em] uppercase">
+                    {zone}
+                  </p>
+                  {availableCount > 0 ? (
+                    <span className="bg-jade-100 text-jade-700 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                      {availableCount} available
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  className="grid gap-3"
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))' }}
+                >
+                  {rows.map((table) => (
+                    <TableTile
+                      key={table.id}
+                      table={table}
+                      selected={table.id === selected?.id}
+                      onSelect={() => onSelect(table)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
       {selected ? (
-        <TableDetail
+        <ManagerTableDetail
           table={selected}
-          canEdit={canEdit}
           canPrintQr={canPrintQr}
-          canProcessPayments={canProcessPayments}
           pending={pending}
           onUpdate={(patch) => onUpdate(selected, patch)}
           onDelete={() => onDelete(selected)}
           onRegenerate={() => onRegenerate(selected)}
-          onSettleAtCounter={(method) => onSettleAtCounter(selected, method)}
+          onClose={() => onSelect(selected)}
         />
       ) : null}
     </div>
   );
 }
 
+// ─── Waiter floor ─────────────────────────────────────────────────────────────
+
+function WaiterFloor({
+  restaurantId,
+  tables,
+  selectedId,
+  canProcessPayments,
+  pending,
+  onSelect,
+  onClose,
+  onRequestBill,
+  onSettleAtCounter,
+}: {
+  restaurantId: string;
+  tables: ManagerTable[];
+  selectedId: string | null;
+  canProcessPayments: boolean;
+  pending: boolean;
+  onSelect: (t: ManagerTable) => void;
+  onClose: () => void;
+  onRequestBill: (sessionId: string) => void;
+  onSettleAtCounter: (sessionId: string, method: 'cash' | 'terminal') => void;
+}) {
+  const selected = tables.find((t) => t.id === selectedId) ?? null;
+
+  const zones = useMemo(() => {
+    const map = new Map<string, ManagerTable[]>();
+    for (const t of tables) {
+      const zone = t.zone?.trim() ?? 'Main floor';
+      map.set(zone, [...(map.get(zone) ?? []), t]);
+    }
+    return Array.from(map.entries()).map(([zone, rows]) => ({ zone, rows }));
+  }, [tables]);
+
+  return (
+    <>
+      <section className="border-border relative min-h-[520px] overflow-hidden rounded-md border bg-white">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage: 'radial-gradient(var(--mk-ink-200) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+        <div className="relative flex flex-col gap-6 p-5">
+          {zones.map(({ zone, rows }) => {
+            const availableCount = rows.filter((t) => t.status === 'available').length;
+            return (
+              <div key={zone}>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-ink-400 text-[10px] font-bold tracking-[0.18em] uppercase">
+                    {zone}
+                  </p>
+                  {availableCount > 0 ? (
+                    <span className="bg-jade-100 text-jade-700 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                      {availableCount} available
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  className="grid gap-3"
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))' }}
+                >
+                  {rows.map((table) => (
+                    <TableTile
+                      key={table.id}
+                      table={table}
+                      selected={table.id === selectedId}
+                      large
+                      onSelect={() => onSelect(table)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {selected ? (
+        <WaiterTableSheet
+          restaurantId={restaurantId}
+          table={selected}
+          canProcessPayments={canProcessPayments}
+          pending={pending}
+          onClose={onClose}
+          onRequestBill={onRequestBill}
+          onSettleAtCounter={onSettleAtCounter}
+        />
+      ) : null}
+    </>
+  );
+}
+
+// ─── Table tile ───────────────────────────────────────────────────────────────
+
 function TableTile({
   table,
   selected,
   onSelect,
+  large = false,
 }: {
   table: ManagerTable;
   selected: boolean;
   onSelect: () => void;
+  large?: boolean;
 }) {
   const cfg = STATUS_CONFIG[table.status];
   const round = table.capacity <= 2;
@@ -524,7 +633,8 @@ function TableTile({
       type="button"
       onClick={onSelect}
       className={cn(
-        'relative flex min-h-[84px] flex-col items-center justify-center gap-0.5 border transition-all',
+        'relative flex flex-col items-center justify-center gap-0.5 border transition-all',
+        large ? 'min-h-[100px]' : 'min-h-[84px]',
         round ? 'aspect-square rounded-full' : 'rounded-md',
         cfg.bg,
         selected
@@ -544,26 +654,24 @@ function TableTile({
   );
 }
 
-function TableDetail({
+// ─── Manager table detail (sidebar) ───────────────────────────────────────────
+
+function ManagerTableDetail({
   table,
-  canEdit,
   canPrintQr,
-  canProcessPayments,
   pending,
   onUpdate,
   onDelete,
   onRegenerate,
-  onSettleAtCounter,
+  onClose,
 }: {
   table: ManagerTable;
-  canEdit: boolean;
   canPrintQr: boolean;
-  canProcessPayments: boolean;
   pending: boolean;
   onUpdate: (patch: { name?: string; capacity?: number; zone?: string }) => void;
   onDelete: () => void;
   onRegenerate: () => void;
-  onSettleAtCounter: (method: 'cash' | 'terminal') => void;
+  onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(table.name);
@@ -580,23 +688,31 @@ function TableDetail({
 
   return (
     <aside className="border-border sticky top-20 overflow-hidden rounded-md border bg-white">
-      {/* Header */}
       <div className="border-border border-b px-5 py-4">
         <div className="flex items-center justify-between gap-2">
           <span className="text-ink-400 text-[10px] font-bold tracking-[0.16em] uppercase">
             {table.zone ?? 'Main floor'} · {table.capacity}p
           </span>
-          <span className={cn('flex items-center gap-1.5 text-[11px] font-semibold', cfg.text)}>
-            <span className={cn('size-1.5 rounded-full', cfg.dot)} />
-            {cfg.label}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn('flex items-center gap-1.5 text-[11px] font-semibold', cfg.text)}>
+              <span className={cn('size-1.5 rounded-full', cfg.dot)} />
+              {cfg.label}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-ink-400 hover:text-ink-700 ml-1 text-sm leading-none"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <h3 className="text-ink-950 mt-1.5 font-serif text-2xl font-medium -tracking-tight">
           {table.name}
         </h3>
       </div>
 
-      {/* QR */}
       {canPrintQr && table.qrUrl ? (
         <div className="border-border flex gap-4 border-b px-5 py-4">
           <div className="border-border shrink-0 rounded-md border p-2">
@@ -615,49 +731,14 @@ function TableDetail({
                   Print
                 </Button>
               </Link>
-              {canEdit ? (
-                <Button size="xs" variant="outline" onClick={onRegenerate} disabled={pending}>
-                  Regenerate
-                </Button>
-              ) : null}
+              <Button size="xs" variant="outline" onClick={onRegenerate} disabled={pending}>
+                Regenerate
+              </Button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* Session */}
-      <div className="border-border border-b px-5 py-4">
-        <p className="text-ink-400 mb-2 text-[10px] font-bold tracking-[0.16em] uppercase">
-          Current session
-        </p>
-        {table.activeSessionCustomer ? (
-          <>
-            <p className="text-ink-950 text-sm font-semibold">{table.activeSessionCustomer}</p>
-            <p className="text-ink-500 mt-0.5 text-xs">Status: {cfg.label.toLowerCase()}</p>
-            {canProcessPayments &&
-            table.activeSessionId &&
-            (table.status === 'bill_requested' || table.status === 'needs_review') ? (
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={() => onSettleAtCounter('cash')} disabled={pending}>
-                  Settle cash
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSettleAtCounter('terminal')}
-                  disabled={pending}
-                >
-                  Terminal
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <p className="text-ink-500 text-xs">No active dining session.</p>
-        )}
-      </div>
-
-      {/* Edit / actions */}
       <div className="px-5 py-4">
         {editing ? (
           <form
@@ -697,25 +778,18 @@ function TableDetail({
           </form>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <Link href={`/admin/tables/${table.id}`}>
-              <Button size="sm">Details</Button>
-            </Link>
-            {canEdit ? (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onDelete}
-                  disabled={pending}
-                  className="border-mkrose-200 text-mkrose-700 hover:bg-mkrose-50"
-                >
-                  Delete
-                </Button>
-              </>
-            ) : null}
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDelete}
+              disabled={pending}
+              className="border-mkrose-200 text-mkrose-700 hover:bg-mkrose-50"
+            >
+              Delete
+            </Button>
           </div>
         )}
       </div>
@@ -723,102 +797,421 @@ function TableDetail({
   );
 }
 
-function TableList({
-  tables,
-  canPrintQr,
-  onSelect,
+// ─── Waiter table sheet ────────────────────────────────────────────────────────
+
+function WaiterTableSheet({
+  restaurantId,
+  table,
+  canProcessPayments,
+  pending,
+  onClose,
+  onRequestBill,
+  onSettleAtCounter,
 }: {
-  tables: ManagerTable[];
-  canPrintQr: boolean;
-  onSelect: (t: ManagerTable) => void;
+  restaurantId: string;
+  table: ManagerTable;
+  canProcessPayments: boolean;
+  pending: boolean;
+  onClose: () => void;
+  onRequestBill: (sessionId: string) => void;
+  onSettleAtCounter: (sessionId: string, method: 'cash' | 'terminal') => void;
 }) {
+  const [sessionInfo, setSessionInfo] = useState<TableSessionInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [servingOrderId, setServingOrderId] = useState<string | null>(null);
+  const cfg = STATUS_CONFIG[table.status];
+
+  // Initial load
+  useEffect(() => {
+    if (!table.activeSessionId) {
+      setSessionInfo(null);
+      return;
+    }
+    setLoading(true);
+    void getTableActiveOrdersAction(table.id).then((result) => {
+      setLoading(false);
+      if (result.ok && result.data) setSessionInfo(result.data);
+    });
+  }, [table.id, table.activeSessionId]);
+
+  // Ably: auto-refresh order statuses + new orders in real time
+  useEffect(() => {
+    if (!table.activeSessionId) return;
+    const client = new Ably.Realtime({ authUrl: '/api/ably/token' });
+    const channel = client.channels.get(channels.orders(restaurantId));
+    const handler = (message: Ably.Message) => {
+      const payload: unknown = message.data;
+      if (isOrderStatusChangedEvent(payload)) {
+        setSessionInfo((prev) =>
+          prev
+            ? {
+                ...prev,
+                orders: prev.orders.map((o) =>
+                  o.id === payload.orderId ? { ...o, status: payload.status } : o,
+                ),
+              }
+            : prev,
+        );
+      }
+      // New round placed by the customer — reload the full session info
+      if (isOrderCreatedEvent(payload)) {
+        void getTableActiveOrdersAction(table.id).then((result) => {
+          if (result.ok && result.data) setSessionInfo(result.data);
+        });
+      }
+    };
+    void channel.subscribe(handler);
+    return () => {
+      channel.unsubscribe(handler);
+      client.close();
+    };
+  }, [restaurantId, table.activeSessionId, table.id]);
+
+  // All non-cancelled orders must be served/completed before bill can be requested
+  const activeOrders = sessionInfo?.orders.filter((o) => o.status !== 'cancelled') ?? [];
+  const allOrdersServed =
+    activeOrders.length > 0 &&
+    activeOrders.every((o) => o.status === 'served' || o.status === 'completed');
+
+  const canSettle =
+    canProcessPayments &&
+    sessionInfo?.sessionId &&
+    (table.status === 'bill_requested' || table.status === 'needs_review');
+
   return (
-    <section className="border-border overflow-hidden rounded-md border bg-white">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-canvas-50">
-            <TableHead>Table</TableHead>
-            <TableHead>Zone</TableHead>
-            <TableHead>Capacity</TableHead>
-            <TableHead>Status</TableHead>
-            {canPrintQr ? <TableHead>QR token</TableHead> : null}
-            <TableHead className="text-right" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tables.map((table) => {
-            const cfg = STATUS_CONFIG[table.status];
-            return (
-              <TableRow key={table.id}>
-                <TableCell>
-                  <div className="text-ink-950 text-sm font-semibold">{table.name}</div>
-                  <div className="text-ink-400 font-mono text-[11px]">#{table.number}</div>
-                </TableCell>
-                <TableCell className="text-ink-700 text-sm">{table.zone ?? 'Main floor'}</TableCell>
-                <TableCell className="text-ink-700 font-mono text-sm">{table.capacity}</TableCell>
-                <TableCell>
-                  <span className={cn('flex items-center gap-1.5 text-xs font-semibold', cfg.text)}>
-                    <span className={cn('size-1.5 rounded-full', cfg.dot)} />
-                    {cfg.label}
-                  </span>
-                </TableCell>
-                {canPrintQr ? (
-                  <TableCell className="text-ink-400 font-mono text-xs">{table.qrToken}</TableCell>
-                ) : null}
-                <TableCell className="text-right">
-                  <Button size="xs" variant="outline" onClick={() => onSelect(table)}>
-                    Inspect
+    <>
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-transparent"
+        tabIndex={-1}
+      />
+
+      {/* Sheet */}
+      <aside className="border-border fixed top-0 right-0 bottom-0 z-50 flex w-96 flex-col overflow-hidden border-l bg-white shadow-2xl">
+        {/* Header */}
+        <div className="border-border border-b px-5 py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-ink-400 text-[10px] font-bold tracking-[0.16em] uppercase">
+                {table.zone ?? 'Main floor'} · {table.capacity}p
+              </p>
+              <h2 className="text-ink-950 mt-0.5 font-serif text-xl font-medium -tracking-tight">
+                {table.name}
+              </h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={cn('flex items-center gap-1.5 text-[11px] font-semibold', cfg.text)}>
+                <span className={cn('size-1.5 rounded-full', cfg.dot)} />
+                {cfg.label}
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-ink-400 hover:text-ink-700 text-sm leading-none"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {sessionInfo ? (
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <p className="text-ink-700 text-sm font-semibold">{sessionInfo.customerName}</p>
+              <p className="text-ink-400 font-mono text-xs">
+                {formatMinutes(sessionInfo.startedAt)} seated
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Orders */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <span className="text-ink-400 text-sm">Loading…</span>
+            </div>
+          ) : !sessionInfo || sessionInfo.orders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              {table.status === 'available' ? (
+                <p className="text-ink-400 text-sm">Table is available.</p>
+              ) : (
+                <p className="text-ink-400 text-sm">No orders yet.</p>
+              )}
+            </div>
+          ) : (
+            <div className="divide-border divide-y">
+              {sessionInfo.orders.map((order, i) => {
+                const isReady = order.status === 'ready';
+                const isServing = servingOrderId === order.id;
+                const roundBg =
+                  order.status === 'ready'
+                    ? 'bg-jade-50'
+                    : order.status === 'preparing'
+                      ? 'bg-saffron-50'
+                      : order.status === 'confirmed' || order.status === 'received'
+                        ? 'bg-lapis-50'
+                        : order.status === 'served' || order.status === 'completed'
+                          ? 'bg-canvas-50'
+                          : order.status === 'cancelled'
+                            ? 'bg-mkrose-50'
+                            : 'bg-white';
+                return (
+                  <div key={order.id} className={cn('px-5 py-3', roundBg)}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-ink-500 text-[10px] font-bold tracking-[0.14em] uppercase">
+                          Round {i + 1}
+                        </p>
+                        <OrderStatusBadge status={order.status} />
+                      </div>
+                      <p className="text-ink-400 font-mono text-[10px]">
+                        {new Date(order.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <ul className="flex flex-col gap-1.5">
+                      {order.items.map((item, j) => (
+                        <li key={j} className="flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 items-start gap-1.5">
+                            <span className="text-ink-400 mt-px font-mono text-xs">
+                              {item.quantity}×
+                            </span>
+                            <span className="text-ink-800 text-sm leading-snug">{item.name}</span>
+                          </div>
+                          <span className="text-ink-600 shrink-0 font-mono text-xs">
+                            {formatMoney(item.lineTotalMinor)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {isReady ? (
+                      <button
+                        type="button"
+                        disabled={isServing}
+                        onClick={() => {
+                          setServingOrderId(order.id);
+                          void updateOrderStatusAction({
+                            orderId: order.id,
+                            nextStatus: 'served',
+                          }).then((result) => {
+                            setServingOrderId(null);
+                            if (result.ok) {
+                              setSessionInfo((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      orders: prev.orders.map((o) =>
+                                        o.id === order.id ? { ...o, status: 'served' } : o,
+                                      ),
+                                    }
+                                  : prev,
+                              );
+                            }
+                          });
+                        }}
+                        className={cn(
+                          'mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors',
+                          isServing
+                            ? 'bg-canvas-100 text-ink-400'
+                            : 'bg-jade-600 hover:bg-jade-700 text-white',
+                        )}
+                      >
+                        <DishIcon className="size-3.5" />
+                        {isServing ? 'Marking…' : 'Mark served'}
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {sessionInfo ? (
+          <div className="border-border border-t px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-ink-600 text-sm font-semibold">Total</p>
+              <p className="text-ink-950 font-mono text-sm font-bold">
+                {formatMoney(sessionInfo.grandTotalMinor)}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {/* Request bill: only when ALL non-cancelled orders are served/completed */}
+              {allOrdersServed && table.status === 'occupied' && sessionInfo.sessionId ? (
+                <Button
+                  size="sm"
+                  full
+                  onClick={() => onRequestBill(sessionInfo.sessionId)}
+                  disabled={pending}
+                >
+                  Request bill
+                </Button>
+              ) : null}
+              {/* Show hint when orders exist but not all served yet */}
+              {!allOrdersServed && table.status === 'occupied' && activeOrders.length > 0 ? (
+                <p className="text-ink-400 text-center text-xs">
+                  Mark all rounds as served to request the bill.
+                </p>
+              ) : null}
+              {canSettle && sessionInfo.sessionId ? (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    full
+                    onClick={() => onSettleAtCounter(sessionInfo.sessionId, 'cash')}
+                    disabled={pending}
+                  >
+                    Settle cash
                   </Button>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </section>
+                  <Button
+                    size="sm"
+                    full
+                    variant="outline"
+                    onClick={() => onSettleAtCounter(sessionInfo.sessionId, 'terminal')}
+                    disabled={pending}
+                  >
+                    Terminal
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </aside>
+    </>
   );
 }
 
-function QRGallery({ tables, canPrintQr }: { tables: ManagerTable[]; canPrintQr: boolean }) {
-  if (!canPrintQr) {
-    return (
-      <div className="border-ink-200 text-ink-500 rounded-md border border-dashed py-12 text-center text-sm">
-        You do not have permission to view QR tokens.
-      </div>
-    );
-  }
+// ─── Add table modal ───────────────────────────────────────────────────────────
+
+function AddTableModal({
+  open,
+  onClose,
+  nextNumber,
+  existingZones,
+  onSubmit,
+  pending,
+}: {
+  open: boolean;
+  onClose: () => void;
+  nextNumber: number;
+  existingZones: string[];
+  onSubmit: (input: { number: number; name?: string; capacity: number; zone?: string }) => void;
+  pending: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [capacity, setCapacity] = useState('4');
+  const [selectedZone, setSelectedZone] = useState('');
+  const [newZone, setNewZone] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setName('');
+      setCapacity('4');
+      setSelectedZone('');
+      setNewZone('');
+    }
+  }, [open]);
+
+  // Resolved zone: new zone input takes priority over chip selection
+  const resolvedZone = newZone.trim() || selectedZone;
 
   return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
-    >
-      {tables.map((table) => (
-        <article
-          key={table.id}
-          className="border-border flex flex-col items-center gap-3 rounded-md border bg-white p-4 text-center"
-        >
-          <div className="border-border rounded-md border p-2.5">
-            <QRCodeSVG value={table.qrUrl} size={110} level="M" />
+    <Dialog open={open} onClose={onClose} size="sm">
+      <DialogHeader>
+        <DialogTitle>Add table</DialogTitle>
+      </DialogHeader>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const parsedCapacity = Number.parseInt(capacity, 10) || 4;
+          onSubmit({
+            number: nextNumber,
+            ...(name.trim() ? { name: name.trim() } : {}),
+            capacity: parsedCapacity,
+            zone: resolvedZone || 'Main floor',
+          });
+        }}
+      >
+        <DialogBody className="flex flex-col gap-4 pt-3">
+          <FormField label="Table name">
+            <Input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Table 7, Bar seat 2, Booth A"
+              autoFocus
+            />
+          </FormField>
+          <FormField label="Capacity">
+            <Input
+              type="number"
+              min="1"
+              max="99"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
+          </FormField>
+          <div className="flex flex-col gap-2">
+            <Label>Zone</Label>
+            {existingZones.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {existingZones.map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => {
+                      setSelectedZone(z === selectedZone ? '' : z);
+                      setNewZone('');
+                    }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      selectedZone === z && !newZone.trim()
+                        ? 'border-ink-950 bg-ink-950 text-white'
+                        : 'border-ink-200 text-ink-600 hover:border-ink-400',
+                    )}
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <Input
+              type="text"
+              value={newZone}
+              onChange={(e) => {
+                setNewZone(e.target.value);
+                if (e.target.value.trim()) setSelectedZone('');
+              }}
+              placeholder={
+                existingZones.length > 0 ? 'Or type a new zone name…' : 'e.g. Patio, Rooftop, Bar'
+              }
+              maxLength={60}
+            />
           </div>
-          <div>
-            <p className="text-ink-950 font-serif text-lg font-medium -tracking-tight">
-              {table.name}
-            </p>
-            <p className="text-ink-500 text-xs">
-              {table.zone ?? 'Main floor'} · {table.capacity}p
-            </p>
-          </div>
-          <Link href={`/admin/tables/${table.id}/print`} target="_blank">
-            <Button size="xs" variant="outline">
-              Print
-            </Button>
-          </Link>
-        </article>
-      ))}
-    </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={pending}>
+            Add table
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
   );
 }
+
+// ─── Shared helpers ────────────────────────────────────────────────────────────
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -826,5 +1219,51 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
       <Label>{label}</Label>
       {children}
     </label>
+  );
+}
+
+const ORDER_STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  received: { label: 'Received', className: 'bg-canvas-100 text-ink-500' },
+  confirmed: { label: 'In queue', className: 'bg-canvas-100 text-ink-500' },
+  preparing: { label: 'Preparing', className: 'bg-saffron-100 text-saffron-700' },
+  ready: { label: 'Ready', className: 'bg-jade-100 text-jade-700 animate-pulse' },
+  served: { label: 'Served', className: 'bg-jade-100 text-jade-700' },
+  out_for_delivery: { label: 'On the way', className: 'bg-lapis-100 text-lapis-700' },
+  delivered: { label: 'Delivered', className: 'bg-jade-100 text-jade-700' },
+  completed: { label: 'Completed', className: 'bg-canvas-100 text-ink-400' },
+  cancelled: { label: 'Cancelled', className: 'bg-mkrose-50 text-mkrose-600' },
+};
+
+function OrderStatusBadge({ status }: { status: string }) {
+  const cfg = ORDER_STATUS_BADGE[status] ?? {
+    label: status,
+    className: 'bg-canvas-100 text-ink-500',
+  };
+  return (
+    <span
+      className={cn(
+        'rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
+        cfg.className,
+      )}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+function DishIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M3 11l19-9-9 19-2-8-8-2z" />
+    </svg>
   );
 }

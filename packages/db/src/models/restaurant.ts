@@ -106,6 +106,9 @@ export interface RestaurantDoc {
     message?: string;
   };
 
+  /** When true, new QR dine-in sessions cannot be started. Existing sessions are unaffected. */
+  qrOrderingPaused: boolean;
+
   /** When activeOrders ≥ maxConcurrentOrders the storefront blocks new checkouts. */
   throttling: {
     enabled: boolean;
@@ -254,6 +257,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
       enabled: { type: Boolean, default: false },
       message: String,
     },
+    qrOrderingPaused: { type: Boolean, default: false },
     throttling: {
       enabled: { type: Boolean, default: false },
       maxConcurrentOrders: { type: Number, default: 20 },

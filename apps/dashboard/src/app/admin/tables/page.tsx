@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
 import { TablesManager, type ManagerTable } from './tables-manager';
@@ -19,6 +18,8 @@ export default async function TablesPage() {
   const canEditTables = permissions.includes('tables.edit');
   const canPrintQr = permissions.includes('tables.qr_print');
   const canProcessPayments = permissions.includes('payments.process');
+  const canToggleHoliday = permissions.includes('settings.toggle_holiday');
+  const canPauseQr = permissions.includes('tables.view');
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table, TableSession, Order } = getModels(conn);
@@ -75,53 +76,23 @@ export default async function TablesPage() {
     qrUrl: canPrintQr ? `https://${slug}.menukaze.com/t/${t.qrToken}` : '',
   }));
 
-  return (
-    <div>
-      <div className="border-ink-100 flex flex-wrap items-end justify-between gap-6 border-b bg-white px-10 pt-7 pb-6">
-        <div>
-          <p className="text-saffron-700 text-[11px] font-semibold tracking-[0.16em] uppercase">
-            Floor plan
-          </p>
-          <h1 className="text-ink-950 mt-2 font-serif text-3xl font-medium -tracking-tight">
-            Tables &amp; QR
-          </h1>
-          <p className="text-ink-500 mt-2 text-sm">
-            Dine-in tables and QR codes for {restaurant?.name}
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          {rows.length > 0 && canPrintQr ? (
-            <>
-              <Link
-                href="/admin/tables/print"
-                target="_blank"
-                className="text-ink-600 text-sm font-medium underline underline-offset-[3px]"
-              >
-                Print all QRs
-              </Link>
-              <Link
-                href="/admin/tables/print/download"
-                className="text-ink-600 text-sm font-medium underline underline-offset-[3px]"
-              >
-                Download PDF
-              </Link>
-            </>
-          ) : null}
-          <Link href="/admin" className="text-ink-500 text-sm font-medium">
-            ← Back
-          </Link>
-        </div>
-      </div>
+  const downloadPdfUrl = rows.length > 0 && canPrintQr ? '/admin/tables/print/download' : undefined;
 
-      <div className="px-10 py-6 pb-12">
-        <TablesManager
-          restaurantId={session.restaurantId}
-          tables={rows}
-          canEdit={canEditTables}
-          canPrintQr={canPrintQr}
-          canProcessPayments={canProcessPayments}
-        />
-      </div>
+  return (
+    <div className="px-10 py-6 pb-12">
+      <TablesManager
+        restaurantId={session.restaurantId}
+        tables={rows}
+        canEdit={canEditTables}
+        canPrintQr={canPrintQr}
+        canProcessPayments={canProcessPayments}
+        canToggleHoliday={canToggleHoliday}
+        canPauseQr={canPauseQr}
+        holidayModeEnabled={restaurant?.holidayMode?.enabled ?? false}
+        holidayModeMessage={restaurant?.holidayMode?.message ?? ''}
+        qrOrderingPaused={restaurant?.qrOrderingPaused ?? false}
+        downloadPdfUrl={downloadPdfUrl}
+      />
     </div>
   );
 }
