@@ -63,7 +63,7 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
     { onError: 'Could not create the menu.', onForbidden: MENU_PERMISSION_ERROR },
     async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
-      const { Restaurant, Menu, Category, Item } = getModels(conn);
+      const { Restaurant, Menu, Category, CategoryItemMembership, Item } = getModels(conn);
 
       const restaurant = await Restaurant.findById(restaurantId).exec();
       if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
@@ -96,9 +96,12 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
         let itemCount = 0;
 
         await dbSession.withTransaction(async () => {
-          const [menu] = await Menu.create([{ restaurantId, name: input.menuName, order: 0 }], {
-            session: dbSession,
-          });
+          const [menu] = await Menu.create(
+            [{ restaurantId, name: input.menuName, order: 0, status: 'published' }],
+            {
+              session: dbSession,
+            },
+          );
           if (!menu) throw new APIError('internal_error');
           const menuIdLocal = menu._id;
           menuId = menuIdLocal;
@@ -129,8 +132,18 @@ export async function createMenuStarterAction(raw: unknown): Promise<CreateMenuS
               dietaryTags: [],
               modifiers: [],
               soldOut: false,
+              status: 'published' as const,
             }));
-            await Item.create(itemDocs, { session: dbSession, ordered: true });
+            const createdItems = await Item.create(itemDocs, { session: dbSession, ordered: true });
+            await CategoryItemMembership.create(
+              createdItems.map((item, order) => ({
+                restaurantId,
+                categoryId: categoryIdLocal,
+                itemId: item._id,
+                order,
+              })),
+              { session: dbSession, ordered: true },
+            );
             itemCount += itemDocs.length;
           }
 

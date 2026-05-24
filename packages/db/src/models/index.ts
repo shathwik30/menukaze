@@ -8,6 +8,11 @@ export {
 export { menuModel, type MenuDoc, type MenuModel } from './menu';
 export { categoryModel, type CategoryDoc, type CategoryModel } from './category';
 export {
+  categoryItemMembershipModel,
+  type CategoryItemMembershipDoc,
+  type CategoryItemMembershipModel,
+} from './category-item-membership';
+export {
   itemModel,
   type ItemDoc,
   type ItemModel,
@@ -131,6 +136,7 @@ import { userModel } from './user';
 import { staffMembershipModel } from './staff-membership';
 import { menuModel } from './menu';
 import { categoryModel } from './category';
+import { categoryItemMembershipModel } from './category-item-membership';
 import { itemModel } from './item';
 import { tableModel } from './table';
 import { orderModel } from './order';
@@ -160,6 +166,7 @@ export function getModels(connection: Connection) {
     StaffMembership: staffMembershipModel(connection),
     Menu: menuModel(connection),
     Category: categoryModel(connection),
+    CategoryItemMembership: categoryItemMembershipModel(connection),
     Item: itemModel(connection),
     Table: tableModel(connection),
     Order: orderModel(connection),

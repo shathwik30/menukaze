@@ -1,7 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { enqueueWebhookEvent, getModels, getMongoConnection } from '@menukaze/db';
-import { computeAvailableSlots, isReservationSlotValid } from '@menukaze/shared';
+import {
+  ACTIVE_RESERVATION_STATUSES,
+  computeAvailableSlots,
+  isReservationSlotValid,
+} from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey, withApiCors } from '../_lib/auth';
 import { withIdempotency } from '../_lib/idempotency';
 import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
@@ -10,15 +14,15 @@ export const dynamic = 'force-dynamic';
 
 const reservationInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  slot_start: z.string().regex(/^\d{2}:\d{2}$/),
-  slot_end: z.string().regex(/^\d{2}:\d{2}$/),
+  slot_start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  slot_end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   party_size: z.number().int().min(1).max(200),
   customer: z.object({
-    name: z.string().min(1).max(200),
+    name: z.string().trim().min(1).max(200),
     email: z.string().email().max(320),
-    phone: z.string().max(40).optional(),
+    phone: z.string().trim().max(40).optional(),
   }),
-  notes: z.string().max(500).optional(),
+  notes: z.string().trim().max(500).optional(),
 });
 
 export async function OPTIONS(request: NextRequest): Promise<Response> {
@@ -50,6 +54,9 @@ export async function GET(request: NextRequest): Promise<Response> {
   const { Restaurant, Reservation } = getModels(conn);
   const restaurant = await Restaurant.findById(ctx.restaurantId).lean().exec();
   if (!restaurant) return withApiCors(request, apiError('not_found', 'Restaurant not found.'));
+  if (!restaurant.liveAt) {
+    return withApiCors(request, apiError('restaurant_closed', 'Reservations are not available.'));
+  }
   const settings = restaurant.reservationSettings;
   if (!settings?.enabled) {
     return withApiCors(request, jsonOk({ date, available_slots: [] }, { headers: rateHeaders }));
@@ -75,6 +82,8 @@ export async function GET(request: NextRequest): Promise<Response> {
       partySize: b.partySize,
       status: b.status,
     })),
+    timeZone: restaurant.timezone,
+    now: new Date(),
   });
   return withApiCors(
     request,
@@ -82,6 +91,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       {
         date,
         slot_minutes: settings.slotMinutes,
+        buffer_minutes: settings.bufferMinutes,
         max_party_size: settings.maxPartySize,
         available_slots: slots.map((s) => ({
           slot_start: s.slotStart,
@@ -141,6 +151,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         const { Restaurant, Reservation } = getModels(conn);
         const restaurant = await Restaurant.findById(ctx.restaurantId).exec();
         if (!restaurant) return apiError('not_found', 'Restaurant not found.');
+        if (!restaurant.liveAt) {
+          return apiError('restaurant_closed', 'Reservations are not available.');
+        }
         const settings = restaurant.reservationSettings;
         if (!settings?.enabled) {
           return apiError('restaurant_closed', 'Reservations are not available.');
@@ -154,22 +167,41 @@ export async function POST(request: NextRequest): Promise<Response> {
           slotEnd: input.slot_end,
           hours: restaurant.hours,
           settings,
+          timeZone: restaurant.timezone,
+          now: new Date(),
         });
         if (!slotValidation.ok) {
           return apiError('invalid_request', slotValidation.error);
         }
 
         const status = settings.autoConfirm ? 'confirmed' : 'pending';
+        const email = input.customer.email.trim().toLowerCase();
+        const phone = input.customer.phone?.trim();
+        const notes = input.notes?.trim();
+        const existing = await Reservation.exists({
+          restaurantId: ctx.restaurantId,
+          email,
+          date: input.date,
+          slotStart: input.slot_start,
+          status: { $in: ACTIVE_RESERVATION_STATUSES },
+        });
+        if (existing) {
+          return apiError(
+            'invalid_request',
+            'Customer already has an active reservation request for this time.',
+          );
+        }
+
         const created = await Reservation.create({
           restaurantId: ctx.restaurantId,
           name: input.customer.name,
-          email: input.customer.email.toLowerCase(),
-          ...(input.customer.phone ? { phone: input.customer.phone } : {}),
+          email,
+          ...(phone ? { phone } : {}),
           partySize: input.party_size,
           date: input.date,
           slotStart: input.slot_start,
           slotEnd: input.slot_end,
-          ...(input.notes ? { notes: input.notes } : {}),
+          ...(notes ? { notes } : {}),
           status,
           autoConfirmed: status === 'confirmed',
         });
@@ -184,7 +216,11 @@ export async function POST(request: NextRequest): Promise<Response> {
             slot_end: input.slot_end,
             party_size: input.party_size,
             status,
-            customer: input.customer,
+            customer: {
+              name: input.customer.name,
+              email,
+              ...(phone ? { phone } : {}),
+            },
           },
         });
 

@@ -21,6 +21,8 @@ interface Reservation {
 
 interface Props {
   reservations: Reservation[];
+  today: string;
+  nowMinutes: number;
   canEdit: boolean;
 }
 
@@ -82,23 +84,35 @@ function timeToMinutes(value: string): number {
 }
 
 function formatDateLabel(date: string, format: 'short' | 'full' = 'short'): string {
-  const parsed = new Date(`${date}T00:00:00`);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return date;
+  const parsed = new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0),
+  );
   if (Number.isNaN(parsed.getTime())) return date;
   if (format === 'full') {
-    return parsed.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    return parsed.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
   }
-  return parsed.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  return parsed.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
-export function ReservationsBoard({ reservations, canEdit }: Props) {
+export function ReservationsBoard({ reservations, today, nowMinutes, canEdit }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(reservations[0]?.id ?? null);
   const [search, setSearch] = useState('');
   const [pending, startTransition] = useTransition();
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Reservation[]>();
@@ -439,6 +453,8 @@ export function ReservationsBoard({ reservations, canEdit }: Props) {
             <div style={{ padding: '0 20px 14px' }}>
               <Timeline
                 reservations={activeRows}
+                showNowLine={isToday}
+                nowMinutes={nowMinutes}
                 selectedId={selected?.id ?? null}
                 onSelect={setSelectedId}
               />
@@ -798,10 +814,14 @@ function navBtnStyle(disabled: boolean): React.CSSProperties {
 
 function Timeline({
   reservations,
+  showNowLine,
+  nowMinutes,
   selectedId,
   onSelect,
 }: {
   reservations: Reservation[];
+  showNowLine: boolean;
+  nowMinutes: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -814,10 +834,8 @@ function Timeline({
   );
 
   // Now line
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const showNow = nowMin >= start && nowMin <= end;
-  const nowPct = ((nowMin - start) / total) * 100;
+  const showNow = showNowLine && nowMinutes >= start && nowMinutes <= end;
+  const nowPct = ((nowMinutes - start) / total) * 100;
 
   return (
     <div style={{ position: 'relative', height: 120, overflow: 'hidden' }}>

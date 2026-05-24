@@ -30,6 +30,7 @@ interface SessionModifierOption {
 interface SessionModifierGroup {
   name: string;
   required: boolean;
+  min: number;
   max: number;
   options: SessionModifierOption[];
 }
@@ -42,6 +43,18 @@ export interface SessionItem {
   priceLabel: string;
   categoryId: string;
   categoryName: string;
+  allergens: string[];
+  featured: boolean;
+  searchKeywords: string[];
+  taxClassId?: string;
+  variants: Array<{
+    id: string;
+    name: string;
+    priceMinor: number;
+    priceLabel: string;
+    isDefault: boolean;
+    soldOut: boolean;
+  }>;
   soldOut: boolean;
   imageUrl?: string;
   comboItemNames: string[];
@@ -63,7 +76,13 @@ interface Props {
   customerName: string;
   participants: string[];
   menus: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string; menuId: string }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    menuId: string;
+    menuIds: string[];
+  }>;
   items: SessionItem[];
   rounds: SessionRound[];
   totalLabel: string;
@@ -153,10 +172,11 @@ export function SessionClient({
     };
   }, [restaurantId, router, sessionId]);
 
-  const visibleCategories = useMemo(
-    () => categories.filter((c) => c.menuId === activeMenuId),
-    [categories, activeMenuId],
-  );
+  const visibleCategories = useMemo(() => {
+    return categories.filter((category) =>
+      category.menuIds.includes(activeMenuId || category.menuId),
+    );
+  }, [categories, activeMenuId]);
 
   // Scroll-spy: highlight category pill when section is in view
   useEffect(() => {
@@ -241,11 +261,13 @@ export function SessionClient({
         sessionId,
         lines: cartLines.map<{
           itemId: string;
+          variantId?: string;
           quantity: number;
           modifiers: CartLine['modifiers'];
           notes?: string;
         }>((l: CartLine) => ({
           itemId: l.itemId,
+          ...(l.variantId ? { variantId: l.variantId } : {}),
           quantity: l.quantity,
           modifiers: l.modifiers,
           ...(l.notes ? { notes: l.notes } : {}),
@@ -339,7 +361,9 @@ export function SessionClient({
                 type="button"
                 onClick={() => {
                   setActiveMenuId(menu.id);
-                  const firstCat = categories.find((c) => c.menuId === menu.id);
+                  const firstCat = categories.find((category) =>
+                    category.menuIds.includes(menu.id),
+                  );
                   if (firstCat) setActiveCategoryId(firstCat.id);
                 }}
                 className={cn(
@@ -571,6 +595,9 @@ export function SessionClient({
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-ink-950 truncate text-sm font-medium">{line.name}</p>
+                        {line.variantName ? (
+                          <p className="text-ink-400 text-[11px]">{line.variantName}</p>
+                        ) : null}
                         {line.modifiers.length > 0 ? (
                           <p className="text-ink-400 text-[11px]">
                             {line.modifiers.map((m) => m.optionName).join(', ')}
@@ -686,8 +713,16 @@ function ItemRow({
             Includes {item.comboItemNames.join(' · ')}
           </p>
         ) : null}
+        {item.allergens.length > 0 ? (
+          <p className="text-ink-400 mt-0.5 text-[10px]">Allergens: {item.allergens.join(', ')}</p>
+        ) : null}
         <div className="mt-2.5 flex items-center gap-3">
           <span className="text-ink-950 font-mono text-sm font-semibold">{item.priceLabel}</span>
+          {item.featured ? (
+            <span className="bg-saffron-100 text-saffron-700 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+              Featured
+            </span>
+          ) : null}
           {item.soldOut ? (
             <span className="bg-canvas-100 text-ink-400 rounded-full px-2 py-0.5 text-[10px] font-semibold">
               Sold out
@@ -707,8 +742,10 @@ function ItemRow({
                   itemId={item.id}
                   name={item.name}
                   priceMinor={item.priceMinor}
+                  taxClassId={item.taxClassId}
                   currency={currency}
                   locale={locale}
+                  variants={item.variants}
                   modifiers={item.modifiers}
                   disabled={disabled}
                   compact
@@ -721,8 +758,10 @@ function ItemRow({
             itemId={item.id}
             name={item.name}
             priceMinor={item.priceMinor}
+            taxClassId={item.taxClassId}
             currency={currency}
             locale={locale}
+            variants={item.variants}
             modifiers={item.modifiers}
             disabled={disabled}
           />

@@ -6,6 +6,18 @@ import { ReservationForm } from './reservation-form';
 
 export const dynamic = 'force-dynamic';
 
+function dateKeyInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const restaurant = await resolveTenantOrNotFound();
@@ -23,7 +35,7 @@ export default async function ReservationsPage() {
   const restaurant = await resolveTenantOrNotFound();
   const settings = restaurant.reservationSettings;
 
-  if (!settings?.enabled) {
+  if (!restaurant.liveAt || !settings?.enabled) {
     return (
       <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-4 p-8 text-center">
         <h1 className="text-3xl font-bold">{restaurant.name}</h1>
@@ -42,11 +54,13 @@ export default async function ReservationsPage() {
   const { Reservation } = getModels(conn);
 
   const today = new Date();
+  const timeZone = restaurant.timezone ?? 'UTC';
   const horizonDays = 30;
   const dates: string[] = [];
   for (let i = 0; i < horizonDays; i += 1) {
     const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
-    dates.push(d.toISOString().slice(0, 10));
+    const key = dateKeyInTimeZone(d, timeZone);
+    if (!dates.includes(key)) dates.push(key);
   }
 
   const startDate = dates[0]!;
@@ -87,6 +101,7 @@ export default async function ReservationsPage() {
       <ReservationForm
         restaurantId={String(restaurant._id)}
         restaurantName={restaurant.name}
+        timeZone={timeZone}
         availableDates={dates}
         bookings={bookingPayload}
         hours={restaurant.hours.map((h) => ({

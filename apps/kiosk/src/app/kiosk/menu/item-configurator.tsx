@@ -14,8 +14,18 @@ interface ModifierOption {
 interface ModifierGroup {
   name: string;
   required: boolean;
+  min: number;
   max: number;
   options: ModifierOption[];
+}
+
+interface VariantOption {
+  id: string;
+  name: string;
+  priceMinor: number;
+  priceLabel: string;
+  isDefault: boolean;
+  soldOut: boolean;
 }
 
 interface Props {
@@ -23,8 +33,10 @@ interface Props {
   name: string;
   description?: string;
   priceMinor: number;
+  taxClassId?: string;
   currency: string;
   locale: string;
+  variants: VariantOption[];
   modifiers: ModifierGroup[];
   onClose: () => void;
   onAdded: () => void;
@@ -35,8 +47,10 @@ export function ItemConfigurator({
   name,
   description,
   priceMinor,
+  taxClassId,
   currency,
   locale,
+  variants,
   modifiers,
   onClose,
   onAdded,
@@ -44,6 +58,10 @@ export function ItemConfigurator({
   const addLine = useKioskCart((s) => s.addLine);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+    defaultVariant?.id,
+  );
 
   function fmt(minor: number) {
     return new Intl.NumberFormat(locale, {
@@ -78,7 +96,15 @@ export function ItemConfigurator({
     setSelected({ ...selected, [group.name]: [...current, optionName] });
   }
 
+  const selectedVariant =
+    variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
+  const basePriceMinor = selectedVariant?.priceMinor ?? priceMinor;
+
   function addToCart() {
+    if (selectedVariant?.soldOut) {
+      setError(`${selectedVariant.name} is sold out.`);
+      return;
+    }
     const selections = Object.entries(selected).flatMap(([groupName, names]) =>
       names.map((optionName) => ({ groupName, optionName })),
     );
@@ -87,12 +113,21 @@ export function ItemConfigurator({
       setError(result.error);
       return;
     }
-    addLine({ itemId, name, priceMinor, modifiers: result.modifiers });
+    addLine({
+      itemId,
+      name,
+      priceMinor: basePriceMinor,
+      ...(selectedVariant
+        ? { variantId: selectedVariant.id, variantName: selectedVariant.name }
+        : {}),
+      ...(taxClassId ? { taxClassId } : {}),
+      modifiers: result.modifiers,
+    });
     onAdded();
   }
 
   const previewTotal =
-    priceMinor +
+    basePriceMinor +
     modifiers.reduce((sum, group) => {
       const names = selected[group.name] ?? [];
       return (
@@ -120,7 +155,7 @@ export function ItemConfigurator({
             </p>
             <h2 className="mt-1 text-3xl font-black">{name}</h2>
             {description ? <p className="mt-2 text-base text-zinc-600">{description}</p> : null}
-            <p className="mt-2 text-sm font-bold text-zinc-500">Base {fmt(priceMinor)}</p>
+            <p className="mt-2 text-sm font-bold text-zinc-500">Base {fmt(basePriceMinor)}</p>
           </div>
           <Button
             type="button"
@@ -134,14 +169,55 @@ export function ItemConfigurator({
         </div>
 
         <div className="kiosk-scroll flex min-h-0 flex-1 flex-col gap-4 pr-1">
+          {variants.length > 0 ? (
+            <section className="rounded-lg border border-zinc-200 p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-black">Variant</p>
+                  <p className="text-sm font-medium text-zinc-500">Choose one</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                {variants.map((variant) => {
+                  const active = variant.id === selectedVariantId;
+                  return (
+                    <label
+                      key={variant.id}
+                      className={cn(
+                        'flex min-h-[4.5rem] cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors',
+                        active
+                          ? 'border-emerald-600 bg-emerald-50'
+                          : 'border-zinc-200 bg-white active:bg-zinc-50',
+                        variant.soldOut && 'opacity-50',
+                      )}
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          checked={active}
+                          disabled={variant.soldOut}
+                          onChange={() => setSelectedVariantId(variant.id)}
+                        />
+                        <span className="text-lg font-bold">{variant.name}</span>
+                      </span>
+                      <span className="font-mono text-base font-bold text-zinc-600">
+                        {variant.soldOut ? 'Sold out' : variant.priceLabel}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
           {modifiers.map((group) => {
             const optionNames = selected[group.name] ?? [];
             const limit = maxSelectionsForModifierGroup(group);
+            const min = group.min ?? (group.required ? 1 : 0);
             const label =
-              group.required && limit === 1
-                ? 'Required · choose 1'
-                : group.required
-                  ? `Required · choose 1–${limit}`
+              min > 0 && limit === min
+                ? `Required · choose ${min}`
+                : min > 0
+                  ? `Required · choose ${min}-${limit}`
                   : limit === 1
                     ? 'Optional'
                     : `Optional · up to ${limit}`;

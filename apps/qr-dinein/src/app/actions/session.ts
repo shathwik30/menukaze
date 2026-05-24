@@ -5,23 +5,22 @@ import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import {
+  buildMenuCommercePricing,
   enqueueWebhookEvent,
   envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
   getRestaurantSupportRecipients,
-  pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
-import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
-  computeTax,
   DEFAULT_DEVICE_SESSION_LIMIT_PER_DAY,
   DEFAULT_DEVICE_WINDOW_HOURS,
   deviceFingerprint,
@@ -33,11 +32,9 @@ import {
   orderWebhookChannel,
   parseCurrencyCode,
   preCheckQrLocation,
-  resolvePrimaryStationId,
   SESSION_FAST_FOLLOW_MS,
   SESSION_PLAUSIBLE_CAP_MULTIPLIER,
   SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR,
-  validateModifierSelection,
   type SessionUpdateReason,
   type TableStatus,
   type TableStatusReason,
@@ -304,72 +301,30 @@ async function loadSessionRestaurant(
 }
 
 async function buildRoundSnapshot(
-  itemModel: ReturnType<typeof getModels>['Item'],
-  categoryModel: ReturnType<typeof getModels>['Category'],
   restaurantId: Types.ObjectId,
+  restaurant: SessionRestaurantRecord,
   lines: z.infer<typeof lineInput>[],
   conn: Awaited<ReturnType<typeof getMongoConnection>>,
   participantLabel?: string,
 ): Promise<
-  { snapshotLines: SessionRoundLineSnapshot[]; subtotalMinor: number } | { error: string }
-> {
-  const itemIds = parseObjectIds(lines.map((line) => line.itemId));
-  if (!itemIds) {
-    return { error: 'Unknown item.' };
-  }
-
-  const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
-  const itemsById = new Map(items.map((item) => [String(item._id), item]));
-  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
-  const categories =
-    categoryIds.length > 0
-      ? await categoryModel
-          .find({ restaurantId, _id: { $in: categoryIds } }, { stationIds: 1 })
-          .lean()
-          .exec()
-      : [];
-  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
-
-  const snapshotLines: SessionRoundLineSnapshot[] = [];
-  let subtotalMinor = 0;
-
-  for (const line of lines) {
-    const item = itemsById.get(line.itemId);
-    if (!item) return { error: 'Item unavailable.' };
-    if (item.soldOut) return { error: `${item.name} is sold out.` };
-
-    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
-    if (!modifierResult.ok) {
-      return { error: modifierResult.error };
+  | {
+      snapshotLines: SessionRoundLineSnapshot[];
+      subtotalMinor: number;
+      taxMinor: number;
+      surchargeMinor: number;
     }
-
-    const resolvedModifiers = modifierResult.modifiers;
-    const unitMinor =
-      item.priceMinor + resolvedModifiers.reduce((sum, modifier) => sum + modifier.priceMinor, 0);
-    const lineTotalMinor = unitMinor * line.quantity;
-    subtotalMinor += lineTotalMinor;
-
-    const itemStations = item.stationIds ?? [];
-    const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
-    const candidates = itemStations.length > 0 ? itemStations : categoryStations;
-    const stationId =
-      candidates.length > 1
-        ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
-        : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
-
-    snapshotLines.push({
-      itemId: item._id,
-      name: participantLabel ? `${item.name} (for ${participantLabel})` : item.name,
-      priceMinor: item.priceMinor,
-      quantity: line.quantity,
-      modifiers: resolvedModifiers,
-      ...(line.notes ? { notes: line.notes } : {}),
-      lineTotalMinor,
-      ...(stationId ? { stationId } : {}),
-    });
-  }
-
-  return { snapshotLines, subtotalMinor };
+  | { error: string }
+> {
+  const pricing = await buildMenuCommercePricing({
+    connection: conn,
+    restaurantId,
+    restaurant,
+    lines,
+    channel: 'qr_dinein',
+    annotateItemName: participantLabel ? (name) => `${name} (for ${participantLabel})` : undefined,
+  });
+  if ('error' in pricing) return pricing;
+  return pricing;
 }
 
 async function touchSession(
@@ -767,6 +722,7 @@ const modifierInput = z.object({
 });
 const lineInput = z.object({
   itemId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
   quantity: z.number().int().min(1).max(99),
   modifiers: z.array(modifierInput).max(20),
   notes: z.string().max(500).optional(),
@@ -793,7 +749,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const conn = await getMongoConnection('live');
-  const { TableSession, Item, Order, Restaurant, Table, Category } = getModels(conn);
+  const { TableSession, Order, Restaurant, Table } = getModels(conn);
 
   const session = await loadSessionById(TableSession, sessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
@@ -842,9 +798,8 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const roundSnapshot = await buildRoundSnapshot(
-    Item,
-    Category,
     restaurantId,
+    restaurant,
     parsed.data.lines,
     conn,
     parsed.data.participantLabel,
@@ -857,10 +812,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const pickupNumber = await reserveDailyPickupNumber(conn, restaurantId, restaurant.timezone);
   const now = placedAt;
 
-  const { taxMinor, surchargeMinor } = computeTax(
-    roundSnapshot.subtotalMinor,
-    restaurant.taxRules ?? [],
-  );
+  const { taxMinor, surchargeMinor } = roundSnapshot;
   const totalMinor = roundSnapshot.subtotalMinor + surchargeMinor;
 
   const anomaly = await detectSessionAnomaly(Order, Table, restaurantId, session, totalMinor, now);
