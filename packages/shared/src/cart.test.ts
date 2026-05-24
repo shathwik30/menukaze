@@ -41,7 +41,13 @@ describe('cartLineKey', () => {
   });
 
   it('includes the item id and modifier pairs in the key', () => {
-    expect(cartLineKey(line({ itemId: 'xyz', modifiers: [] }))).toBe('xyz#');
+    expect(cartLineKey(line({ itemId: 'xyz', modifiers: [] }))).toBe('xyz@#');
+  });
+
+  it('includes the variant id in the key when present', () => {
+    expect(cartLineKey(line({ itemId: 'xyz', variantId: 'large', modifiers: [] }))).toBe(
+      'xyz@large#',
+    );
   });
 });
 

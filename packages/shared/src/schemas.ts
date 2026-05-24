@@ -101,6 +101,12 @@ export const taxRuleSchema = z.object({
   label: z.string().max(64).optional(),
 });
 
+export const taxClassSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(64),
+  rules: z.array(taxRuleSchema).max(10).default([]),
+});
+
 export const restaurantHolidayModeSchema = z.object({
   enabled: z.boolean().default(false),
   message: z.string().max(500).optional(),
@@ -171,6 +177,7 @@ export const restaurantSchema = z.object({
   holidayMode: restaurantHolidayModeSchema.prefault({}),
   throttling: restaurantThrottlingSchema.prefault({}),
   taxRules: z.array(taxRuleSchema).default([]),
+  taxClasses: z.array(taxClassSchema).default([]),
   featureFlags: z.record(z.string(), z.boolean()).default({}),
   receiptBranding: z
     .object({

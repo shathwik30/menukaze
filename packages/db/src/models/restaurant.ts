@@ -106,6 +106,9 @@ export interface RestaurantDoc {
     message?: string;
   };
 
+  /** When true, new QR dine-in sessions cannot be started. Existing sessions are unaffected. */
+  qrOrderingPaused: boolean;
+
   /** When activeOrders ≥ maxConcurrentOrders the storefront blocks new checkouts. */
   throttling: {
     enabled: boolean;
@@ -124,6 +127,17 @@ export interface RestaurantDoc {
     inclusive: boolean;
     scope: 'order' | 'item';
     label?: string;
+  }>;
+  taxClasses: Array<{
+    id: string;
+    name: string;
+    rules: Array<{
+      name: string;
+      percent: number;
+      inclusive: boolean;
+      scope: 'order' | 'item';
+      label?: string;
+    }>;
   }>;
   reservationSettings: {
     enabled: boolean;
@@ -254,6 +268,7 @@ const restaurantSchema = new Schema<RestaurantDoc>(
       enabled: { type: Boolean, default: false },
       message: String,
     },
+    qrOrderingPaused: { type: Boolean, default: false },
     throttling: {
       enabled: { type: Boolean, default: false },
       maxConcurrentOrders: { type: Number, default: 20 },
@@ -271,6 +286,27 @@ const restaurantSchema = new Schema<RestaurantDoc>(
           inclusive: { type: Boolean, default: false },
           scope: { type: String, enum: ['order', 'item'], default: 'order' },
           label: String,
+        },
+      ],
+      default: [],
+    },
+    taxClasses: {
+      type: [
+        {
+          id: { type: String, required: true, maxlength: 64 },
+          name: { type: String, required: true, maxlength: 64 },
+          rules: {
+            type: [
+              {
+                name: { type: String, required: true },
+                percent: { type: Number, required: true },
+                inclusive: { type: Boolean, default: false },
+                scope: { type: String, enum: ['order', 'item'], default: 'item' },
+                label: String,
+              },
+            ],
+            default: [],
+          },
         },
       ],
       default: [],

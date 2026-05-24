@@ -11,7 +11,9 @@ interface MenuSummary {
 interface CategorySummary {
   id: string;
   name: string;
+  description?: string;
   menuId: string;
+  menuIds: string[];
 }
 interface ItemSummary {
   id: string;
@@ -21,12 +23,25 @@ interface ItemSummary {
   priceLabel: string;
   priceMinor: number;
   dietaryTags: string[];
+  allergens: string[];
+  featured: boolean;
+  searchKeywords: string[];
   soldOut: boolean;
   imageUrl?: string;
+  taxClassId?: string;
+  variants: Array<{
+    id: string;
+    name: string;
+    priceMinor: number;
+    priceLabel: string;
+    isDefault: boolean;
+    soldOut: boolean;
+  }>;
   comboItemNames: string[];
   modifiers: Array<{
     name: string;
     required: boolean;
+    min: number;
     max: number;
     options: Array<{
       name: string;
@@ -57,7 +72,7 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
 
   const visibleCategories = useMemo(() => {
     const menuId = activeMenuId || menus[0]?.id;
-    return categories.filter((c) => c.menuId === menuId);
+    return categories.filter((c) => c.menuIds.includes(menuId ?? c.menuId));
   }, [categories, activeMenuId, menus]);
 
   const q = query.trim().toLowerCase();
@@ -144,7 +159,12 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
             const categoryItems = items.filter((item) => {
               if (item.categoryId !== category.id) return false;
               if (activeTag && !item.dietaryTags.includes(activeTag)) return false;
-              if (q && !`${item.name} ${item.description ?? ''}`.toLowerCase().includes(q))
+              if (
+                q &&
+                !`${item.name} ${item.description ?? ''} ${item.searchKeywords.join(' ')}`
+                  .toLowerCase()
+                  .includes(q)
+              )
                 return false;
               return true;
             });
@@ -187,6 +207,11 @@ export function MenuBrowser({ menus, categories, items, currency, locale }: Prop
                   >
                     {category.name}
                   </h2>
+                  {category.description ? (
+                    <p className="text-ink-500 dark:text-ink-400 mt-2 max-w-2xl text-sm leading-6">
+                      {category.description}
+                    </p>
+                  ) : null}
                 </div>
                 <span className="mk-nums text-ink-500 dark:text-ink-400 hidden shrink-0 text-sm sm:block">
                   {categoryItems.length} {categoryItems.length === 1 ? 'dish' : 'dishes'}
@@ -331,9 +356,16 @@ function DishRow({
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-foreground font-serif text-lg leading-tight font-medium tracking-tight">
-            {item.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-foreground font-serif text-lg leading-tight font-medium tracking-tight">
+              {item.name}
+            </h3>
+            {item.featured ? (
+              <Badge variant="warning" size="xs" shape="pill">
+                Featured
+              </Badge>
+            ) : null}
+          </div>
           <div
             aria-hidden
             className="border-ink-300 dark:border-ink-700 mt-2.5 hidden h-px flex-1 border-t border-dotted sm:block"
@@ -364,20 +396,32 @@ function DishRow({
               Sold out
             </Badge>
           ) : null}
+          {item.variants.length > 0 ? (
+            <span className="text-ink-400 dark:text-ink-500 text-[11px]">
+              · {item.variants.length} variant{item.variants.length === 1 ? '' : 's'}
+            </span>
+          ) : null}
           {item.modifiers.length > 0 ? (
             <span className="text-ink-400 dark:text-ink-500 text-[11px]">
               · {item.modifiers.length} option{item.modifiers.length === 1 ? '' : 's'}
             </span>
           ) : null}
         </div>
+        {item.allergens.length > 0 ? (
+          <p className="text-ink-500 dark:text-ink-400 mt-2 text-[11px]">
+            Allergens: {item.allergens.join(', ')}
+          </p>
+        ) : null}
 
         <div className="mt-3.5">
           <AddToCartButton
             itemId={item.id}
             name={item.name}
             priceMinor={item.priceMinor}
+            taxClassId={item.taxClassId}
             currency={currency}
             locale={locale}
+            variants={item.variants}
             modifiers={item.modifiers}
             disabled={item.soldOut}
           />

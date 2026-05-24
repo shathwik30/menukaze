@@ -37,7 +37,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable}`}>
       <head nonce={nonce} />
-      <body className="bg-background text-foreground min-h-screen font-sans antialiased">
+      <body
+        className="text-foreground min-h-screen font-sans antialiased"
+        style={{ backgroundColor: '#ffffff' }}
+      >
         {children}
       </body>
     </html>

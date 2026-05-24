@@ -1,31 +1,22 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  buildMenuCommercePricing,
   enqueueWebhookEvent,
   generatePublicOrderId,
   getModels,
   getMongoConnection,
-  pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
-import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import {
-  computeTax,
-  DEFAULT_PREP_MINUTES,
-  formatMoney,
-  orderWebhookChannel,
-  parseCurrencyCode,
-  resolvePrimaryStationId,
-  validateModifierSelection,
-} from '@menukaze/shared';
+import { formatMoney, orderWebhookChannel, parseCurrencyCode } from '@menukaze/shared';
 import { runRestaurantAction, validationError, type ActionResult } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
 
@@ -39,6 +30,7 @@ const modifierInput = z.object({
 
 const lineInput = z.object({
   itemId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
   quantity: z.number().int().min(1).max(99),
   modifiers: z.array(modifierInput).max(20).default([]),
   notes: z.string().max(500).optional(),
@@ -57,17 +49,6 @@ const walkInInput = z.object({
 export interface CreateWalkInResult {
   orderId: string;
   publicOrderId: string;
-}
-
-interface SnapshotLine {
-  itemId: Types.ObjectId;
-  name: string;
-  priceMinor: number;
-  quantity: number;
-  modifiers: { groupName: string; optionName: string; priceMinor: number }[];
-  notes?: string;
-  lineTotalMinor: number;
-  stationId?: Types.ObjectId;
 }
 
 // cash → payment succeeded immediately; pay_later → payment stays pending so the
@@ -90,14 +71,11 @@ export async function createWalkInOrderAction(
     ['orders.create_walkin'],
     { onError: 'Failed to create walk-in order.', onForbidden: PERMISSION_ERROR },
     async ({ restaurantId, session, role }) => {
-      const itemIds = parseObjectIds(input.lines.map((l) => l.itemId));
-      if (!itemIds) throw new Error('Unknown item.');
-
       const tableObjectId = input.tableId ? parseObjectId(input.tableId) : null;
       if (input.tableId && !tableObjectId) throw new Error('Unknown table.');
 
       const conn = await getMongoConnection('live');
-      const { Restaurant, Item, Order, Table, Category } = getModels(conn);
+      const { Restaurant, Order, Table } = getModels(conn);
 
       const restaurant = await Restaurant.findById(restaurantId).exec();
       if (!restaurant) throw new Error('Restaurant not found.');
@@ -124,70 +102,24 @@ export async function createWalkInOrderAction(
         if (!table) throw new Error('Table not found.');
       }
 
-      const items = await Item.find({ restaurantId, _id: { $in: itemIds } }).exec();
-      const itemsById = new Map(items.map((item) => [String(item._id), item]));
-      const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
-      const categories =
-        categoryIds.length > 0
-          ? await Category.find({ restaurantId, _id: { $in: categoryIds } }, { stationIds: 1 })
-              .lean()
-              .exec()
-          : [];
-      const categoryStationsById = new Map(
-        categories.map((c) => [String(c._id), c.stationIds ?? []]),
-      );
-
       const currency = parseCurrencyCode(restaurant.currency);
       const locale = restaurant.locale;
-
-      const snapshotLines: SnapshotLine[] = [];
-      let subtotalMinor = 0;
-
-      for (const line of input.lines) {
-        const item = itemsById.get(line.itemId);
-        if (!item) throw new Error('Item no longer available.');
-        if (item.soldOut) throw new Error(`${item.name} is sold out.`);
-        if (item.currency !== restaurant.currency) {
-          throw new Error(`Currency mismatch for ${item.name}.`);
-        }
-
-        const modResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
-        if (!modResult.ok) throw new Error(modResult.error);
-
-        const unitMinor =
-          item.priceMinor + modResult.modifiers.reduce((s, m) => s + m.priceMinor, 0);
-        const lineTotalMinor = unitMinor * line.quantity;
-        subtotalMinor += lineTotalMinor;
-
-        const itemStations = item.stationIds ?? [];
-        const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
-        const candidates = itemStations.length > 0 ? itemStations : categoryStations;
-        const stationId =
-          candidates.length > 1
-            ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
-            : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
-
-        snapshotLines.push({
-          itemId: item._id,
-          name: item.name,
-          priceMinor: item.priceMinor,
-          quantity: line.quantity,
-          modifiers: modResult.modifiers,
-          ...(line.notes ? { notes: line.notes } : {}),
-          lineTotalMinor,
-          ...(stationId ? { stationId } : {}),
-        });
-      }
-
-      if (subtotalMinor <= 0) throw new Error('Cart is empty.');
+      const pricing = await buildMenuCommercePricing({
+        connection: conn,
+        restaurantId,
+        restaurant,
+        lines: input.lines,
+        channel: 'walk_in',
+      });
+      if ('error' in pricing) throw new Error(pricing.error);
 
       const minimumOrderMinor = restaurant.minimumOrderMinor ?? 0;
-      if (minimumOrderMinor > 0 && subtotalMinor < minimumOrderMinor) {
+      if (minimumOrderMinor > 0 && pricing.subtotalMinor < minimumOrderMinor) {
         throw new Error(`Minimum order is ${formatMoney(minimumOrderMinor, currency, locale)}.`);
       }
 
-      const { surchargeMinor, taxMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
-      const totalMinor = subtotalMinor + surchargeMinor;
+      const { surchargeMinor, taxMinor } = pricing;
+      const totalMinor = pricing.subtotalMinor + surchargeMinor;
       if (totalMinor <= 0) throw new Error('Cart is empty.');
 
       const publicOrderId = generatePublicOrderId();
@@ -197,7 +129,7 @@ export async function createWalkInOrderAction(
       const customerName = trimmedName && trimmedName.length > 0 ? trimmedName : 'Walk-in customer';
       const customerPhone = input.customerPhone?.trim();
       const customerEmail = input.customerEmail?.trim();
-      const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
+      const prepMinutes = pricing.prepMinutes;
       const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
 
       const paymentSucceeded = input.paymentMethod === 'cash';
@@ -214,8 +146,8 @@ export async function createWalkInOrderAction(
             ? { email: customerEmail }
             : { email: `walkin+${publicOrderId}@noreply.local` }),
         },
-        items: snapshotLines,
-        subtotalMinor,
+        items: pricing.snapshotLines,
+        subtotalMinor: pricing.subtotalMinor,
         taxMinor,
         tipMinor: 0,
         totalMinor,
@@ -296,7 +228,7 @@ export async function createWalkInOrderAction(
           type: input.type,
           paymentMethod: input.paymentMethod,
           totalMinor,
-          itemCount: snapshotLines.length,
+          itemCount: pricing.snapshotLines.length,
         },
       });
 

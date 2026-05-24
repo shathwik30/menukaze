@@ -26,6 +26,7 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_STOREFRONT_HOST: z.string().optional(),
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   },
   runtimeEnv: {
     MONGODB_URI: process.env['MONGODB_URI'],
@@ -43,6 +44,7 @@ export const env = createEnv({
     MENUKAZE_SKIP_RAZORPAY_VERIFICATION: process.env['MENUKAZE_SKIP_RAZORPAY_VERIFICATION'],
     MENUKAZE_SKIP_EMAIL: process.env['MENUKAZE_SKIP_EMAIL'],
     NEXT_PUBLIC_STOREFRONT_HOST: process.env['NEXT_PUBLIC_STOREFRONT_HOST'],
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'],
   },
   skipValidation: process.env['SKIP_ENV_VALIDATION'] === 'true',
   emptyStringAsUndefined: true,

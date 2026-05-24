@@ -7,7 +7,7 @@ import {
 
 const sizeGroup: ModifierGroupLike = {
   name: 'Size',
-  required: true,
+  min: 1,
   max: 1,
   options: [
     { name: 'small', priceMinor: 0 },
@@ -104,6 +104,25 @@ describe('validateModifierSelection', () => {
         { groupName: 'Extras', optionName: 'olives' },
         { groupName: 'Extras', optionName: 'basil' },
       ],
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects when a group is below its configured minimum selections', () => {
+    const result = validateModifierSelection(
+      [
+        {
+          name: 'Toppings',
+          min: 2,
+          max: 3,
+          options: [
+            { name: 'onion', priceMinor: 0 },
+            { name: 'jalapeno', priceMinor: 0 },
+            { name: 'corn', priceMinor: 0 },
+          ],
+        },
+      ],
+      [{ groupName: 'Toppings', optionName: 'onion' }],
     );
     expect(result.ok).toBe(false);
   });

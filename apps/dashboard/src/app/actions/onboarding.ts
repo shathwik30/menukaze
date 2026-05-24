@@ -23,6 +23,10 @@ const inputSchema = z.object({
     postalCode: z.string().optional(),
     country: z.string().length(2),
   }),
+  // Coordinates from Google Places — stored on the geo 2dsphere index.
+  // GeoJSON order is [lng, lat]; we accept them separately for clarity.
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 
 export type CreateRestaurantInput = z.infer<typeof inputSchema>;
@@ -66,7 +70,13 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
             locale: input.locale,
             timezone: input.timezone,
             addressStructured: input.addressStructured,
-            geo: { type: 'Point', coordinates: [0, 0] },
+            geo: {
+              type: 'Point',
+              coordinates:
+                typeof input.lng === 'number' && typeof input.lat === 'number'
+                  ? [input.lng, input.lat] // GeoJSON: [longitude, latitude]
+                  : [0, 0],
+            },
             wifiPublicIps: [],
             hours: [],
             subscriptionStatus: 'trial',
@@ -79,6 +89,7 @@ export async function createRestaurantAction(raw: unknown): Promise<CreateRestau
               maxSessionsPerTable: 1,
               geofenceRadiusM: 100,
             },
+            onboardingStep: 'menu',
             taxRules: [],
             receiptBranding: { socials: [] },
             notificationPrefs: { email: true, dashboard: true, sound: true },
@@ -136,8 +147,11 @@ export async function completeStaffStepAction(): Promise<ActionResult> {
       const { Restaurant } = getModels(conn);
       const restaurant = await Restaurant.findById(restaurantId).exec();
       if (!restaurant) throw new Error('Restaurant not found.');
+      if (restaurant.onboardingStep === 'go-live' || restaurant.onboardingStep === 'complete') {
+        return { ok: true };
+      }
       if (restaurant.onboardingStep !== 'staff') {
-        throw new Error('This restaurant has already moved past the staff step.');
+        throw new Error('Cannot complete staff step from current onboarding state.');
       }
       await Restaurant.updateOne(
         { _id: restaurantId },

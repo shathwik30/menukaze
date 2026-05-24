@@ -3,39 +3,38 @@
 import { headers } from 'next/headers';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 import {
+  buildMenuCommercePricing,
   enqueueWebhookEvent,
   envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
   getRestaurantSupportRecipients,
-  pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
-import { parseObjectId, parseObjectIds } from '@menukaze/db/object-id';
+import { parseObjectId } from '@menukaze/db/object-id';
 import { captureException } from '@menukaze/monitoring';
 import { channels, type OrderStatus } from '@menukaze/realtime';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
 import {
-  computeTax,
   DEFAULT_DEVICE_SESSION_LIMIT_PER_DAY,
   DEFAULT_DEVICE_WINDOW_HOURS,
   deviceFingerprint,
   formatMoney,
+  getRestaurantOpenStatus,
   ipFromHeaders,
   isSessionExpired,
   normalizeDineInSessionTimeoutMinutes,
   orderWebhookChannel,
   parseCurrencyCode,
   preCheckQrLocation,
-  resolvePrimaryStationId,
   SESSION_FAST_FOLLOW_MS,
   SESSION_PLAUSIBLE_CAP_MULTIPLIER,
   SESSION_PLAUSIBLE_CAP_PER_SEAT_MINOR,
-  validateModifierSelection,
   type SessionUpdateReason,
   type TableStatus,
   type TableStatusReason,
@@ -58,7 +57,11 @@ const customerSchema = z.object({
     .string()
     .min(7)
     .max(40)
-    .regex(/^[\d\s+()\-.]+$/, 'Phone may only contain digits, spaces, and + ( ) - .')
+    .regex(/^\+\d[\d\s\-().]{4,}$/, 'Phone must include a country code (e.g. +91 98765 43210).')
+    .refine(
+      (v) => isValidPhoneNumber(v.replace(/\s/g, '')),
+      'Invalid phone number for the selected country.',
+    )
     .optional(),
 });
 
@@ -298,72 +301,30 @@ async function loadSessionRestaurant(
 }
 
 async function buildRoundSnapshot(
-  itemModel: ReturnType<typeof getModels>['Item'],
-  categoryModel: ReturnType<typeof getModels>['Category'],
   restaurantId: Types.ObjectId,
+  restaurant: SessionRestaurantRecord,
   lines: z.infer<typeof lineInput>[],
   conn: Awaited<ReturnType<typeof getMongoConnection>>,
   participantLabel?: string,
 ): Promise<
-  { snapshotLines: SessionRoundLineSnapshot[]; subtotalMinor: number } | { error: string }
-> {
-  const itemIds = parseObjectIds(lines.map((line) => line.itemId));
-  if (!itemIds) {
-    return { error: 'Unknown item.' };
-  }
-
-  const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
-  const itemsById = new Map(items.map((item) => [String(item._id), item]));
-  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
-  const categories =
-    categoryIds.length > 0
-      ? await categoryModel
-          .find({ restaurantId, _id: { $in: categoryIds } }, { stationIds: 1 })
-          .lean()
-          .exec()
-      : [];
-  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
-
-  const snapshotLines: SessionRoundLineSnapshot[] = [];
-  let subtotalMinor = 0;
-
-  for (const line of lines) {
-    const item = itemsById.get(line.itemId);
-    if (!item) return { error: 'Item unavailable.' };
-    if (item.soldOut) return { error: `${item.name} is sold out.` };
-
-    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
-    if (!modifierResult.ok) {
-      return { error: modifierResult.error };
+  | {
+      snapshotLines: SessionRoundLineSnapshot[];
+      subtotalMinor: number;
+      taxMinor: number;
+      surchargeMinor: number;
     }
-
-    const resolvedModifiers = modifierResult.modifiers;
-    const unitMinor =
-      item.priceMinor + resolvedModifiers.reduce((sum, modifier) => sum + modifier.priceMinor, 0);
-    const lineTotalMinor = unitMinor * line.quantity;
-    subtotalMinor += lineTotalMinor;
-
-    const itemStations = item.stationIds ?? [];
-    const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
-    const candidates = itemStations.length > 0 ? itemStations : categoryStations;
-    const stationId =
-      candidates.length > 1
-        ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
-        : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
-
-    snapshotLines.push({
-      itemId: item._id,
-      name: participantLabel ? `${item.name} (for ${participantLabel})` : item.name,
-      priceMinor: item.priceMinor,
-      quantity: line.quantity,
-      modifiers: resolvedModifiers,
-      ...(line.notes ? { notes: line.notes } : {}),
-      lineTotalMinor,
-      ...(stationId ? { stationId } : {}),
-    });
-  }
-
-  return { snapshotLines, subtotalMinor };
+  | { error: string }
+> {
+  const pricing = await buildMenuCommercePricing({
+    connection: conn,
+    restaurantId,
+    restaurant,
+    lines,
+    channel: 'qr_dinein',
+    annotateItemName: participantLabel ? (name) => `${name} (for ${participantLabel})` : undefined,
+  });
+  if ('error' in pricing) return pricing;
+  return pricing;
 }
 
 async function touchSession(
@@ -588,6 +549,13 @@ export async function startOrJoinSessionAction(
       error: restaurant.holidayMode.message ?? 'The restaurant is currently closed.',
     };
   }
+  if (restaurant.qrOrderingPaused) {
+    return {
+      ok: false,
+      error:
+        'New dine-in sessions are temporarily paused. Please ask a staff member for assistance.',
+    };
+  }
 
   const requestHeaders = await headers();
   const ip = ipFromHeaders(requestHeaders);
@@ -607,8 +575,7 @@ export async function startOrJoinSessionAction(
         : (restaurant.hardening?.geofenceRadiusM ?? restaurant.geofenceRadiusM),
       wifiPublicIps: restaurant.wifiPublicIps,
       hardening: {
-        // Only enforce strictMode when geolocation restriction is active.
-        strictMode: geoEnabled ? (restaurant.hardening?.strictMode ?? false) : false,
+        strictMode: geoEnabled || (restaurant.hardening?.strictMode ?? false),
         wifiGate: restaurant.hardening?.wifiGate,
       },
     },
@@ -621,12 +588,25 @@ export async function startOrJoinSessionAction(
   }
 
   const now = new Date();
+
+  // Block new sessions outside operating hours. Joining an existing session is
+  // still allowed because the customer already seated themselves during hours.
+  const openStatus = getRestaurantOpenStatus(restaurant.hours, restaurant.timezone, now);
+
   const existing = await TableSession.findOne({
     restaurantId,
     tableId: table._id,
-    status: { $in: ['active', 'bill_requested'] },
+    status: { $in: ['active', 'bill_requested', 'needs_review'] },
   }).exec();
   if (existing) {
+    // Needs-review sessions need staff involvement — don't let the customer rejoin.
+    if (existing.status === 'needs_review') {
+      return {
+        ok: false,
+        error:
+          'This table needs staff assistance before a new session can start. Please call a waiter.',
+      };
+    }
     if (await expireSessionIfTimedOut({ Table, TableSession, Order }, existing, restaurant)) {
       return {
         ok: false,
@@ -667,12 +647,18 @@ export async function startOrJoinSessionAction(
     };
   }
 
+  // Block new session creation outside operating hours.
+  if (!openStatus.isOpen) {
+    const hint = openStatus.opensAt ? ` We open at ${openStatus.opensAt}.` : '';
+    return { ok: false, error: `The restaurant is currently closed.${hint}` };
+  }
+
   // Configurable per-table cap enables large-table split-bill workflows.
   const maxSessionsPerTable = restaurant.hardening?.maxSessionsPerTable ?? 1;
   const activeSessionsForTable = await TableSession.countDocuments({
     restaurantId,
     tableId: table._id,
-    status: { $in: ['active', 'bill_requested'] },
+    status: { $in: ['active', 'bill_requested', 'needs_review'] },
   }).exec();
   if (activeSessionsForTable >= maxSessionsPerTable) {
     return {
@@ -736,6 +722,7 @@ const modifierInput = z.object({
 });
 const lineInput = z.object({
   itemId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
   quantity: z.number().int().min(1).max(99),
   modifiers: z.array(modifierInput).max(20),
   notes: z.string().max(500).optional(),
@@ -762,7 +749,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const conn = await getMongoConnection('live');
-  const { TableSession, Item, Order, Restaurant, Table, Category } = getModels(conn);
+  const { TableSession, Order, Restaurant, Table } = getModels(conn);
 
   const session = await loadSessionById(TableSession, sessionId);
   if (!session) return { ok: false, error: 'Session not found.' };
@@ -773,6 +760,12 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const restaurantId = session.restaurantId;
   const restaurant = await loadSessionRestaurant(Restaurant, restaurantId);
   if (!restaurant) return { ok: false, error: 'Restaurant not found.' };
+  if (restaurant.holidayMode?.enabled) {
+    return {
+      ok: false,
+      error: restaurant.holidayMode.message ?? 'The restaurant is not accepting orders right now.',
+    };
+  }
   if (await expireSessionIfTimedOut({ TableSession, Order, Table }, session, restaurant)) {
     return {
       ok: false,
@@ -805,9 +798,8 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   }
 
   const roundSnapshot = await buildRoundSnapshot(
-    Item,
-    Category,
     restaurantId,
+    restaurant,
     parsed.data.lines,
     conn,
     parsed.data.participantLabel,
@@ -820,10 +812,7 @@ export async function placeRoundAction(raw: unknown): Promise<PlaceRoundResult> 
   const pickupNumber = await reserveDailyPickupNumber(conn, restaurantId, restaurant.timezone);
   const now = placedAt;
 
-  const { taxMinor, surchargeMinor } = computeTax(
-    roundSnapshot.subtotalMinor,
-    restaurant.taxRules ?? [],
-  );
+  const { taxMinor, surchargeMinor } = roundSnapshot;
   const totalMinor = roundSnapshot.subtotalMinor + surchargeMinor;
 
   const anomaly = await detectSessionAnomaly(Order, Table, restaurantId, session, totalMinor, now);

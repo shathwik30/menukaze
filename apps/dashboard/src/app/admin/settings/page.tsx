@@ -133,6 +133,8 @@ export default async function SettingsPage() {
             geolocationRestriction: {
               enabled: restaurant.geolocationRestriction?.enabled ?? false,
               radiusKm: restaurant.geolocationRestriction?.radiusKm ?? 5,
+              lat: restaurant.geo?.coordinates?.[1] ?? null,
+              lng: restaurant.geo?.coordinates?.[0] ?? null,
             },
             receiptBranding: {
               headerColor: restaurant.receiptBranding?.headerColor ?? '#000000',
@@ -149,6 +151,16 @@ export default async function SettingsPage() {
               percent: r.percent,
               inclusive: r.inclusive,
               label: r.label,
+            })),
+            taxClasses: (restaurant.taxClasses ?? []).map((taxClass) => ({
+              id: taxClass.id,
+              name: taxClass.name,
+              rules: (taxClass.rules ?? []).map((rule) => ({
+                name: rule.name,
+                percent: rule.percent,
+                inclusive: rule.inclusive,
+                label: rule.label,
+              })),
             })),
           }}
           permissions={{

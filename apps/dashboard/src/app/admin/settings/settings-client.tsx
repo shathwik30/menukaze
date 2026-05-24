@@ -14,7 +14,9 @@ import {
   updateReceiptBrandingAction,
   updateNotificationPrefsAction,
   updateTaxRulesAction,
+  updateTaxClassesAction,
 } from '@/app/actions/settings';
+import { GeolocationMapPicker } from './geolocation-map-picker';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 const DAY_KEYS = [
@@ -59,10 +61,20 @@ interface InitialSettings {
   hours: DayHours[];
   holidayMode: { enabled: boolean; message: string };
   throttling: { enabled: boolean; maxConcurrentOrders: number };
-  geolocationRestriction: { enabled: boolean; radiusKm: number };
+  geolocationRestriction: {
+    enabled: boolean;
+    radiusKm: number;
+    lat: number | null;
+    lng: number | null;
+  };
   receiptBranding: { headerColor: string; footerText: string; socials: string[] };
   notificationPrefs: { email: boolean; dashboard: boolean; sound: boolean };
   taxRules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
+  taxClasses: Array<{
+    id: string;
+    name: string;
+    rules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
+  }>;
 }
 
 interface SettingsPermissions {
@@ -213,11 +225,20 @@ export function SettingsClient({
         />
       ) : null}
       {permissions.canEditProfile ? (
-        <TaxRulesSection
-          initial={initial.taxRules}
-          pending={isPending}
-          onSubmit={(taxRules) => run('tax rules', () => updateTaxRulesAction({ taxRules }))}
-        />
+        <>
+          <TaxRulesSection
+            initial={initial.taxRules}
+            pending={isPending}
+            onSubmit={(taxRules) => run('tax rules', () => updateTaxRulesAction({ taxRules }))}
+          />
+          <TaxClassesSection
+            initial={initial.taxClasses}
+            pending={isPending}
+            onSubmit={(taxClasses) =>
+              run('tax classes', () => updateTaxClassesAction({ taxClasses }))
+            }
+          />
+        </>
       ) : null}
     </>
   );
@@ -676,18 +697,26 @@ function GeolocationRestrictionSection({
   pending,
   onSubmit,
 }: {
-  initial: { enabled: boolean; radiusKm: number };
+  initial: { enabled: boolean; radiusKm: number; lat: number | null; lng: number | null };
   pending: boolean;
-  onSubmit: (payload: { enabled: boolean; radiusKm: number }) => void;
+  onSubmit: (payload: { enabled: boolean; radiusKm: number; lat?: number; lng?: number }) => void;
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [radiusKm, setRadiusKm] = useState(initial.radiusKm);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    initial.lat !== null && initial.lng !== null ? { lat: initial.lat, lng: initial.lng } : null,
+  );
+
   return (
     <Section title="Geolocation restriction">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit({ enabled, radiusKm });
+          onSubmit({
+            enabled,
+            radiusKm,
+            ...(location ? { lat: location.lat, lng: location.lng } : {}),
+          });
         }}
         className="flex flex-col gap-3"
       >
@@ -708,10 +737,11 @@ function GeolocationRestrictionSection({
             className="border-input bg-background h-8 w-24 rounded-md border px-2 text-sm disabled:opacity-50"
           />
         </label>
+        <GeolocationMapPicker value={location} onChange={setLocation} disabled={pending} />
         <p className="text-muted-foreground text-xs">
-          When enabled, the storefront and QR dine-in apps will prompt customers for their location
-          and block ordering if they are outside the radius. Requires your restaurant coordinates to
-          be set in your profile.
+          When enabled, QR dine-in will prompt customers for location and block ordering if they are
+          outside the radius. Choose the restaurant point on the map so the geofence has the correct
+          center.
         </p>
         <SaveButton pending={pending} />
       </form>
@@ -813,6 +843,12 @@ interface TaxRuleEntry {
   label?: string;
 }
 
+interface TaxClassEntry {
+  id: string;
+  name: string;
+  rules: TaxRuleEntry[];
+}
+
 function TaxRulesSection({
   initial,
   pending,
@@ -907,6 +943,187 @@ function TaxRulesSection({
           className="w-fit rounded-md border px-3 py-1.5 text-sm"
         >
           + Add tax rule
+        </Button>
+        <SaveButton pending={pending} />
+      </form>
+    </Section>
+  );
+}
+
+function TaxClassesSection({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: TaxClassEntry[];
+  pending: boolean;
+  onSubmit: (taxClasses: TaxClassEntry[]) => void;
+}) {
+  const [taxClasses, setTaxClasses] = useState<TaxClassEntry[]>(initial);
+
+  function updateTaxClass(index: number, patch: Partial<TaxClassEntry>) {
+    setTaxClasses(
+      taxClasses.map((taxClass, currentIndex) =>
+        currentIndex === index ? { ...taxClass, ...patch } : taxClass,
+      ),
+    );
+  }
+
+  function updateTaxClassRule(classIndex: number, ruleIndex: number, patch: Partial<TaxRuleEntry>) {
+    setTaxClasses(
+      taxClasses.map((taxClass, currentIndex) =>
+        currentIndex === classIndex
+          ? {
+              ...taxClass,
+              rules: taxClass.rules.map((rule, currentRuleIndex) =>
+                currentRuleIndex === ruleIndex ? { ...rule, ...patch } : rule,
+              ),
+            }
+          : taxClass,
+      ),
+    );
+  }
+
+  return (
+    <Section title="Item Tax Classes">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(taxClasses);
+        }}
+        className="flex flex-col gap-3"
+      >
+        <p className="text-muted-foreground text-sm">
+          Use tax classes for items that need different treatment from the restaurant-wide order
+          tax, such as alcohol versus food.
+        </p>
+        {taxClasses.map((taxClass, classIndex) => (
+          <div
+            key={taxClass.id || classIndex}
+            className="border-border flex flex-col gap-3 rounded-md border p-3"
+          >
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Stable id (e.g. alcohol)"
+                value={taxClass.id}
+                onChange={(e) => updateTaxClass(classIndex, { id: e.target.value })}
+                className="border-input bg-background w-48 rounded-md border px-3 py-1.5 text-sm"
+                required
+              />
+              <Input
+                type="text"
+                placeholder="Display name"
+                value={taxClass.name}
+                onChange={(e) => updateTaxClass(classIndex, { name: e.target.value })}
+                className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
+                required
+              />
+              <Button
+                variant="plain"
+                size="none"
+                type="button"
+                onClick={() => setTaxClasses(taxClasses.filter((_, index) => index !== classIndex))}
+                className="text-destructive text-sm hover:underline"
+              >
+                Remove
+              </Button>
+            </div>
+            {taxClass.rules.map((rule, ruleIndex) => (
+              <div
+                key={`${taxClass.id}-${ruleIndex}`}
+                className="border-border flex flex-col gap-2 rounded-md border p-3"
+              >
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Rule name"
+                    value={rule.name}
+                    onChange={(e) =>
+                      updateTaxClassRule(classIndex, ruleIndex, { name: e.target.value })
+                    }
+                    className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
+                    required
+                  />
+                  <Input
+                    type="number"
+                    placeholder="%"
+                    value={rule.percent}
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    onChange={(e) =>
+                      updateTaxClassRule(classIndex, ruleIndex, {
+                        percent: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="border-input bg-background w-20 rounded-md border px-3 py-1.5 text-sm"
+                    required
+                  />
+                  <Button
+                    variant="plain"
+                    size="none"
+                    type="button"
+                    onClick={() =>
+                      updateTaxClass(classIndex, {
+                        rules: taxClass.rules.filter((_, index) => index !== ruleIndex),
+                      })
+                    }
+                    className="text-destructive text-sm hover:underline"
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={rule.inclusive}
+                      onChange={(e) =>
+                        updateTaxClassRule(classIndex, ruleIndex, { inclusive: e.target.checked })
+                      }
+                    />
+                    Inclusive
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Receipt label (optional)"
+                    value={rule.label ?? ''}
+                    onChange={(e) =>
+                      updateTaxClassRule(classIndex, ruleIndex, { label: e.target.value })
+                    }
+                    className="border-input bg-background flex-1 rounded-md border px-3 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="plain"
+              size="none"
+              type="button"
+              onClick={() =>
+                updateTaxClass(classIndex, {
+                  rules: [...taxClass.rules, { name: '', percent: 0, inclusive: false, label: '' }],
+                })
+              }
+              className="w-fit rounded-md border px-3 py-1.5 text-sm"
+            >
+              + Add class rule
+            </Button>
+          </div>
+        ))}
+        <Button
+          variant="plain"
+          size="none"
+          type="button"
+          onClick={() =>
+            setTaxClasses([
+              ...taxClasses,
+              { id: '', name: '', rules: [{ name: '', percent: 0, inclusive: false, label: '' }] },
+            ])
+          }
+          className="w-fit rounded-md border px-3 py-1.5 text-sm"
+        >
+          + Add tax class
         </Button>
         <SaveButton pending={pending} />
       </form>
