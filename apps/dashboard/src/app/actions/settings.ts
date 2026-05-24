@@ -149,6 +149,35 @@ export async function updateHolidayModeAction(raw: unknown): Promise<ActionResul
   );
 }
 
+export async function updateQrOrderingPausedAction(paused: boolean): Promise<ActionResult> {
+  return runRestaurantAction(
+    ['tables.view'],
+    {
+      onError: 'Failed to update QR ordering.',
+      onForbidden: 'You do not have permission to do that.',
+    },
+    async ({ restaurantId, session, role }) => {
+      const conn = await getMongoConnection('live');
+      const { Restaurant } = getModels(conn);
+      await Restaurant.updateOne(
+        { _id: restaurantId },
+        { $set: { qrOrderingPaused: paused } },
+      ).exec();
+      await recordAudit({
+        restaurantId,
+        userId: session.user.id,
+        userEmail: session.user.email,
+        role,
+        action: paused ? 'settings.qr_ordering.paused' : 'settings.qr_ordering.resumed',
+        resourceType: 'restaurant',
+        resourceId: String(restaurantId),
+      });
+      revalidatePath('/admin/tables');
+      return { ok: true };
+    },
+  );
+}
+
 const throttlingInput = z.object({
   enabled: z.boolean(),
   maxConcurrentOrders: z.number().int().min(1).max(500),
@@ -324,10 +353,21 @@ export async function updateNotificationPrefsAction(raw: unknown): Promise<Actio
   );
 }
 
-const geolocationRestrictionInput = z.object({
-  enabled: z.boolean(),
-  radiusKm: z.number().min(0.1).max(100),
-});
+const geolocationRestrictionInput = z
+  .object({
+    enabled: z.boolean(),
+    radiusKm: z.number().min(0.1).max(100),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+  })
+  .refine((value) => (value.lat === undefined) === (value.lng === undefined), {
+    message: 'Select a complete restaurant location.',
+    path: ['lat'],
+  })
+  .refine((value) => !value.enabled || (value.lat !== undefined && value.lng !== undefined), {
+    message: 'Select the restaurant location before enabling geolocation restriction.',
+    path: ['lat'],
+  });
 export async function updateGeolocationRestrictionAction(raw: unknown): Promise<ActionResult> {
   const parsed = geolocationRestrictionInput.safeParse(raw);
   if (!parsed.success) return validationError(parsed.error);
@@ -341,9 +381,14 @@ export async function updateGeolocationRestrictionAction(raw: unknown): Promise<
     async ({ restaurantId, session, role }) => {
       const conn = await getMongoConnection('live');
       const { Restaurant } = getModels(conn);
+      const { lat, lng, ...geoRestriction } = parsed.data;
+      const locationUpdate =
+        lat !== undefined && lng !== undefined
+          ? { geo: { type: 'Point', coordinates: [lng, lat] } }
+          : {};
       await Restaurant.updateOne(
         { _id: restaurantId },
-        { $set: { geolocationRestriction: parsed.data } },
+        { $set: { geolocationRestriction: geoRestriction, ...locationUpdate } },
       ).exec();
       await recordAudit({
         restaurantId,

@@ -143,9 +143,11 @@ export {
   isoWeekdayKey,
   computeAvailableSlots,
   isReservationSlotValid,
+  getRestaurantOpenStatus,
 } from './reservations';
 export type {
   RestaurantHourEntry,
+  RestaurantOpenStatus,
   ReservationSettings,
   BookedSlot,
   SlotOption,

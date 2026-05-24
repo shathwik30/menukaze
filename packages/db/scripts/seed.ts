@@ -277,7 +277,7 @@ async function ensureTables(
         $set: {
           name: `Table ${String(number)}`,
           capacity: 4,
-          zone: number <= 6 ? 'Dining Room' : 'Patio',
+          zone: 'Main floor',
           status: 'available',
         },
         $setOnInsert: {

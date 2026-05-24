@@ -16,7 +16,7 @@ export default async function OnboardingGoLivePage() {
     Table.countDocuments({ restaurantId }).exec(),
   ]);
   if (!restaurant) redirect('/onboarding');
-  if (restaurant.onboardingStep !== 'go-live') redirect('/admin');
+  if (restaurant.onboardingStep !== 'go-live') redirect('/onboarding');
 
   const prodStorefront = `https://${restaurant.slug}.menukaze.com`;
   const devStorefront = `http://${restaurant.slug}.localhost:3001`;

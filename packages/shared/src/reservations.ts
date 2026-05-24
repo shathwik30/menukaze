@@ -127,6 +127,70 @@ export function computeAvailableSlots(input: {
   return slots;
 }
 
+export interface RestaurantOpenStatus {
+  isOpen: boolean;
+  /** Human-readable time the restaurant opens today (e.g. "9:00 AM"), only when closed. */
+  opensAt?: string;
+  /** Human-readable closing time (e.g. "10:00 PM"), only when currently open. */
+  closesAt?: string;
+}
+
+function formatTime12h(hhMm: string): string {
+  const [hStr, mStr] = hhMm.split(':');
+  const h = Number(hStr);
+  const m = Number(mStr);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/**
+ * Returns whether the restaurant is currently open based on its operating hours
+ * schedule and timezone. When no hours are configured, it returns open=true so
+ * the absence of a schedule never blocks ordering.
+ */
+export function getRestaurantOpenStatus(
+  hours: RestaurantHourEntry[],
+  timezone: string | null | undefined,
+  now: Date = new Date(),
+): RestaurantOpenStatus {
+  if (!hours || hours.length === 0) return { isOpen: true };
+
+  const zone = timezone?.trim() ?? 'UTC';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+
+  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value?.toLowerCase();
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+
+  const dayKey = weekdayShort as RestaurantHourEntry['day'] | undefined;
+  if (!dayKey) return { isOpen: true };
+
+  const dayEntry = hours.find((h) => h.day === dayKey);
+  if (!dayEntry) return { isOpen: true };
+  if (dayEntry.closed) return { isOpen: false };
+  if (!dayEntry.open || !dayEntry.close) return { isOpen: true };
+
+  const currentMinutes = hour * 60 + minute;
+  const openMinutes = parseHHmm(dayEntry.open);
+  const closeMinutes = parseHHmm(dayEntry.close);
+  if (openMinutes === null || closeMinutes === null) return { isOpen: true };
+
+  if (currentMinutes < openMinutes) {
+    return { isOpen: false, opensAt: formatTime12h(dayEntry.open) };
+  }
+  if (currentMinutes >= closeMinutes) {
+    return { isOpen: false };
+  }
+  return { isOpen: true, closesAt: formatTime12h(dayEntry.close) };
+}
+
 export function isReservationSlotValid(input: {
   date: string;
   slotStart: string;

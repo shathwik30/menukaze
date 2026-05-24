@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getMongoConnection, getModels } from '@menukaze/db';
 import { requirePageFlag } from '@/lib/session';
 import { TablesManager, type ManagerTable } from './tables-manager';
@@ -19,6 +18,8 @@ export default async function TablesPage() {
   const canEditTables = permissions.includes('tables.edit');
   const canPrintQr = permissions.includes('tables.qr_print');
   const canProcessPayments = permissions.includes('payments.process');
+  const canToggleHoliday = permissions.includes('settings.toggle_holiday');
+  const canPauseQr = permissions.includes('tables.view');
 
   const conn = await getMongoConnection('live');
   const { Restaurant, Table, TableSession, Order } = getModels(conn);
@@ -48,14 +49,12 @@ export default async function TablesPage() {
   const sessionByTableId = new Map<string, (typeof tableSessions)[number]>();
   for (const tableSession of tableSessions) {
     const key = String(tableSession.tableId);
-    if (!sessionByTableId.has(key)) {
-      sessionByTableId.set(key, tableSession);
-    }
+    if (!sessionByTableId.has(key)) sessionByTableId.set(key, tableSession);
   }
   const activeOrderTableIds = new Set(
     activeOrders
-      .map((order) => (order.tableId ? String(order.tableId) : null))
-      .filter((tableId): tableId is string => Boolean(tableId)),
+      .map((o) => (o.tableId ? String(o.tableId) : null))
+      .filter((id): id is string => Boolean(id)),
   );
   const rows: ManagerTable[] = tables.map((t) => ({
     ...(sessionByTableId.get(String(t._id))
@@ -77,101 +76,23 @@ export default async function TablesPage() {
     qrUrl: canPrintQr ? `https://${slug}.menukaze.com/t/${t.qrToken}` : '',
   }));
 
+  const downloadPdfUrl = rows.length > 0 && canPrintQr ? '/admin/tables/print/download' : undefined;
+
   return (
-    <div>
-      <div
-        style={{
-          padding: '28px 40px 24px',
-          borderBottom: '1px solid var(--mk-ink-100)',
-          background: 'white',
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: 24,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--mk-saffron-700)',
-              marginBottom: 8,
-            }}
-          >
-            Floor plan
-          </div>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 32,
-              fontWeight: 500,
-              letterSpacing: '-0.025em',
-              color: 'var(--mk-ink-950)',
-            }}
-          >
-            Tables &amp; QR
-          </h1>
-          <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--mk-ink-500)' }}>
-            Dine-in tables and QR codes for {restaurant?.name}
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {rows.length > 0 && canPrintQr ? (
-            <>
-              <Link
-                href="/admin/tables/print"
-                target="_blank"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--mk-ink-600)',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: 3,
-                }}
-              >
-                Print all QRs
-              </Link>
-              <Link
-                href="/admin/tables/print/download"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--mk-ink-600)',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: 3,
-                }}
-              >
-                Download PDF
-              </Link>
-            </>
-          ) : null}
-          <Link
-            href="/admin"
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--mk-ink-500)',
-              textDecoration: 'none',
-            }}
-          >
-            ← Back
-          </Link>
-        </div>
-      </div>
-      <div style={{ padding: '24px 40px 48px' }}>
-        <TablesManager
-          restaurantId={session.restaurantId}
-          tables={rows}
-          canEdit={canEditTables}
-          canPrintQr={canPrintQr}
-          canProcessPayments={canProcessPayments}
-        />
-      </div>
+    <div className="px-10 py-6 pb-12">
+      <TablesManager
+        restaurantId={session.restaurantId}
+        tables={rows}
+        canEdit={canEditTables}
+        canPrintQr={canPrintQr}
+        canProcessPayments={canProcessPayments}
+        canToggleHoliday={canToggleHoliday}
+        canPauseQr={canPauseQr}
+        holidayModeEnabled={restaurant?.holidayMode?.enabled ?? false}
+        holidayModeMessage={restaurant?.holidayMode?.message ?? ''}
+        qrOrderingPaused={restaurant?.qrOrderingPaused ?? false}
+        downloadPdfUrl={downloadPdfUrl}
+      />
     </div>
   );
 }

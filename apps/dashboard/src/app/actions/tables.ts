@@ -12,6 +12,7 @@ const inputSchema = z
   .object({
     hasTables: z.enum(['yes', 'no']),
     tableCount: z.number().int().min(1).max(200).optional(),
+    defaultCapacity: z.number().int().min(1).max(20).default(4),
   })
   .refine(
     (data) =>
@@ -55,7 +56,8 @@ export async function createTablesStarterAction(raw: unknown): Promise<CreateTab
                 restaurantId,
                 number,
                 name: `Table ${number}`,
-                capacity: 4,
+                capacity: input.defaultCapacity,
+                zone: 'Main floor',
                 qrToken: generateQrToken(),
                 status: 'available' as const,
               };

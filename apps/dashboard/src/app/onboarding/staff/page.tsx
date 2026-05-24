@@ -14,7 +14,7 @@ export default async function OnboardingStaffPage() {
   if (!restaurant) redirect('/onboarding');
 
   if (restaurant.onboardingStep !== 'staff') {
-    redirect('/admin');
+    redirect('/onboarding');
   }
 
   const [invites, members] = await Promise.all([

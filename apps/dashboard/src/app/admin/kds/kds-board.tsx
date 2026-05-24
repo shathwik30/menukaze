@@ -58,11 +58,12 @@ interface Props {
   stationFilter?: string | null;
 }
 
+// KDS scope: confirmed → preparing → ready.
+// "served" and beyond are waiter responsibilities on the Tables page.
 const STAGE_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
   received: { next: 'confirmed', label: 'Confirm' },
   confirmed: { next: 'preparing', label: 'Start prepping' },
   preparing: { next: 'ready', label: 'Mark ready' },
-  ready: { next: 'completed', label: 'Complete' },
 };
 
 const AGE_HOT_MIN = 5;

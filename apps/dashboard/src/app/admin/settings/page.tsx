@@ -133,6 +133,8 @@ export default async function SettingsPage() {
             geolocationRestriction: {
               enabled: restaurant.geolocationRestriction?.enabled ?? false,
               radiusKm: restaurant.geolocationRestriction?.radiusKm ?? 5,
+              lat: restaurant.geo?.coordinates?.[1] ?? null,
+              lng: restaurant.geo?.coordinates?.[0] ?? null,
             },
             receiptBranding: {
               headerColor: restaurant.receiptBranding?.headerColor ?? '#000000',

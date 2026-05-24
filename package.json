@@ -20,6 +20,7 @@
     "verify": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm lint",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "db:seed": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/seed.ts'",
+    "db:migrate:main-floor": "bash -lc 'set -a; [ -f ./.env.local ] && . ./.env.local; set +a; exec tsx packages/db/scripts/migrate-tables-main-floor.ts'",
     "prepare": "husky"
   },
   "devDependencies": {

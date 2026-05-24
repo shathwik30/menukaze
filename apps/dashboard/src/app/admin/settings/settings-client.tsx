@@ -16,6 +16,7 @@ import {
   updateTaxRulesAction,
   updateTaxClassesAction,
 } from '@/app/actions/settings';
+import { GeolocationMapPicker } from './geolocation-map-picker';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 const DAY_KEYS = [
@@ -60,7 +61,12 @@ interface InitialSettings {
   hours: DayHours[];
   holidayMode: { enabled: boolean; message: string };
   throttling: { enabled: boolean; maxConcurrentOrders: number };
-  geolocationRestriction: { enabled: boolean; radiusKm: number };
+  geolocationRestriction: {
+    enabled: boolean;
+    radiusKm: number;
+    lat: number | null;
+    lng: number | null;
+  };
   receiptBranding: { headerColor: string; footerText: string; socials: string[] };
   notificationPrefs: { email: boolean; dashboard: boolean; sound: boolean };
   taxRules: Array<{ name: string; percent: number; inclusive: boolean; label?: string }>;
@@ -691,18 +697,26 @@ function GeolocationRestrictionSection({
   pending,
   onSubmit,
 }: {
-  initial: { enabled: boolean; radiusKm: number };
+  initial: { enabled: boolean; radiusKm: number; lat: number | null; lng: number | null };
   pending: boolean;
-  onSubmit: (payload: { enabled: boolean; radiusKm: number }) => void;
+  onSubmit: (payload: { enabled: boolean; radiusKm: number; lat?: number; lng?: number }) => void;
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [radiusKm, setRadiusKm] = useState(initial.radiusKm);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    initial.lat !== null && initial.lng !== null ? { lat: initial.lat, lng: initial.lng } : null,
+  );
+
   return (
     <Section title="Geolocation restriction">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit({ enabled, radiusKm });
+          onSubmit({
+            enabled,
+            radiusKm,
+            ...(location ? { lat: location.lat, lng: location.lng } : {}),
+          });
         }}
         className="flex flex-col gap-3"
       >
@@ -723,10 +737,11 @@ function GeolocationRestrictionSection({
             className="border-input bg-background h-8 w-24 rounded-md border px-2 text-sm disabled:opacity-50"
           />
         </label>
+        <GeolocationMapPicker value={location} onChange={setLocation} disabled={pending} />
         <p className="text-muted-foreground text-xs">
-          When enabled, the storefront and QR dine-in apps will prompt customers for their location
-          and block ordering if they are outside the radius. Requires your restaurant coordinates to
-          be set in your profile.
+          When enabled, QR dine-in will prompt customers for location and block ordering if they are
+          outside the radius. Choose the restaurant point on the map so the geofence has the correct
+          center.
         </p>
         <SaveButton pending={pending} />
       </form>

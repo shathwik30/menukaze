@@ -25,7 +25,6 @@ export function GoLiveButton({ canActivate, hasRazorpay, itemCount }: Props) {
         return;
       }
       router.push('/admin');
-      router.refresh();
     });
   }
 
