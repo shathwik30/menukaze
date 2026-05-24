@@ -40,6 +40,7 @@ interface SessionModifierOption {
 interface SessionModifierGroup {
   name: string;
   required: boolean;
+  min: number;
   max: number;
   options: SessionModifierOption[];
 }
@@ -52,6 +53,18 @@ export interface SessionItem {
   priceLabel: string;
   categoryId: string;
   categoryName: string;
+  allergens: string[];
+  featured: boolean;
+  searchKeywords: string[];
+  taxClassId?: string;
+  variants: Array<{
+    id: string;
+    name: string;
+    priceMinor: number;
+    priceLabel: string;
+    isDefault: boolean;
+    soldOut: boolean;
+  }>;
   soldOut: boolean;
   imageUrl?: string;
   comboItemNames: string[];
@@ -73,7 +86,13 @@ interface Props {
   customerName: string;
   participants: string[];
   menus: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string; menuId: string }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    menuId: string;
+    menuIds: string[];
+  }>;
   items: SessionItem[];
   rounds: SessionRound[];
   totalLabel: string;
@@ -141,7 +160,7 @@ export function SessionClient({
   }, [restaurantId, router, sessionId]);
 
   const visibleCategories = useMemo(() => {
-    return categories.filter((c) => c.menuId === activeMenuId);
+    return categories.filter((c) => c.menuIds.includes(activeMenuId || c.menuId));
   }, [categories, activeMenuId]);
 
   const subtotalLabel = useMemo(() => {
@@ -178,11 +197,13 @@ export function SessionClient({
         sessionId,
         lines: cartLines.map<{
           itemId: string;
+          variantId?: string;
           quantity: number;
           modifiers: CartLine['modifiers'];
           notes?: string;
         }>((l: CartLine) => ({
           itemId: l.itemId,
+          ...(l.variantId ? { variantId: l.variantId } : {}),
           quantity: l.quantity,
           modifiers: l.modifiers,
           ...(l.notes ? { notes: l.notes } : {}),
@@ -336,6 +357,11 @@ export function SessionClient({
                 <h3 className="border-ink-100 text-foreground dark:border-ink-800 border-b pb-3 font-serif text-lg font-medium tracking-tight">
                   {category.name}
                 </h3>
+                {category.description ? (
+                  <p className="text-ink-500 dark:text-ink-400 mt-2 text-sm leading-6">
+                    {category.description}
+                  </p>
+                ) : null}
                 <ul className="divide-ink-100 dark:divide-ink-800 divide-y">
                   {catItems.map((item) => (
                     <li
@@ -355,9 +381,16 @@ export function SessionClient({
                         ) : null}
                         <div className="min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-foreground font-serif text-[15px] leading-tight font-medium">
-                              {item.name}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-foreground font-serif text-[15px] leading-tight font-medium">
+                                {item.name}
+                              </p>
+                              {item.featured ? (
+                                <Badge variant="subtle" size="xs">
+                                  Featured
+                                </Badge>
+                              ) : null}
+                            </div>
                           </div>
                           {item.description ? (
                             <p className="text-ink-500 dark:text-ink-400 mt-1 line-clamp-2 text-[12.5px] leading-relaxed">
@@ -367,6 +400,11 @@ export function SessionClient({
                           {item.comboItemNames.length > 0 ? (
                             <p className="text-ink-500 dark:text-ink-400 mt-1 text-[11px] italic">
                               Includes {item.comboItemNames.join(' · ')}
+                            </p>
+                          ) : null}
+                          {item.allergens.length > 0 ? (
+                            <p className="text-ink-500 dark:text-ink-400 mt-1 text-[11px]">
+                              Allergens: {item.allergens.join(', ')}
                             </p>
                           ) : null}
                           {item.soldOut ? (
@@ -384,8 +422,10 @@ export function SessionClient({
                           itemId={item.id}
                           name={item.name}
                           priceMinor={item.priceMinor}
+                          taxClassId={item.taxClassId}
                           currency={currency}
                           locale={locale}
+                          variants={item.variants}
                           modifiers={item.modifiers}
                           disabled={item.soldOut || sessionLocked}
                         />
@@ -453,6 +493,11 @@ export function SessionClient({
                         <p className="text-foreground truncate text-[13px] font-medium">
                           {line.name}
                         </p>
+                        {line.variantName ? (
+                          <p className="text-ink-500 dark:text-ink-400 text-[11px]">
+                            {line.variantName}
+                          </p>
+                        ) : null}
                         {line.modifiers.length > 0 ? (
                           <p className="text-ink-500 dark:text-ink-400 text-[11px]">
                             {line.modifiers.map((m) => m.optionName).join(', ')}

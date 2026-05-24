@@ -6,11 +6,18 @@ export interface WorkerHealthState {
   startedAt: Date;
   lastSweepAt: Date | null;
   lastWebhookDrainAt: Date | null;
+  lastReservationReminderAt: Date | null;
   lastSweepResult: { scanned: number; expired: number } | null;
   lastWebhookDrainResult: {
     scanned: number;
     delivered: number;
     retried: number;
+    failed: number;
+  } | null;
+  lastReservationReminderResult: {
+    restaurants: number;
+    scanned: number;
+    sent: number;
     failed: number;
   } | null;
 }
@@ -30,6 +37,10 @@ interface HealthBody {
     webhookDrain: {
       lastRunAt: string | null;
       lastResult: WorkerHealthState['lastWebhookDrainResult'];
+    };
+    reservationReminders: {
+      lastRunAt: string | null;
+      lastResult: WorkerHealthState['lastReservationReminderResult'];
     };
   };
 }
@@ -62,6 +73,10 @@ async function buildHealthBody(state: WorkerHealthState): Promise<{
       webhookDrain: {
         lastRunAt: state.lastWebhookDrainAt?.toISOString() ?? null,
         lastResult: state.lastWebhookDrainResult,
+      },
+      reservationReminders: {
+        lastRunAt: state.lastReservationReminderAt?.toISOString() ?? null,
+        lastResult: state.lastReservationReminderResult,
       },
     },
   };

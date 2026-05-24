@@ -3,12 +3,12 @@
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
+  buildMenuCommercePricing,
   enqueueWebhookEvent,
   envelopeDecrypt,
   getMongoConnection,
   getModels,
   generatePublicOrderId,
-  pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
@@ -18,16 +18,7 @@ import { captureException } from '@menukaze/monitoring';
 import { channels } from '@menukaze/realtime';
 import { env } from '@/env';
 import { publishRealtimeEvent } from '@menukaze/realtime/server';
-import {
-  computeCartPrepMinutes,
-  computeTax,
-  DEFAULT_PREP_MINUTES,
-  formatMoney,
-  orderWebhookChannel,
-  parseCurrencyCode,
-  resolvePrimaryStationId,
-  validateModifierSelection,
-} from '@menukaze/shared';
+import { formatMoney, orderWebhookChannel, parseCurrencyCode } from '@menukaze/shared';
 import {
   getRazorpayClientFromEncryptedKeys,
   readRazorpayOrderId,
@@ -46,6 +37,7 @@ const modifierInput = z.object({
 
 const lineInput = z.object({
   itemId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
   quantity: z.number().int().min(1).max(99),
   modifiers: z.array(modifierInput).max(20),
   notes: z.string().max(500).optional(),
@@ -81,9 +73,14 @@ interface CheckoutLineSnapshot {
   itemId: Types.ObjectId;
   name: string;
   priceMinor: number;
+  variantId?: Types.ObjectId;
+  variantName?: string;
   quantity: number;
   modifiers: { groupName: string; optionName: string; priceMinor: number }[];
   notes?: string;
+  taxClassId?: string;
+  taxClassName?: string;
+  taxMinor?: number;
   lineTotalMinor: number;
   stationId?: Types.ObjectId;
 }
@@ -109,6 +106,17 @@ interface CheckoutRestaurant {
     inclusive: boolean;
     scope: 'order' | 'item';
     label?: string;
+  }> | null;
+  taxClasses?: Array<{
+    id: string;
+    name: string;
+    rules: Array<{
+      name: string;
+      percent: number;
+      inclusive: boolean;
+      scope: 'order' | 'item';
+      label?: string;
+    }>;
   }> | null;
 }
 
@@ -137,6 +145,8 @@ interface CheckoutPricing {
   snapshotLines: CheckoutLineSnapshot[];
   subtotalMinor: number;
   prepMinutes: number;
+  taxMinor: number;
+  surchargeMinor: number;
 }
 
 function buildCheckoutIds(
@@ -183,79 +193,19 @@ async function ensureRestaurantCanCheckout(
 }
 
 async function buildCheckoutPricing(
-  itemModel: ReturnType<typeof getModels>['Item'],
   restaurantId: Types.ObjectId,
-  itemIds: Types.ObjectId[],
   restaurant: CheckoutRestaurant,
   lines: CheckoutInput['lines'],
-  categoryModel: ReturnType<typeof getModels>['Category'],
   conn: Awaited<ReturnType<typeof getMongoConnection>>,
 ): Promise<CheckoutPricing | { error: string }> {
-  const items = await itemModel.find({ restaurantId, _id: { $in: itemIds } }).exec();
-  const itemsById = new Map(items.map((item) => [String(item._id), item]));
-  const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
-  const categories =
-    categoryIds.length > 0
-      ? await categoryModel
-          .find(
-            {
-              restaurantId,
-              _id: { $in: categoryIds },
-            },
-            { stationIds: 1 },
-          )
-          .lean()
-          .exec()
-      : [];
-  const categoryStationsById = new Map(categories.map((c) => [String(c._id), c.stationIds ?? []]));
-
-  const snapshotLines: CheckoutLineSnapshot[] = [];
-  let subtotalMinor = 0;
-
-  for (const line of lines) {
-    const item = itemsById.get(line.itemId);
-    if (!item) return { error: 'Item no longer available.' };
-    if (item.soldOut) return { error: `${item.name} is sold out.` };
-    if (item.currency !== restaurant.currency) {
-      return { error: `Currency mismatch for ${item.name}.` };
-    }
-
-    const modifierResult = validateModifierSelection(item.modifiers, line.modifiers, item.name);
-    if (!modifierResult.ok) {
-      return { error: modifierResult.error };
-    }
-
-    const resolvedModifiers = modifierResult.modifiers;
-    const unitMinor =
-      item.priceMinor + resolvedModifiers.reduce((sum, modifier) => sum + modifier.priceMinor, 0);
-    const lineTotalMinor = unitMinor * line.quantity;
-    subtotalMinor += lineTotalMinor;
-
-    // When an item can route to multiple stations, spread load: pick the one
-    // with the fewest open lines so a busy grill doesn't get every new order.
-    const itemStations = item.stationIds ?? [];
-    const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
-    const candidates = itemStations.length > 0 ? itemStations : categoryStations;
-    const stationId =
-      candidates.length > 1
-        ? await pickLeastLoadedStationId(conn, restaurantId, candidates)
-        : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
-
-    snapshotLines.push({
-      itemId: item._id,
-      name: item.name,
-      priceMinor: item.priceMinor,
-      quantity: line.quantity,
-      modifiers: resolvedModifiers,
-      ...(line.notes ? { notes: line.notes } : {}),
-      lineTotalMinor,
-      ...(stationId ? { stationId } : {}),
-    });
-  }
-
-  if (subtotalMinor <= 0) {
-    return { error: 'Your cart is empty.' };
-  }
+  const pricing = await buildMenuCommercePricing({
+    connection: conn,
+    restaurantId,
+    restaurant,
+    lines,
+    channel: 'storefront',
+  });
+  if ('error' in pricing) return pricing;
 
   if (restaurant.holidayMode?.enabled) {
     return {
@@ -264,7 +214,7 @@ async function buildCheckoutPricing(
   }
 
   const minimumOrderMinor = restaurant.minimumOrderMinor ?? 0;
-  if (minimumOrderMinor > 0 && subtotalMinor < minimumOrderMinor) {
+  if (minimumOrderMinor > 0 && pricing.subtotalMinor < minimumOrderMinor) {
     return {
       error: `Minimum order is ${formatMoney(
         minimumOrderMinor,
@@ -273,19 +223,7 @@ async function buildCheckoutPricing(
       )}.`,
     };
   }
-
-  // Prep time is the max per-item prep time across the cart, falling back to
-  // the restaurant default so operators see a sensible estimate even before
-  // they've filled out per-item values.
-  const prepMinutes = computeCartPrepMinutes(
-    lines.map((line) => {
-      const item = itemsById.get(line.itemId);
-      return { estimatedPrepMinutes: item?.estimatedPrepMinutes ?? null };
-    }),
-    restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES,
-  );
-
-  return { snapshotLines, subtotalMinor, prepMinutes };
+  return pricing;
 }
 
 function buildTrackingUrl(restaurant: CheckoutRestaurant, orderId: string): string {
@@ -394,7 +332,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   }
 
   const conn = await getMongoConnection('live');
-  const { Item, Order, Category } = getModels(conn);
+  const { Order } = getModels(conn);
   const restaurantResult = await ensureRestaurantCanCheckout(conn, checkoutIds.restaurantId);
   if ('error' in restaurantResult) {
     return { ok: false, error: restaurantResult.error };
@@ -402,12 +340,9 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   const restaurant = restaurantResult.restaurant;
 
   const pricing = await buildCheckoutPricing(
-    Item,
     checkoutIds.restaurantId,
-    checkoutIds.itemIds,
     restaurant,
     input.lines,
-    Category,
     conn,
   );
   if ('error' in pricing) {
@@ -415,7 +350,7 @@ export async function createPaymentIntentAction(raw: unknown): Promise<CreatePay
   }
 
   const deliveryFeeMinor = input.type === 'delivery' ? (restaurant.deliveryFeeMinor ?? 0) : 0;
-  const { taxMinor, surchargeMinor } = computeTax(pricing.subtotalMinor, restaurant.taxRules ?? []);
+  const { taxMinor, surchargeMinor } = pricing;
   const totalMinor = pricing.subtotalMinor + surchargeMinor + deliveryFeeMinor;
   if (totalMinor <= 0) {
     return { ok: false, error: 'Your cart is empty.' };

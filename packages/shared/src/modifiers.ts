@@ -5,6 +5,7 @@ export interface ModifierOptionLike {
 
 export interface ModifierGroupLike {
   name: string;
+  min?: number | null;
   required?: boolean | null;
   max?: number | null;
   options: ModifierOptionLike[];
@@ -26,6 +27,13 @@ export function maxSelectionsForModifierGroup(group: ModifierGroupLike): number 
   if (group.options.length === 0) return 0;
   if (!group.max || group.max < 1) return group.options.length;
   return Math.min(group.max, group.options.length);
+}
+
+function minSelectionsForModifierGroup(group: ModifierGroupLike): number {
+  if (typeof group.min === 'number' && Number.isFinite(group.min)) {
+    return Math.max(0, Math.min(group.min, maxSelectionsForModifierGroup(group)));
+  }
+  return group.required ? 1 : 0;
 }
 
 export function validateModifierSelection(
@@ -62,8 +70,15 @@ export function validateModifierSelection(
 
   for (const group of groups) {
     const groupSelections = selectedByGroup.get(group.name) ?? [];
-    if (group.required && groupSelections.length === 0) {
-      return { ok: false, error: `${group.name} is required for ${itemName}.` };
+    const min = minSelectionsForModifierGroup(group);
+    if (groupSelections.length < min) {
+      return {
+        ok: false,
+        error:
+          min === 1
+            ? `${group.name} is required for ${itemName}.`
+            : `${group.name} requires at least ${min} selections for ${itemName}.`,
+      };
     }
 
     const limit = maxSelectionsForModifierGroup(group);

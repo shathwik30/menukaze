@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { computeTax, type TaxRule } from '@menukaze/shared';
+import { computeTaxForLines, type TaxClass, type TaxRule } from '@menukaze/shared';
 import { Badge, Button, Eyebrow, cn } from '@menukaze/ui';
-import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
+import {
+  cartItemCount,
+  cartLineKey,
+  cartLineUnitMinor,
+  cartSubtotalMinor,
+  useKioskCart,
+} from '@/stores/cart';
 import { useIdleReset } from '@/hooks/use-idle-reset';
 import { ItemConfigurator } from './item-configurator';
 
@@ -15,7 +21,9 @@ export interface KioskMenu {
 export interface KioskCategory {
   id: string;
   name: string;
+  description?: string;
   menuId: string;
+  menuIds: string[];
 }
 export interface KioskItem {
   id: string;
@@ -25,11 +33,24 @@ export interface KioskItem {
   priceMinor: number;
   priceLabel: string;
   imageUrl?: string;
+  allergens: string[];
+  featured: boolean;
+  searchKeywords: string[];
+  taxClassId?: string;
+  variants: Array<{
+    id: string;
+    name: string;
+    priceMinor: number;
+    priceLabel: string;
+    isDefault: boolean;
+    soldOut: boolean;
+  }>;
   soldOut: boolean;
   comboItemNames: string[];
   modifiers: Array<{
     name: string;
     required: boolean;
+    min: number;
     max: number;
     options: Array<{ name: string; priceMinor: number; priceLabel: string }>;
   }>;
@@ -44,6 +65,7 @@ interface Props {
   categories: KioskCategory[];
   items: KioskItem[];
   taxRules: TaxRule[];
+  taxClasses: TaxClass[];
   minimumOrderMinor: number;
 }
 
@@ -60,6 +82,7 @@ export function MenuClient({
   categories,
   items,
   taxRules,
+  taxClasses,
   minimumOrderMinor,
 }: Props) {
   const router = useRouter();
@@ -94,7 +117,7 @@ export function MenuClient({
     }).format(minor / 100);
 
   const visibleCategories = useMemo(
-    () => categories.filter((c) => c.menuId === activeMenuId),
+    () => categories.filter((c) => c.menuIds.includes(activeMenuId || c.menuId)),
     [categories, activeMenuId],
   );
 
@@ -112,13 +135,24 @@ export function MenuClient({
 
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
   const { surchargeMinor, taxMinor } = useMemo(
-    () => computeTax(subtotal, taxRules),
-    [subtotal, taxRules],
+    () =>
+      computeTaxForLines(
+        lines.map((line) => ({
+          subtotalMinor: cartLineUnitMinor(line) * line.quantity,
+          taxClassId: line.taxClassId,
+        })),
+        taxRules,
+        taxClasses,
+      ),
+    [lines, taxRules, taxClasses],
   );
   const total = subtotal + surchargeMinor;
   const itemCount = cartItemCount(lines);
   const belowMinimum = minimumOrderMinor > 0 && subtotal > 0 && subtotal < minimumOrderMinor;
   const activeCategoryName = visibleCategories.find((c) => c.id === activeCategoryId)?.name;
+  const activeCategoryDescription = visibleCategories.find(
+    (c) => c.id === activeCategoryId,
+  )?.description;
 
   function flashAdded(itemId: string) {
     setJustAddedId(itemId);
@@ -126,7 +160,13 @@ export function MenuClient({
   }
 
   function handleAddSimple(item: KioskItem) {
-    addLine({ itemId: item.id, name: item.name, priceMinor: item.priceMinor, modifiers: [] });
+    addLine({
+      itemId: item.id,
+      name: item.name,
+      priceMinor: item.priceMinor,
+      ...(item.taxClassId ? { taxClassId: item.taxClassId } : {}),
+      modifiers: [],
+    });
     flashAdded(item.id);
   }
 
@@ -255,6 +295,11 @@ export function MenuClient({
               <h2 className="text-ink-950 mt-2 font-serif text-5xl font-medium tracking-tight">
                 {visibleItems.length} {visibleItems.length === 1 ? 'dish' : 'dishes'}
               </h2>
+              {activeCategoryDescription ? (
+                <p className="text-ink-500 mt-3 max-w-xl text-sm leading-6">
+                  {activeCategoryDescription}
+                </p>
+              ) : null}
             </div>
             <p className="text-ink-500 max-w-sm text-right text-sm">
               Tap an item to add it. Dishes with choices open a quick customise screen.
@@ -307,9 +352,12 @@ export function MenuClient({
 
                     <div className="flex flex-1 flex-col p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-ink-950 font-serif text-xl leading-tight font-medium tracking-tight">
-                          {item.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-ink-950 font-serif text-xl leading-tight font-medium tracking-tight">
+                            {item.name}
+                          </h3>
+                          {item.featured ? <Badge variant="subtle">Featured</Badge> : null}
+                        </div>
                         <p className="mk-nums text-ink-950 shrink-0 font-mono text-base font-semibold tabular-nums">
                           {item.priceLabel}
                         </p>
@@ -325,13 +373,18 @@ export function MenuClient({
                           Includes {item.comboItemNames.join(' · ')}
                         </p>
                       ) : null}
+                      {item.allergens.length > 0 ? (
+                        <p className="text-ink-500 mt-2 text-[11px]">
+                          Allergens: {item.allergens.join(', ')}
+                        </p>
+                      ) : null}
 
                       <div className="mt-auto pt-4">
                         {item.soldOut ? (
                           <span className="border-mkrose-200 bg-mkrose-50 text-mkrose-700 flex h-14 items-center justify-center rounded-xl border text-sm font-semibold tracking-[0.14em] uppercase">
                             Unavailable
                           </span>
-                        ) : item.modifiers.length > 0 ? (
+                        ) : item.modifiers.length > 0 || item.variants.length > 0 ? (
                           <Button
                             type="button"
                             onClick={() => handleOpenConfigurator(item)}
@@ -551,8 +604,10 @@ export function MenuClient({
           name={configuring.item.name}
           description={configuring.item.description}
           priceMinor={configuring.item.priceMinor}
+          taxClassId={configuring.item.taxClassId}
           currency={currency}
           locale={locale}
+          variants={configuring.item.variants}
           modifiers={configuring.item.modifiers}
           onClose={() => setConfiguring(null)}
           onAdded={handleConfigured}

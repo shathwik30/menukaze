@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { getMongoConnection, getModels } from '@menukaze/db';
-import { filterActiveMenus, formatMoney, parseCurrencyCode } from '@menukaze/shared';
+import { getMongoConnection, loadMenuProjection } from '@menukaze/db';
+import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { BrandRow, Eyebrow, MeshBackdrop } from '@menukaze/ui';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { computeOpenStatus, formatTodayHours } from '@/lib/hours';
@@ -40,22 +40,16 @@ export default async function StorefrontHomePage() {
   }
 
   const conn = await getMongoConnection('live');
-  const { Menu, Category, Item } = getModels(conn);
   const restaurantId = restaurant._id;
 
-  const [menus, categories, items] = await Promise.all([
-    Menu.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
-    Category.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
-    Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
-  ]);
-  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
-  const activeMenuIds = new Set(activeMenus.map((menu) => String(menu._id)));
-  const activeCategories = categories.filter((category) =>
-    activeMenuIds.has(String(category.menuId)),
-  );
-  const activeCategoryIds = new Set(activeCategories.map((category) => String(category._id)));
-  const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
-  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
+  const projection = await loadMenuProjection(conn, {
+    restaurantId,
+    timeZone: restaurant.timezone,
+    channel: 'storefront',
+  });
+  const activeMenus = projection.menus;
+  const activeCategories = projection.categories;
+  const activeItems = projection.items;
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
@@ -117,28 +111,41 @@ export default async function StorefrontHomePage() {
           </div>
         ) : (
           <MenuBrowser
-            menus={activeMenus.map((m) => ({ id: String(m._id), name: m.name }))}
+            menus={activeMenus.map((m) => ({ id: m.id, name: m.name }))}
             categories={activeCategories.map((c) => ({
-              id: String(c._id),
+              id: c.id,
               name: c.name,
-              menuId: String(c.menuId),
+              description: c.description,
+              menuId: c.menuId,
+              menuIds: c.menuIds,
             }))}
             items={activeItems.map((i) => ({
-              id: String(i._id),
-              categoryId: String(i.categoryId),
+              id: i.id,
+              categoryId: i.categoryId,
               name: i.name,
               description: i.description,
               priceLabel: formatMoney(i.priceMinor, currency, locale),
               priceMinor: i.priceMinor,
               dietaryTags: i.dietaryTags,
+              allergens: i.allergens,
+              featured: i.featured,
+              searchKeywords: i.searchKeywords,
               soldOut: i.soldOut,
               imageUrl: i.imageUrl,
-              comboItemNames:
-                i.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ??
-                [],
+              taxClassId: i.taxClassId,
+              variants: i.variants.map((variant) => ({
+                id: variant.id,
+                name: variant.name,
+                priceMinor: variant.priceMinor,
+                priceLabel: formatMoney(variant.priceMinor, currency, locale),
+                isDefault: variant.isDefault,
+                soldOut: variant.soldOut,
+              })),
+              comboItemNames: [],
               modifiers: i.modifiers.map((group) => ({
                 name: group.name,
-                required: group.required,
+                required: group.min > 0,
+                min: group.min,
                 max: group.max,
                 options: group.options.map((option) => ({
                   name: option.name,

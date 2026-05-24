@@ -1,9 +1,15 @@
 'use client';
 
-import { Button, Input, Radio, Select, Textarea } from '@menukaze/ui';
+import { Button, Checkbox, Input, Radio, Select, Textarea, cn } from '@menukaze/ui';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { computeTax, type TaxRule } from '@menukaze/shared';
+import {
+  computeTaxForLines,
+  maxSelectionsForModifierGroup,
+  validateModifierSelection,
+  type TaxClass,
+  type TaxRule,
+} from '@menukaze/shared';
 import { createWalkInOrderAction } from '@/app/actions/walk-in';
 
 export interface WalkInModifierOption {
@@ -15,8 +21,18 @@ export interface WalkInModifierOption {
 export interface WalkInModifierGroup {
   name: string;
   required: boolean;
+  min: number;
   max: number;
   options: WalkInModifierOption[];
+}
+
+export interface WalkInVariant {
+  id: string;
+  name: string;
+  priceMinor: number;
+  priceLabel: string;
+  isDefault: boolean;
+  soldOut: boolean;
 }
 
 export interface WalkInItem {
@@ -25,7 +41,9 @@ export interface WalkInItem {
   name: string;
   priceMinor: number;
   priceLabel: string;
+  taxClassId?: string;
   soldOut: boolean;
+  variants: WalkInVariant[];
   modifiers: WalkInModifierGroup[];
 }
 
@@ -46,6 +64,9 @@ interface CartLine {
   itemId: string;
   name: string;
   unitMinor: number;
+  variantId?: string;
+  variantName?: string;
+  taxClassId?: string;
   quantity: number;
   modifiers: { groupName: string; optionName: string; priceMinor: number }[];
   notes?: string;
@@ -61,9 +82,18 @@ interface Props {
   currency: string;
   locale: string;
   taxRules: TaxRule[];
+  taxClasses: TaxClass[];
 }
 
-export function WalkInForm({ items, categories, tables, currency, locale, taxRules }: Props) {
+export function WalkInForm({
+  items,
+  categories,
+  tables,
+  currency,
+  locale,
+  taxRules,
+  taxClasses,
+}: Props) {
   const router = useRouter();
   const [orderType, setOrderType] = useState<'dine_in' | 'pickup'>('pickup');
   const [tableId, setTableId] = useState<string>('');
@@ -99,22 +129,29 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
   }, [items]);
 
   const subtotalMinor = lines.reduce((s, l) => s + l.lineTotalMinor, 0);
-  const { taxMinor, surchargeMinor } = computeTax(subtotalMinor, taxRules);
+  const { taxMinor, surchargeMinor } = computeTaxForLines(
+    lines.map((line) => ({ subtotalMinor: line.lineTotalMinor, taxClassId: line.taxClassId })),
+    taxRules,
+    taxClasses,
+  );
   const totalMinor = subtotalMinor + surchargeMinor;
 
   const addSimpleItem = (item: WalkInItem): void => {
     if (item.soldOut) return;
-    if (item.modifiers.length > 0) {
+    if (item.modifiers.length > 0 || item.variants.length > 0) {
       setConfiguringItem(item);
       return;
     }
-    addLine(item, [], '');
+    addLine(item, [], '', undefined, undefined, item.taxClassId);
   };
 
   const addLine = (
     item: WalkInItem,
     modifiers: { groupName: string; optionName: string; priceMinor: number }[],
     notes: string,
+    variantId?: string,
+    variantName?: string,
+    taxClassId?: string,
   ): void => {
     setError(null);
     setSuccess(null);
@@ -123,10 +160,12 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
       .sort()
       .join('|');
     const noteKey = notes.trim();
-    const key = `${item.id}#${modKey}#${noteKey}`;
+    const key = `${item.id}@${variantId ?? ''}#${modKey}#${noteKey}`;
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.key === key);
-      const unitMinor = item.priceMinor + modifiers.reduce((s, m) => s + m.priceMinor, 0);
+      const variant = variantId ? item.variants.find((entry) => entry.id === variantId) : undefined;
+      const basePriceMinor = variant?.priceMinor ?? item.priceMinor;
+      const unitMinor = basePriceMinor + modifiers.reduce((s, m) => s + m.priceMinor, 0);
       if (idx >= 0) {
         const next = prev.slice();
         const existing = next[idx]!;
@@ -145,6 +184,9 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
           itemId: item.id,
           name: item.name,
           unitMinor,
+          ...(variantId ? { variantId } : {}),
+          ...(variantName ? { variantName } : {}),
+          ...(taxClassId ? { taxClassId } : {}),
           quantity: 1,
           modifiers,
           ...(noteKey ? { notes: noteKey } : {}),
@@ -201,6 +243,7 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
         paymentMethod,
         lines: lines.map((l) => ({
           itemId: l.itemId,
+          ...(l.variantId ? { variantId: l.variantId } : {}),
           quantity: l.quantity,
           modifiers: l.modifiers,
           ...(l.notes ? { notes: l.notes } : {}),
@@ -269,8 +312,14 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     <span className="font-medium">{item.name}</span>
                     {item.soldOut ? (
                       <span className="text-xs text-red-600">Sold out</span>
-                    ) : item.modifiers.length > 0 ? (
-                      <span className="text-muted-foreground text-xs">Has options</span>
+                    ) : item.modifiers.length > 0 || item.variants.length > 0 ? (
+                      <span className="text-muted-foreground text-xs">
+                        {item.variants.length > 0 && item.modifiers.length > 0
+                          ? 'Variants and options'
+                          : item.variants.length > 0
+                            ? 'Has variants'
+                            : 'Has options'}
+                      </span>
                     ) : null}
                   </span>
                   <span className="font-mono text-xs">{item.priceLabel}</span>
@@ -404,6 +453,11 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
                     </span>
                     <span className="font-mono text-xs">{formatMoney(line.lineTotalMinor)}</span>
                   </div>
+                  {line.variantName ? (
+                    <p className="text-muted-foreground mt-1 ml-4 text-xs">
+                      Variant: {line.variantName}
+                    </p>
+                  ) : null}
                   {line.modifiers.length > 0 ? (
                     <ul className="text-muted-foreground mt-1 ml-4 list-disc text-xs">
                       {line.modifiers.map((m, i) => (
@@ -488,9 +542,11 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
       {configuringItem ? (
         <ItemConfigurator
           item={configuringItem}
+          currency={currency}
+          locale={locale}
           onCancel={() => setConfiguringItem(null)}
-          onAdd={(modifiers, notes) => {
-            addLine(configuringItem, modifiers, notes);
+          onAdd={(modifiers, notes, variantId, variantName, taxClassId) => {
+            addLine(configuringItem, modifiers, notes, variantId, variantName, taxClassId);
             setConfiguringItem(null);
           }}
         />
@@ -501,54 +557,98 @@ export function WalkInForm({ items, categories, tables, currency, locale, taxRul
 
 interface ConfiguratorProps {
   item: WalkInItem;
+  currency: string;
+  locale: string;
   onCancel: () => void;
   onAdd: (
     modifiers: { groupName: string; optionName: string; priceMinor: number }[],
     notes: string,
+    variantId?: string,
+    variantName?: string,
+    taxClassId?: string,
   ) => void;
 }
 
-function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
+function ItemConfigurator({ item, currency, locale, onCancel, onAdd }: ConfiguratorProps) {
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const defaultVariant = item.variants.find((variant) => variant.isDefault) ?? item.variants[0];
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+    defaultVariant?.id,
+  );
 
-  const toggleOption = (groupName: string, optionName: string, max: number): void => {
-    setSelections((prev) => {
-      const current = prev[groupName] ?? [];
-      const exists = current.includes(optionName);
-      let next: string[];
-      if (exists) {
-        next = current.filter((o) => o !== optionName);
-      } else if (max === 1) {
-        next = [optionName];
-      } else if (current.length >= max) {
-        return prev;
+  const formatMoney = (minor: number): string =>
+    new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(minor / 100);
+
+  const toggleOption = (group: WalkInModifierGroup, optionName: string): void => {
+    setError(null);
+    const current = selections[group.name] ?? [];
+    if (current.includes(optionName)) {
+      const next = current.filter((value) => value !== optionName);
+      if (next.length === 0) {
+        const { [group.name]: _removed, ...rest } = selections;
+        setSelections(rest);
       } else {
-        next = [...current, optionName];
+        setSelections({ ...selections, [group.name]: next });
       }
-      return { ...prev, [groupName]: next };
-    });
+      return;
+    }
+
+    const limit = maxSelectionsForModifierGroup(group);
+    if (limit <= 1) {
+      setSelections({ ...selections, [group.name]: [optionName] });
+      return;
+    }
+    if (current.length >= limit) {
+      setError(`${group.name} allows at most ${limit} selections.`);
+      return;
+    }
+    setSelections({ ...selections, [group.name]: [...current, optionName] });
   };
+
+  const selectedVariant =
+    item.variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
+  const basePriceMinor = selectedVariant?.priceMinor ?? item.priceMinor;
 
   const onConfirm = (): void => {
     setError(null);
-    const flat: { groupName: string; optionName: string; priceMinor: number }[] = [];
-    for (const group of item.modifiers) {
-      const picked = selections[group.name] ?? [];
-      if (group.required && picked.length === 0) {
-        setError(`Pick an option for ${group.name}.`);
-        return;
-      }
-      for (const optionName of picked) {
-        const opt = group.options.find((o) => o.name === optionName);
-        if (opt) {
-          flat.push({ groupName: group.name, optionName: opt.name, priceMinor: opt.priceMinor });
-        }
-      }
+    if (selectedVariant?.soldOut) {
+      setError(`${selectedVariant.name} is sold out.`);
+      return;
     }
-    onAdd(flat, notes);
+    const result = validateModifierSelection(
+      item.modifiers,
+      Object.entries(selections).flatMap(([groupName, optionNames]) =>
+        optionNames.map((optionName) => ({ groupName, optionName })),
+      ),
+      item.name,
+    );
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onAdd(result.modifiers, notes, selectedVariant?.id, selectedVariant?.name, item.taxClassId);
   };
+
+  const previewTotalMinor =
+    basePriceMinor +
+    item.modifiers.reduce((sum, group) => {
+      const optionNames = selections[group.name] ?? [];
+      return (
+        sum +
+        optionNames.reduce(
+          (groupSum, optionName) =>
+            groupSum +
+            (group.options.find((option) => option.name === optionName)?.priceMinor ?? 0),
+          0,
+        )
+      );
+    }, 0);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
@@ -556,7 +656,7 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
         <header className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold">{item.name}</h3>
-            <p className="text-muted-foreground text-xs">{item.priceLabel}</p>
+            <p className="text-muted-foreground text-xs">Base {formatMoney(basePriceMinor)}</p>
           </div>
           <Button
             variant="plain"
@@ -569,12 +669,60 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
           </Button>
         </header>
 
+        {item.variants.length > 0 ? (
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              Variant <span className="text-muted-foreground text-xs">choose 1</span>
+            </legend>
+            <div className="grid gap-1">
+              {item.variants.map((variant) => {
+                const checked = variant.id === selectedVariantId;
+                return (
+                  <label
+                    key={variant.id}
+                    className={cn(
+                      'border-border flex cursor-pointer items-center justify-between rounded-md border p-2 text-sm',
+                      checked ? 'bg-accent' : 'hover:bg-muted/40',
+                      variant.soldOut && 'opacity-50',
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="variant"
+                        checked={checked}
+                        disabled={variant.soldOut}
+                        onChange={() => setSelectedVariantId(variant.id)}
+                        className="h-3 w-3"
+                      />
+                      {variant.name}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {variant.soldOut ? 'Sold out' : variant.priceLabel}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        ) : null}
+
         {item.modifiers.map((group) => (
           <fieldset key={group.name} className="space-y-2">
             <legend className="text-sm font-medium">
               {group.name}{' '}
               <span className="text-muted-foreground text-xs">
-                {group.required ? 'required' : 'optional'} · pick up to {group.max}
+                {(() => {
+                  const limit = maxSelectionsForModifierGroup(group);
+                  const min = group.min ?? (group.required ? 1 : 0);
+                  return min > 0 && limit === min
+                    ? `required · choose ${min}`
+                    : min > 0
+                      ? `required · choose ${min}-${limit}`
+                      : limit === 1
+                        ? 'optional'
+                        : `optional · up to ${limit}`;
+                })()}
               </span>
             </legend>
             <div className="grid gap-1 sm:grid-cols-2">
@@ -588,16 +736,16 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
                     }`}
                   >
                     <span>
-                      <Input
-                        type={group.max === 1 ? 'radio' : 'checkbox'}
-                        name={group.name}
+                      <Checkbox
                         checked={checked}
-                        onChange={() => toggleOption(group.name, option.name, group.max)}
-                        className="mr-2 h-3 w-3"
+                        onChange={() => toggleOption(group, option.name)}
+                        className="mr-2 inline-flex h-3 w-3"
                       />
                       {option.name}
                     </span>
-                    <span className="text-muted-foreground text-xs">{option.priceLabel}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {option.priceMinor === 0 ? 'Included' : `+${option.priceLabel}`}
+                    </span>
                   </label>
                 );
               })}
@@ -618,6 +766,10 @@ function ItemConfigurator({ item, onCancel, onAdd }: ConfiguratorProps) {
         </label>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Preview total</span>
+          <span className="font-mono font-medium">{formatMoney(previewTotalMinor)}</span>
+        </div>
 
         <div className="flex justify-end gap-2">
           <Button

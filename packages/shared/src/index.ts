@@ -51,6 +51,7 @@ export {
   API_KEY_SCOPES,
   API_KEY_ENVS,
   WEEKDAYS,
+  ALLERGENS,
   PAYMENT_MODE_REQUESTED_OPTIONS,
   DEFAULT_PREP_MINUTES,
   computeCartPrepMinutes,
@@ -77,6 +78,7 @@ export type {
   ApiKeyScope,
   ApiKeyEnv,
   Weekday,
+  Allergen,
   PaymentModeRequested,
 } from './domain';
 
@@ -136,7 +138,12 @@ export type {
   QrPreCheckResult,
 } from './qr-prevention';
 
-export { isoWeekdayKey, computeAvailableSlots, isReservationSlotValid } from './reservations';
+export {
+  ACTIVE_RESERVATION_STATUSES,
+  isoWeekdayKey,
+  computeAvailableSlots,
+  isReservationSlotValid,
+} from './reservations';
 export type {
   RestaurantHourEntry,
   ReservationSettings,
@@ -164,6 +171,7 @@ export {
   staffMembershipSchema,
   operatingHoursDaySchema,
   taxRuleSchema,
+  taxClassSchema,
   restaurantHolidayModeSchema,
   restaurantThrottlingSchema,
   onboardingStepSchema,
@@ -194,12 +202,17 @@ export {
   getSessionMinutesRemaining,
 } from './session-timeout';
 
-export { computeTax } from './tax';
-export type { TaxRule, TaxBreakdown } from './tax';
+export { computeTax, computeTaxForLines } from './tax';
+export type { TaxRule, TaxClass, TaxBreakdown, TaxableLine } from './tax';
 
 export { getZodErrorMessage } from './validation';
 
-export { startOfTodayInTimezone } from './timezone';
+export {
+  dateKeyInTimezone,
+  localDateTimeInTimezoneToUtc,
+  startOfTodayInTimezone,
+} from './timezone';
+export { ReservationReminderEmail } from './reservation-emails';
 
 export {
   WEBHOOK_EVENT_TYPES,

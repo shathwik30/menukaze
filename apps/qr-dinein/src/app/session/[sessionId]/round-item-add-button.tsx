@@ -14,16 +14,28 @@ interface ModifierOption {
 interface ModifierGroup {
   name: string;
   required: boolean;
+  min: number;
   max: number;
   options: ModifierOption[];
+}
+
+interface VariantOption {
+  id: string;
+  name: string;
+  priceMinor: number;
+  priceLabel: string;
+  isDefault: boolean;
+  soldOut: boolean;
 }
 
 interface Props {
   itemId: string;
   name: string;
   priceMinor: number;
+  taxClassId?: string;
   currency: string;
   locale: string;
+  variants: VariantOption[];
   modifiers: ModifierGroup[];
   disabled?: boolean;
 }
@@ -32,8 +44,10 @@ export function RoundItemAddButton({
   itemId,
   name,
   priceMinor,
+  taxClassId,
   currency,
   locale,
+  variants,
   modifiers,
   disabled,
 }: Props) {
@@ -42,6 +56,10 @@ export function RoundItemAddButton({
   const [justAdded, setJustAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+    defaultVariant?.id,
+  );
 
   function formatMoney(minor: number) {
     return new Intl.NumberFormat(locale, {
@@ -60,6 +78,7 @@ export function RoundItemAddButton({
     setOpen(false);
     setError(null);
     setSelected({});
+    setSelectedVariantId(defaultVariant?.id);
   }
 
   function toggleOption(group: ModifierGroup, optionName: string) {
@@ -88,7 +107,15 @@ export function RoundItemAddButton({
     setSelected({ ...selected, [group.name]: [...current, optionName] });
   }
 
+  const selectedVariant =
+    variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
+  const basePriceMinor = selectedVariant?.priceMinor ?? priceMinor;
+
   function addConfiguredItem() {
+    if (selectedVariant?.soldOut) {
+      setError(`${selectedVariant.name} is sold out.`);
+      return;
+    }
     const result = validateModifierSelection(
       modifiers,
       Object.entries(selected).flatMap(([groupName, optionNames]) =>
@@ -104,7 +131,11 @@ export function RoundItemAddButton({
     addLine({
       itemId,
       name,
-      priceMinor,
+      priceMinor: basePriceMinor,
+      ...(selectedVariant
+        ? { variantId: selectedVariant.id, variantName: selectedVariant.name }
+        : {}),
+      ...(taxClassId ? { taxClassId } : {}),
       modifiers: result.modifiers,
     });
     resetConfigurator();
@@ -112,7 +143,7 @@ export function RoundItemAddButton({
   }
 
   const previewTotalMinor =
-    priceMinor +
+    basePriceMinor +
     modifiers.reduce((sum, group) => {
       const optionNames = selected[group.name] ?? [];
       return (
@@ -128,12 +159,18 @@ export function RoundItemAddButton({
 
   if (disabled) return null;
 
-  if (modifiers.length === 0) {
+  if (variants.length === 0 && modifiers.length === 0) {
     return (
       <Button
         type="button"
         onClick={() => {
-          addLine({ itemId, name, priceMinor, modifiers: [] });
+          addLine({
+            itemId,
+            name,
+            priceMinor,
+            ...(taxClassId ? { taxClassId } : {}),
+            modifiers: [],
+          });
           flashAdded();
         }}
         variant="outline"
@@ -171,7 +208,7 @@ export function RoundItemAddButton({
               <div>
                 <h3 className="text-base font-semibold">{name}</h3>
                 <p className="text-muted-foreground text-xs">
-                  Base price {formatMoney(priceMinor)}
+                  Base price {formatMoney(basePriceMinor)}
                 </p>
               </div>
               <Button type="button" onClick={resetConfigurator} variant="link" size="xs">
@@ -180,14 +217,55 @@ export function RoundItemAddButton({
             </div>
 
             <div className="mt-4 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
+              {variants.length > 0 ? (
+                <section className="border-border rounded-xl border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Variant</p>
+                      <p className="text-muted-foreground text-xs">Choose one</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {variants.map((variant) => {
+                      const active = variant.id === selectedVariantId;
+                      return (
+                        <label
+                          key={variant.id}
+                          className={cn(
+                            'flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors',
+                            active
+                              ? 'border-foreground bg-accent'
+                              : 'border-input hover:bg-muted/40',
+                            variant.soldOut && 'opacity-50',
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              checked={active}
+                              disabled={variant.soldOut}
+                              onChange={() => setSelectedVariantId(variant.id)}
+                            />
+                            <span>{variant.name}</span>
+                          </span>
+                          <span className="font-mono text-xs">
+                            {variant.soldOut ? 'Sold out' : variant.priceLabel}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
               {modifiers.map((group) => {
                 const optionNames = selected[group.name] ?? [];
                 const limit = maxSelectionsForModifierGroup(group);
+                const min = group.min ?? (group.required ? 1 : 0);
                 const label =
-                  group.required && limit === 1
-                    ? 'Choose 1'
-                    : group.required
-                      ? `Choose 1-${limit}`
+                  min > 0 && limit === min
+                    ? `Choose ${min}`
+                    : min > 0
+                      ? `Choose ${min}-${limit}`
                       : limit === 1
                         ? 'Optional'
                         : `Optional, up to ${limit}`;

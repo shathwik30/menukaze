@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { getMongoConnection, getModels } from '@menukaze/db';
-import { filterActiveMenus, formatMoney, parseCurrencyCode } from '@menukaze/shared';
+import { getMongoConnection, loadMenuProjection } from '@menukaze/db';
+import { formatMoney, parseCurrencyCode } from '@menukaze/shared';
 import { serializeTaxRules } from '@/lib/tax-rules';
 import { resolveTenantOrNotFound } from '@/lib/tenant';
 import { MenuClient, type KioskCategory, type KioskItem, type KioskMenu } from './menu-client';
@@ -12,49 +12,55 @@ export default async function KioskMenuPage() {
   if (!restaurant.liveAt) redirect('/kiosk');
 
   const conn = await getMongoConnection('live');
-  const { Menu, Category, Item } = getModels(conn);
-
-  const [menus, categories, items] = await Promise.all([
-    Menu.find({ restaurantId: restaurant._id }).sort({ order: 1 }).lean().exec(),
-    Category.find({ restaurantId: restaurant._id }).sort({ order: 1 }).lean().exec(),
-    Item.find({ restaurantId: restaurant._id }).sort({ createdAt: 1 }).lean().exec(),
-  ]);
-
-  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
-  const activeMenuIds = new Set(activeMenus.map((m) => String(m._id)));
-  const activeCategories = categories.filter((c) => activeMenuIds.has(String(c.menuId)));
-  const activeCategoryIds = new Set(activeCategories.map((c) => String(c._id)));
-  const activeItems = items.filter((i) => activeCategoryIds.has(String(i.categoryId)));
+  const projection = await loadMenuProjection(conn, {
+    restaurantId: restaurant._id,
+    timeZone: restaurant.timezone,
+    channel: 'kiosk',
+  });
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
   const taxRules = serializeTaxRules(restaurant.taxRules);
-  const itemNameById = new Map(items.map((i) => [String(i._id), i.name]));
 
-  const kioskMenus: KioskMenu[] = activeMenus.map((m) => ({
-    id: String(m._id),
+  const kioskMenus: KioskMenu[] = projection.menus.map((m) => ({
+    id: m.id,
     name: m.name,
   }));
 
-  const kioskCategories: KioskCategory[] = activeCategories.map((c) => ({
-    id: String(c._id),
+  const kioskCategories: KioskCategory[] = projection.categories.map((c) => ({
+    id: c.id,
     name: c.name,
-    menuId: String(c.menuId),
+    description: c.description,
+    menuId: c.menuId,
+    menuIds: c.menuIds,
   }));
 
-  const kioskItems: KioskItem[] = activeItems.map((i) => ({
-    id: String(i._id),
-    categoryId: String(i.categoryId),
+  const kioskItems: KioskItem[] = projection.items.map((i) => ({
+    id: i.id,
+    categoryId: i.categoryId,
     name: i.name,
     description: i.description,
     priceMinor: i.priceMinor,
     priceLabel: formatMoney(i.priceMinor, currency, locale),
     imageUrl: i.imageUrl,
+    allergens: i.allergens,
+    featured: i.featured,
+    searchKeywords: i.searchKeywords,
+    taxClassId: i.taxClassId,
+    variants: i.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      priceMinor: variant.priceMinor,
+      priceLabel: formatMoney(variant.priceMinor, currency, locale),
+      isDefault: variant.isDefault,
+      soldOut: variant.soldOut,
+    })),
     soldOut: i.soldOut,
-    comboItemNames: i.comboOf?.map((id) => itemNameById.get(String(id)) ?? 'Unknown item') ?? [],
+    comboItemNames: [],
     modifiers: i.modifiers.map((g) => ({
       name: g.name,
-      required: g.required,
+      required: g.min > 0,
+      min: g.min,
       max: g.max,
       options: g.options.map((o) => ({
         name: o.name,
@@ -74,6 +80,7 @@ export default async function KioskMenuPage() {
       categories={kioskCategories}
       items={kioskItems}
       taxRules={taxRules}
+      taxClasses={restaurant.taxClasses ?? []}
       minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
     />
   );
