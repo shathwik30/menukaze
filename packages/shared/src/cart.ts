@@ -8,9 +8,6 @@ export interface CartLine {
   itemId: string;
   name: string;
   priceMinor: number;
-  variantId?: string;
-  variantName?: string;
-  taxClassId?: string;
   quantity: number;
   modifiers: CartModifier[];
   notes?: string;
@@ -22,14 +19,12 @@ function isMatchingCartLine(line: CartLine, key: string): boolean {
   return cartLineKey(line) === key;
 }
 
-export function cartLineKey(line: Pick<CartLine, 'itemId' | 'modifiers' | 'variantId'>): string {
+export function cartLineKey(line: Pick<CartLine, 'itemId' | 'modifiers'>): string {
   const modifiersKey = line.modifiers
     .map((modifier) => `${modifier.groupName}:${modifier.optionName}`)
     .sort()
     .join('|');
-  const variantKey =
-    'variantId' in line && typeof line.variantId === 'string' ? line.variantId : '';
-  return `${line.itemId}@${variantKey}#${modifiersKey}`;
+  return `${line.itemId}#${modifiersKey}`;
 }
 
 export function cartLineUnitMinor(line: Pick<CartLine, 'priceMinor' | 'modifiers'>): number {

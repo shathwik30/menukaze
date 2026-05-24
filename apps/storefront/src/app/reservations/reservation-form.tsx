@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import {
   computeAvailableSlots,
   type BookedSlot,
@@ -24,7 +24,6 @@ import { createReservationAction } from '@/app/actions/reservation';
 interface Props {
   restaurantId: string;
   restaurantName: string;
-  timeZone: string;
   availableDates: string[];
   bookings: BookedSlot[];
   hours: RestaurantHourEntry[];
@@ -34,7 +33,6 @@ interface Props {
 export function ReservationForm({
   restaurantId,
   restaurantName,
-  timeZone,
   availableDates,
   bookings,
   hours,
@@ -50,16 +48,10 @@ export function ReservationForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const slots = useMemo(
-    () => computeAvailableSlots({ date, hours, settings, bookings, timeZone, now: currentTime }),
-    [date, hours, settings, bookings, timeZone, currentTime],
+    () => computeAvailableSlots({ date, hours, settings, bookings }),
+    [date, hours, settings, bookings],
   );
 
   const partyOptions = useMemo(

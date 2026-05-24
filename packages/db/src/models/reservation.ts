@@ -41,8 +41,8 @@ const reservationSchema = new Schema<ReservationDoc>(
       required: true,
       match: /^\d{4}-\d{2}-\d{2}$/,
     },
-    slotStart: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
-    slotEnd: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    slotStart: { type: String, required: true, match: /^\d{2}:\d{2}$/ },
+    slotEnd: { type: String, required: true, match: /^\d{2}:\d{2}$/ },
     notes: { type: String, maxlength: 500 },
     status: {
       type: String,
@@ -63,10 +63,7 @@ reservationSchema.index({ restaurantId: 1, status: 1, date: 1 });
 reservationSchema.index({ restaurantId: 1, email: 1 });
 
 reservationSchema.pre('validate', function () {
-  this.name = this.name.trim();
-  this.email = this.email.trim().toLowerCase();
-  if (this.phone) this.phone = this.phone.trim();
-  if (this.notes) this.notes = this.notes.trim();
+  this.email = this.email.toLowerCase();
 });
 
 export type ReservationHydratedDoc = HydratedDocument<ReservationDoc>;

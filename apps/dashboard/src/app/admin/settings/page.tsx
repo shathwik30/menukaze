@@ -152,16 +152,6 @@ export default async function SettingsPage() {
               inclusive: r.inclusive,
               label: r.label,
             })),
-            taxClasses: (restaurant.taxClasses ?? []).map((taxClass) => ({
-              id: taxClass.id,
-              name: taxClass.name,
-              rules: (taxClass.rules ?? []).map((rule) => ({
-                name: rule.name,
-                percent: rule.percent,
-                inclusive: rule.inclusive,
-                label: rule.label,
-              })),
-            })),
           }}
           permissions={{
             canEditProfile: permissions.includes('settings.edit_profile'),

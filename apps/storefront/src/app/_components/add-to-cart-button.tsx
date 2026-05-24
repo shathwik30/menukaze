@@ -25,28 +25,16 @@ interface ModifierOption {
 interface ModifierGroup {
   name: string;
   required: boolean;
-  min: number;
   max: number;
   options: ModifierOption[];
-}
-
-interface VariantOption {
-  id: string;
-  name: string;
-  priceMinor: number;
-  priceLabel: string;
-  isDefault: boolean;
-  soldOut: boolean;
 }
 
 interface Props {
   itemId: string;
   name: string;
   priceMinor: number;
-  taxClassId?: string;
   currency: string;
   locale: string;
-  variants: VariantOption[];
   modifiers: ModifierGroup[];
   disabled?: boolean;
 }
@@ -55,10 +43,8 @@ export function AddToCartButton({
   itemId,
   name,
   priceMinor,
-  taxClassId,
   currency,
   locale,
-  variants,
   modifiers,
   disabled,
 }: Props) {
@@ -67,10 +53,6 @@ export function AddToCartButton({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
-  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
-    defaultVariant?.id,
-  );
 
   if (disabled) {
     return (
@@ -89,7 +71,6 @@ export function AddToCartButton({
     setOpen(false);
     setError(null);
     setSelected({});
-    setSelectedVariantId(defaultVariant?.id);
   }
 
   function formatMoney(minor: number) {
@@ -126,15 +107,7 @@ export function AddToCartButton({
     setSelected({ ...selected, [group.name]: [...current, optionName] });
   }
 
-  const selectedVariant =
-    variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
-  const basePriceMinor = selectedVariant?.priceMinor ?? priceMinor;
-
   function addConfiguredItem() {
-    if (selectedVariant?.soldOut) {
-      setError(`${selectedVariant.name} is sold out.`);
-      return;
-    }
     const result = validateModifierSelection(
       modifiers,
       Object.entries(selected).flatMap(([groupName, optionNames]) =>
@@ -150,11 +123,7 @@ export function AddToCartButton({
     addLine({
       itemId,
       name,
-      priceMinor: basePriceMinor,
-      ...(selectedVariant
-        ? { variantId: selectedVariant.id, variantName: selectedVariant.name }
-        : {}),
-      ...(taxClassId ? { taxClassId } : {}),
+      priceMinor,
       modifiers: result.modifiers,
     });
     resetConfigurator();
@@ -162,7 +131,7 @@ export function AddToCartButton({
   }
 
   const previewTotalMinor =
-    basePriceMinor +
+    priceMinor +
     modifiers.reduce((sum, group) => {
       const optionNames = selected[group.name] ?? [];
       return (
@@ -176,20 +145,14 @@ export function AddToCartButton({
       );
     }, 0);
 
-  if (variants.length === 0 && modifiers.length === 0) {
+  if (modifiers.length === 0) {
     return (
       <Button
         type="button"
         size="sm"
         variant={justAdded ? 'accent' : 'outline'}
         onClick={() => {
-          addLine({
-            itemId,
-            name,
-            priceMinor,
-            ...(taxClassId ? { taxClassId } : {}),
-            modifiers: [],
-          });
+          addLine({ itemId, name, priceMinor, modifiers: [] });
           flashAdded();
         }}
         aria-label={`Add ${name} to cart`}
@@ -236,7 +199,7 @@ export function AddToCartButton({
             <div>
               <DialogTitle>{name}</DialogTitle>
               <DialogDescription>
-                From <span className="mk-nums font-mono">{formatMoney(basePriceMinor)}</span>
+                From <span className="mk-nums font-mono">{formatMoney(priceMinor)}</span>
               </DialogDescription>
             </div>
             <Button
@@ -253,52 +216,14 @@ export function AddToCartButton({
         </DialogHeader>
 
         <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto px-6 pb-2">
-          {variants.length > 0 ? (
-            <fieldset className="border-ink-200 bg-canvas-50/70 dark:border-ink-800 dark:bg-ink-900/50 rounded-xl border p-4">
-              <legend className="bg-surface text-ink-950 dark:bg-ink-900 dark:text-canvas-50 -mt-6 mb-0 px-2 text-[13px] font-semibold tracking-tight">
-                Variant
-              </legend>
-              <div className="mt-2 space-y-1.5">
-                {variants.map((variant) => {
-                  const active = variant.id === selectedVariantId;
-                  return (
-                    <label
-                      key={variant.id}
-                      className={cn(
-                        'flex cursor-pointer items-center justify-between rounded-lg border px-3.5 py-2.5 text-sm transition-all duration-150',
-                        active
-                          ? 'border-saffron-500 bg-saffron-50 ring-saffron-500 dark:border-saffron-400 dark:bg-saffron-500/15 ring-1'
-                          : 'border-ink-200 bg-surface hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900/80 dark:hover:border-ink-700',
-                        variant.soldOut && 'opacity-50',
-                      )}
-                    >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          checked={active}
-                          disabled={variant.soldOut}
-                          onChange={() => setSelectedVariantId(variant.id)}
-                        />
-                        <span>{variant.name}</span>
-                      </span>
-                      <span className="font-mono text-xs">
-                        {variant.soldOut ? 'Sold out' : variant.priceLabel}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ) : null}
           {modifiers.map((group) => {
             const optionNames = selected[group.name] ?? [];
             const limit = maxSelectionsForModifierGroup(group);
-            const min = group.min ?? (group.required ? 1 : 0);
             const label =
-              min > 0 && limit === min
-                ? `Required · Pick ${min}`
-                : min > 0
-                  ? `Required · Pick ${min}-${limit}`
+              group.required && limit === 1
+                ? 'Required · Pick one'
+                : group.required
+                  ? `Required · Pick up to ${limit}`
                   : limit === 1
                     ? 'Optional'
                     : `Optional · Up to ${limit}`;

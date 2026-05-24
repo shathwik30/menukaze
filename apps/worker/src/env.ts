@@ -19,7 +19,6 @@ export const env = createEnv({
     MENUKAZE_SKIP_EMAIL: booleanFromString,
     WORKER_SESSION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
     WORKER_WEBHOOK_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
-    WORKER_RESERVATION_REMINDER_INTERVAL_MS: z.coerce.number().int().positive().default(300_000),
     /** Fly.io health check target. `0` disables the listener (tests). */
     WORKER_HEALTH_PORT: z.coerce.number().int().min(0).max(65535).default(8080),
   },

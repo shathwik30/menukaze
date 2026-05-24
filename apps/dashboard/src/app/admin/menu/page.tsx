@@ -1,4 +1,4 @@
-import { getMongoConnection, getModels, loadMenuProjection } from '@menukaze/db';
+import { getMongoConnection, getModels } from '@menukaze/db';
 import { currencyCodeOrDefault, formatMoney } from '@menukaze/shared';
 import { requireAnyPageFlag } from '@/lib/session';
 import { MenuManagerClient, type ManagerItemChoice, type ManagerMenu } from './menu-manager-client';
@@ -16,84 +16,71 @@ export default async function MenuManagementPage() {
   const canToggleAvailability = permissions.includes('menu.toggle_availability');
 
   const conn = await getMongoConnection('live');
-  const { Restaurant } = getModels(conn);
-  const restaurant = await Restaurant.findById(restaurantId).exec();
-  const projection = await loadMenuProjection(conn, {
-    restaurantId,
-    timeZone: restaurant?.timezone ?? 'UTC',
-    includeDraftItems: true,
-    includeDraftMenus: true,
-    includeInactiveMenus: true,
-  });
+  const { Restaurant, Menu, Category, Item } = getModels(conn);
+
+  const [restaurant, menus, categories, items] = await Promise.all([
+    Restaurant.findById(restaurantId).exec(),
+    Menu.find({ restaurantId }).sort({ order: 1, createdAt: 1 }).lean().exec(),
+    Category.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
+    Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
+  ]);
 
   const currency = currencyCodeOrDefault(restaurant?.currency);
   const locale = restaurant?.locale ?? 'en-US';
+  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
   const categoryNameById = new Map(
-    projection.categories.map((category) => [category.id, category.name]),
+    categories.map((category) => [String(category._id), category.name]),
   );
-  const categoryIdsByItemId = new Map<string, string[]>();
-  for (const item of projection.items) {
-    const list = categoryIdsByItemId.get(item.id) ?? [];
-    if (!list.includes(item.categoryId)) list.push(item.categoryId);
-    categoryIdsByItemId.set(item.id, list);
-  }
 
-  const menuTree: ManagerMenu[] = projection.menus.map((menu) => ({
-    id: menu.id,
+  const menuTree: ManagerMenu[] = menus.map((menu) => ({
+    id: String(menu._id),
     name: menu.name,
     order: menu.order,
-    status: menu.status,
-    schedule: menu.schedule,
-    categories: menu.categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      description: category.description,
-      menuIds: category.menuIds,
-      order: category.order,
-      items: category.items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        priceMinor: item.priceMinor,
-        priceLabel: formatMoney(item.priceMinor, currency, locale),
-        dietaryTags: item.dietaryTags,
-        allergens: item.allergens,
-        soldOut: item.soldOut,
-        status: item.status,
-        isHidden: item.isHidden,
-        availableFor: item.availableFor,
-        schedule: item.schedule,
-        taxClassId: item.taxClassId,
-        featured: item.featured,
-        searchKeywords: item.searchKeywords,
-        variants: item.variants,
-        imageUrl: item.imageUrl,
-        categoryIds: categoryIdsByItemId.get(item.id) ?? [item.categoryId],
-        modifiers: item.modifiers.map((group) => ({
-          name: group.name,
-          required: group.min > 0,
-          min: group.min,
-          max: group.max,
-          options: group.options.map((option) => ({
-            name: option.name,
-            priceMinor: option.priceMinor,
+    schedule: menu.schedule
+      ? {
+          days: menu.schedule.days,
+          startTime: menu.schedule.startTime,
+          endTime: menu.schedule.endTime,
+        }
+      : undefined,
+    categories: categories
+      .filter((c) => String(c.menuId) === String(menu._id))
+      .map((category) => ({
+        id: String(category._id),
+        name: category.name,
+        order: category.order,
+        items: items
+          .filter((i) => String(i.categoryId) === String(category._id))
+          .map((item) => ({
+            id: String(item._id),
+            name: item.name,
+            description: item.description,
+            priceMinor: item.priceMinor,
+            priceLabel: formatMoney(item.priceMinor, currency, locale),
+            dietaryTags: item.dietaryTags,
+            soldOut: item.soldOut,
+            imageUrl: item.imageUrl,
+            modifiers: item.modifiers.map((group) => ({
+              name: group.name,
+              required: group.required,
+              max: group.max,
+              options: group.options.map((option) => ({
+                name: option.name,
+                priceMinor: option.priceMinor,
+              })),
+            })),
+            comboOf: item.comboOf?.map((comboId) => String(comboId)) ?? [],
+            comboItemNames:
+              item.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ??
+              [],
           })),
-        })),
       })),
-    })),
   }));
-  const availableItems: ManagerItemChoice[] = Array.from(
-    new Map(
-      projection.items.map((item) => [
-        item.id,
-        {
-          id: item.id,
-          name: item.name,
-          categoryName: categoryNameById.get(item.primaryCategoryId) ?? 'Menu',
-        },
-      ]),
-    ).values(),
-  );
+  const availableItems: ManagerItemChoice[] = items.map((item) => ({
+    id: String(item._id),
+    name: item.name,
+    categoryName: categoryNameById.get(String(item.categoryId)) ?? 'Menu',
+  }));
 
   return (
     <div>
@@ -192,19 +179,8 @@ export default async function MenuManagementPage() {
           menus={menuTree}
           currencyLabel={`${currency} (${locale})`}
           availableItems={availableItems}
-          availableCategories={projection.categories.map((category) => ({
-            id: category.id,
-            name: category.name,
-            menuNames: projection.menus
-              .filter((menu) => category.menuIds.includes(menu.id))
-              .map((menu) => menu.name),
-          }))}
           canEdit={canEditMenu}
           canToggleAvailability={canToggleAvailability}
-          taxClasses={(restaurant?.taxClasses ?? []).map((taxClass) => ({
-            id: taxClass.id,
-            name: taxClass.name,
-          }))}
         />
       </div>
     </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { computeTaxForLines, type TaxClass, type TaxRule } from '@menukaze/shared';
+import { computeTax, type TaxRule } from '@menukaze/shared';
 import '@menukaze/shared/razorpay-client';
 import { Badge, Button, Card, FieldError, Input, Label, Radio, cn } from '@menukaze/ui';
 import { cartLineKey, cartSubtotalMinor, useCart } from '@/stores/cart';
@@ -24,7 +24,6 @@ interface Props {
   deliveryFeeMinor: number;
   estimatedPrepMinutes: number;
   taxRules: TaxRule[];
-  taxClasses: TaxClass[];
 }
 
 export function CheckoutForm({
@@ -37,7 +36,6 @@ export function CheckoutForm({
   deliveryFeeMinor,
   estimatedPrepMinutes,
   taxRules,
-  taxClasses,
 }: Props) {
   const router = useRouter();
   const lines = useCart((s) => s.lines);
@@ -57,18 +55,8 @@ export function CheckoutForm({
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
   const deliveryFee = orderType === 'delivery' ? deliveryFeeMinor : 0;
   const { taxMinor, surchargeMinor } = useMemo(
-    () =>
-      computeTaxForLines(
-        lines.map((line) => ({
-          subtotalMinor:
-            (line.priceMinor + line.modifiers.reduce((s, m) => s + m.priceMinor, 0)) *
-            line.quantity,
-          taxClassId: line.taxClassId,
-        })),
-        taxRules,
-        taxClasses,
-      ),
-    [lines, taxRules, taxClasses],
+    () => computeTax(subtotal, taxRules),
+    [subtotal, taxRules],
   );
   const total = subtotal + surchargeMinor + deliveryFee;
   const belowMinimum = minimumOrderMinor > 0 && subtotal < minimumOrderMinor;
@@ -122,7 +110,6 @@ export function CheckoutForm({
       customer: { name, phone, email },
       lines: lines.map((l) => ({
         itemId: l.itemId,
-        ...(l.variantId ? { variantId: l.variantId } : {}),
         quantity: l.quantity,
         modifiers: l.modifiers,
         ...(l.notes ? { notes: l.notes } : {}),
@@ -206,11 +193,6 @@ export function CheckoutForm({
                       <p className="text-foreground truncate font-serif text-base font-medium">
                         {line.name}
                       </p>
-                      {line.variantName ? (
-                        <p className="text-ink-500 dark:text-ink-400 mt-0.5 text-[12.5px]">
-                          {line.variantName}
-                        </p>
-                      ) : null}
                       {line.modifiers.length > 0 ? (
                         <p className="text-ink-500 dark:text-ink-400 mt-0.5 text-[12.5px]">
                           {line.modifiers.map((m) => m.optionName).join(' · ')}

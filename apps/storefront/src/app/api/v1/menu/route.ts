@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server';
-import { getModels, getMongoConnection, loadMenuProjection } from '@menukaze/db';
+import { getModels, getMongoConnection } from '@menukaze/db';
+import { filterActiveMenus } from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey, withApiCors } from '../_lib/auth';
 import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
 
@@ -28,62 +29,54 @@ export async function GET(request: NextRequest): Promise<Response> {
   const includeInactive = url.searchParams.get('include_inactive') === 'true';
 
   const conn = await getMongoConnection(ctx.dbName);
-  const { Restaurant } = getModels(conn);
+  const { Restaurant, Menu, Category, Item } = getModels(conn);
 
-  const restaurant = await Restaurant.findById(ctx.restaurantId, { timezone: 1, currency: 1 })
-    .lean()
-    .exec();
-  const projection = await loadMenuProjection(conn, {
-    restaurantId: ctx.restaurantId,
-    timeZone: restaurant?.timezone ?? 'UTC',
-    channel: 'api',
-    includeInactiveMenus: includeInactive,
-  });
+  const [restaurant, menus, categories, items] = await Promise.all([
+    Restaurant.findById(ctx.restaurantId, { timezone: 1, currency: 1 }).lean().exec(),
+    Menu.find({ restaurantId: ctx.restaurantId }).sort({ order: 1 }).lean().exec(),
+    Category.find({ restaurantId: ctx.restaurantId }).sort({ order: 1 }).lean().exec(),
+    Item.find({ restaurantId: ctx.restaurantId }).sort({ createdAt: 1 }).lean().exec(),
+  ]);
+
+  const visibleMenus = includeInactive
+    ? menus
+    : restaurant
+      ? filterActiveMenus(menus, restaurant.timezone)
+      : menus;
+  const visibleMenuIds = new Set(visibleMenus.map((m) => String(m._id)));
+  const visibleCategories = categories.filter((c) => visibleMenuIds.has(String(c.menuId)));
+  const visibleCategoryIds = new Set(visibleCategories.map((c) => String(c._id)));
+  const visibleItems = items.filter((i) => visibleCategoryIds.has(String(i.categoryId)));
 
   return withApiCors(
     request,
     jsonOk(
       {
-        menus: projection.menus.map((m) => ({
-          id: m.id,
+        menus: visibleMenus.map((m) => ({
+          id: String(m._id),
           name: m.name,
           order: m.order,
           schedule: m.schedule ?? null,
         })),
-        categories: projection.categories.map((c) => ({
-          id: c.id,
-          menu_id: c.menuId,
-          menu_ids: c.menuIds,
+        categories: visibleCategories.map((c) => ({
+          id: String(c._id),
+          menu_id: String(c.menuId),
           name: c.name,
-          description: c.description ?? null,
           order: c.order,
         })),
-        items: projection.items.map((i) => ({
-          id: i.id,
-          category_id: i.categoryId,
+        items: visibleItems.map((i) => ({
+          id: String(i._id),
+          category_id: String(i.categoryId),
           name: i.name,
           description: i.description ?? null,
           price_minor: i.priceMinor,
           currency: i.currency,
           image_url: i.imageUrl ?? null,
           dietary_tags: i.dietaryTags,
-          allergens: i.allergens,
-          featured: i.featured,
-          search_keywords: i.searchKeywords,
-          tax_class_id: i.taxClassId ?? null,
-          variants: i.variants.map((variant) => ({
-            id: variant.id,
-            name: variant.name,
-            price_minor: variant.priceMinor,
-            order: variant.order,
-            is_default: variant.isDefault,
-            sold_out: variant.soldOut,
-          })),
           sold_out: i.soldOut,
           modifiers: i.modifiers.map((g) => ({
             name: g.name,
-            required: g.min > 0,
-            min: g.min,
+            required: g.required,
             max: g.max,
             options: g.options.map((o) => ({ name: o.name, price_minor: o.priceMinor })),
           })),

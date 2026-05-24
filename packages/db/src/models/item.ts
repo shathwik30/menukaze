@@ -1,12 +1,4 @@
 import { Schema, type Types, type Connection, type HydratedDocument, type Model } from 'mongoose';
-import {
-  ALLERGENS,
-  ORDER_CHANNELS,
-  WEEKDAYS,
-  type Allergen,
-  type OrderChannel,
-  type Weekday,
-} from '@menukaze/shared';
 import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 // Modifiers are embedded (read-heavy, always fetched with the item).
@@ -21,24 +13,14 @@ export interface ItemModifierOption {
 export interface ItemModifierGroup {
   _id?: Types.ObjectId;
   name: string;
-  min: number;
+  required: boolean;
   /** 0 = unlimited. */
   max: number;
   options: ItemModifierOption[];
 }
 
-export interface ItemVariant {
-  _id?: Types.ObjectId;
-  name: string;
-  priceMinor: number;
-  order: number;
-  isDefault: boolean;
-  soldOut?: boolean;
-}
-
 export interface ItemDoc {
   restaurantId: Types.ObjectId;
-  /** Legacy single-category field retained temporarily for compatibility. */
   categoryId: Types.ObjectId;
   name: string;
   description?: string;
@@ -47,21 +29,9 @@ export interface ItemDoc {
   currency: string;
   imageUrl?: string;
   dietaryTags: string[];
-  allergens: Allergen[];
   modifiers: ItemModifierGroup[];
-  variants: ItemVariant[];
+  comboOf?: Types.ObjectId[];
   soldOut: boolean;
-  status: 'draft' | 'published';
-  isHidden: boolean;
-  availableFor?: OrderChannel[];
-  schedule?: {
-    days: Weekday[];
-    startTime: string;
-    endTime: string;
-  };
-  taxClassId?: string;
-  featured: boolean;
-  searchKeywords: string[];
   ageRestricted?: boolean;
   /** Override for category.stationIds. */
   stationIds?: Types.ObjectId[];
@@ -86,20 +56,9 @@ const itemModifierOptionSchema = new Schema<ItemModifierOption>(
 const itemModifierGroupSchema = new Schema<ItemModifierGroup>(
   {
     name: { type: String, required: true, maxlength: 120 },
-    min: { type: Number, default: 0, min: 0 },
+    required: { type: Boolean, default: false },
     max: { type: Number, default: 0, min: 0 },
     options: { type: [itemModifierOptionSchema], default: [] },
-  },
-  { _id: true },
-);
-
-const itemVariantSchema = new Schema<ItemVariant>(
-  {
-    name: { type: String, required: true, maxlength: 120 },
-    priceMinor: { type: Number, required: true, min: 0 },
-    order: { type: Number, required: true, default: 0, min: 0 },
-    isDefault: { type: Boolean, default: false },
-    soldOut: { type: Boolean, default: false },
   },
   { _id: true },
 );
@@ -114,21 +73,9 @@ const itemSchema = new Schema<ItemDoc>(
     currency: { type: String, required: true, minlength: 3, maxlength: 3 },
     imageUrl: String,
     dietaryTags: { type: [String], default: [] },
-    allergens: { type: [String], enum: ALLERGENS, default: [] },
     modifiers: { type: [itemModifierGroupSchema], default: [] },
-    variants: { type: [itemVariantSchema], default: [] },
+    comboOf: { type: [Schema.Types.ObjectId], default: undefined },
     soldOut: { type: Boolean, default: false },
-    status: { type: String, enum: ['draft', 'published'], default: 'published' },
-    isHidden: { type: Boolean, default: false },
-    availableFor: { type: [String], enum: ORDER_CHANNELS, default: undefined },
-    schedule: {
-      days: { type: [String], enum: WEEKDAYS },
-      startTime: String,
-      endTime: String,
-    },
-    taxClassId: { type: String, maxlength: 64 },
-    featured: { type: Boolean, default: false },
-    searchKeywords: { type: [String], default: [] },
     ageRestricted: Boolean,
     stationIds: { type: [Schema.Types.ObjectId], default: undefined },
     estimatedPrepMinutes: { type: Number, min: 0, max: 600 },

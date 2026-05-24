@@ -6,7 +6,6 @@ export interface MenuDoc {
   restaurantId: Types.ObjectId;
   name: string;
   order: number;
-  status: 'draft' | 'published';
   /** Empty = always active. */
   schedule?: {
     days: Weekday[];
@@ -22,7 +21,6 @@ const menuSchema = new Schema<MenuDoc>(
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     name: { type: String, required: true, maxlength: 120 },
     order: { type: Number, default: 0 },
-    status: { type: String, enum: ['draft', 'published'], default: 'published' },
     schedule: {
       days: { type: [String], enum: WEEKDAYS },
       startTime: String,

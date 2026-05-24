@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import {
-  computeTaxForLines,
-  formatPickupNumber,
-  type TaxClass,
-  type TaxRule,
-} from '@menukaze/shared';
+import { computeTax, formatPickupNumber, type TaxRule } from '@menukaze/shared';
 import '@menukaze/shared/razorpay-client';
 import { Button, FieldError, Input, Label } from '@menukaze/ui';
 import { cartItemCount, cartLineKey, cartSubtotalMinor, useKioskCart } from '@/stores/cart';
@@ -22,7 +17,6 @@ interface Props {
   locale: string;
   razorpayReady: boolean;
   taxRules: TaxRule[];
-  taxClasses: TaxClass[];
   minimumOrderMinor: number;
   estimatedPrepMinutes: number;
 }
@@ -97,7 +91,6 @@ export function CheckoutClient({
   locale,
   razorpayReady,
   taxRules,
-  taxClasses,
   minimumOrderMinor,
   estimatedPrepMinutes,
 }: Props) {
@@ -130,18 +123,8 @@ export function CheckoutClient({
 
   const subtotal = useMemo(() => cartSubtotalMinor(lines), [lines]);
   const { surchargeMinor, taxMinor } = useMemo(
-    () =>
-      computeTaxForLines(
-        lines.map((line) => ({
-          subtotalMinor:
-            (line.priceMinor + line.modifiers.reduce((s, m) => s + m.priceMinor, 0)) *
-            line.quantity,
-          taxClassId: line.taxClassId,
-        })),
-        taxRules,
-        taxClasses,
-      ),
-    [lines, taxRules, taxClasses],
+    () => computeTax(subtotal, taxRules),
+    [subtotal, taxRules],
   );
   const total = subtotal + surchargeMinor;
   const itemCount = cartItemCount(lines);
@@ -173,7 +156,6 @@ export function CheckoutClient({
       customerEmail: email.trim(),
       lines: lines.map((l) => ({
         itemId: l.itemId,
-        ...(l.variantId ? { variantId: l.variantId } : {}),
         quantity: l.quantity,
         modifiers: l.modifiers,
         ...(l.notes ? { notes: l.notes } : {}),
@@ -280,9 +262,6 @@ export function CheckoutClient({
                       <p className="text-xl font-black">
                         {line.quantity} x {line.name}
                       </p>
-                      {line.variantName ? (
-                        <p className="mt-1 text-sm font-medium text-zinc-500">{line.variantName}</p>
-                      ) : null}
                       {line.modifiers.length > 0 ? (
                         <p className="mt-1 text-sm font-medium text-zinc-500">
                           {line.modifiers.map((m) => m.optionName).join(', ')}

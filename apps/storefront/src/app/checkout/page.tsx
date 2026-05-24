@@ -63,7 +63,6 @@ export default async function CheckoutPage() {
           deliveryFeeMinor={restaurant.deliveryFeeMinor ?? 0}
           estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
           taxRules={restaurant.taxRules ?? []}
-          taxClasses={restaurant.taxClasses ?? []}
         />
       </main>
 

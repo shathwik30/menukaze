@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getMongoConnection, getModels, loadMenuProjection } from '@menukaze/db';
-import { currencyCodeOrDefault, formatMoney, parseCurrencyCode } from '@menukaze/shared';
+import { getMongoConnection, getModels } from '@menukaze/db';
+import {
+  currencyCodeOrDefault,
+  filterActiveMenus,
+  formatMoney,
+  parseCurrencyCode,
+} from '@menukaze/shared';
 import { requirePageFlag } from '@/lib/session';
 import { WalkInForm, type WalkInItem, type WalkInTable } from './walk-in-form';
 
@@ -11,43 +16,37 @@ export default async function NewWalkInOrderPage() {
   const { restaurantId } = await requirePageFlag(['orders.create_walkin']);
 
   const conn = await getMongoConnection('live');
-  const { Restaurant, Table } = getModels(conn);
+  const { Restaurant, Menu, Category, Item, Table } = getModels(conn);
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) notFound();
 
-  const [projection, tables] = await Promise.all([
-    loadMenuProjection(conn, {
-      restaurantId,
-      timeZone: restaurant.timezone,
-      channel: 'walk_in',
-    }),
+  const [menus, categories, items, tables] = await Promise.all([
+    Menu.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
+    Category.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
+    Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
     Table.find({ restaurantId }).sort({ number: 1 }).lean().exec(),
   ]);
+
+  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
+  const activeMenuIds = new Set(activeMenus.map((m) => String(m._id)));
+  const activeCategories = categories.filter((c) => activeMenuIds.has(String(c.menuId)));
+  const activeCategoryIds = new Set(activeCategories.map((c) => String(c._id)));
+  const activeItems = items.filter((i) => activeCategoryIds.has(String(i.categoryId)));
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
   const currencyLabel = currencyCodeOrDefault(restaurant.currency);
 
-  const walkInItems: WalkInItem[] = projection.items.map((item) => ({
-    id: item.id,
-    categoryId: item.categoryId,
+  const walkInItems: WalkInItem[] = activeItems.map((item) => ({
+    id: String(item._id),
+    categoryId: String(item.categoryId),
     name: item.name,
     priceMinor: item.priceMinor,
     priceLabel: formatMoney(item.priceMinor, currencyLabel, locale),
-    ...(item.taxClassId ? { taxClassId: item.taxClassId } : {}),
     soldOut: item.soldOut,
-    variants: item.variants.map((variant) => ({
-      id: variant.id,
-      name: variant.name,
-      priceMinor: variant.priceMinor,
-      priceLabel: formatMoney(variant.priceMinor, currencyLabel, locale),
-      isDefault: variant.isDefault,
-      soldOut: variant.soldOut,
-    })),
     modifiers: item.modifiers.map((group) => ({
       name: group.name,
-      required: group.min > 0,
-      min: group.min,
+      required: group.required,
       max: group.max,
       options: group.options.map((option) => ({
         name: option.name,
@@ -57,7 +56,7 @@ export default async function NewWalkInOrderPage() {
     })),
   }));
 
-  const categoriesPayload = projection.categories.map((c) => ({ id: c.id, name: c.name }));
+  const categoriesPayload = activeCategories.map((c) => ({ id: String(c._id), name: c.name }));
 
   const walkInTables: WalkInTable[] = tables.map((t) => ({
     id: String(t._id),
@@ -93,7 +92,6 @@ export default async function NewWalkInOrderPage() {
           label: r.label,
           scope: r.scope,
         }))}
-        taxClasses={restaurant.taxClasses ?? []}
       />
     </main>
   );

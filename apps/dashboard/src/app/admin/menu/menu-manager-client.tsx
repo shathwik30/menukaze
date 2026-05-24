@@ -1,14 +1,6 @@
 'use client';
 
-import { ImageCrop } from '@menukaze/ui';
-import {
-  ALLERGENS,
-  ORDER_CHANNELS,
-  WEEKDAYS,
-  type Allergen,
-  type OrderChannel,
-  type Weekday,
-} from '@menukaze/shared';
+import { Checkbox, ImageCrop, Textarea } from '@menukaze/ui';
 import {
   useEffect,
   useRef,
@@ -18,17 +10,15 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import {
   createMenuAction,
   createCategoryAction,
   createItemAction,
-  updateMenuAction,
-  deleteMenuAction,
   updateCategoryAction,
   updateItemAction,
   deleteCategoryAction,
   deleteItemAction,
-  reorderCategoryItemsAction,
   toggleItemSoldOutAction,
 } from '@/app/actions/menu-admin';
 
@@ -41,19 +31,20 @@ export interface ManagerModifierOption {
 export interface ManagerModifierGroup {
   name: string;
   required: boolean;
-  min?: number;
   max: number;
   options: ManagerModifierOption[];
 }
 
-export interface ManagerVariant {
-  id: string;
-  name: string;
-  priceMinor: number;
-  order: number;
-  isDefault: boolean;
-  soldOut: boolean;
-}
+const modifierOptionSchema = z.object({
+  name: z.string().min(1).max(120),
+  priceMinor: z.number().int().min(0),
+});
+const modifierGroupSchema = z.object({
+  name: z.string().min(1).max(120),
+  required: z.boolean(),
+  max: z.number().int().min(0),
+  options: z.array(modifierOptionSchema).max(20),
+});
 
 export interface ManagerItem {
   id: string;
@@ -62,29 +53,15 @@ export interface ManagerItem {
   priceMinor: number;
   priceLabel: string;
   dietaryTags: string[];
-  allergens: Allergen[];
   soldOut: boolean;
-  status: 'draft' | 'published';
-  isHidden: boolean;
-  availableFor?: OrderChannel[];
-  schedule?: {
-    days: Weekday[];
-    startTime: string;
-    endTime: string;
-  };
-  taxClassId?: string;
-  featured: boolean;
-  searchKeywords: string[];
-  variants: ManagerVariant[];
   imageUrl?: string;
-  categoryIds: string[];
   modifiers: ManagerModifierGroup[];
+  comboOf: string[];
+  comboItemNames: string[];
 }
 export interface ManagerCategory {
   id: string;
   name: string;
-  description?: string;
-  menuIds: string[];
   order: number;
   items: ManagerItem[];
 }
@@ -92,7 +69,6 @@ export interface ManagerMenu {
   id: string;
   name: string;
   order: number;
-  status: 'draft' | 'published';
   schedule?: {
     days: Array<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'>;
     startTime: string;
@@ -110,8 +86,6 @@ interface Props {
   menus: ManagerMenu[];
   currencyLabel: string;
   availableItems: ManagerItemChoice[];
-  availableCategories?: Array<{ id: string; name: string; menuNames?: string[] }>;
-  taxClasses?: Array<{ id: string; name: string }>;
   canEdit: boolean;
   canToggleAvailability: boolean;
 }
@@ -132,6 +106,18 @@ function parseDietaryTags(value: string): string[] {
     ),
   ];
 }
+function formatModifiers(mods: ManagerModifierGroup[]): string {
+  return mods.length === 0 ? '[]' : JSON.stringify(mods, null, 2);
+}
+function parseModifiers(value: string): ManagerModifierGroup[] {
+  const t = value.trim();
+  if (!t) return [];
+  return z.array(modifierGroupSchema).parse(JSON.parse(t));
+}
+function toggleComboId(selected: string[], id: string): string[] {
+  return selected.includes(id) ? selected.filter((v) => v !== id) : [...selected, id];
+}
+
 const TAG_STYLE: Record<string, { bg: string; fg: string }> = {
   signature: { bg: 'var(--mk-saffron-50)', fg: 'var(--mk-saffron-700)' },
   premium: { bg: 'var(--mk-rose-50)', fg: 'var(--mk-rose-700)' },
@@ -143,55 +129,12 @@ function tagStyle(tag: string): { bg: string; fg: string } {
   return TAG_STYLE[tag.toLowerCase()] ?? { bg: 'var(--mk-canvas-100)', fg: 'var(--mk-ink-500)' };
 }
 
-function statusBadgeColors(status: 'draft' | 'published'): { bg: string; fg: string } {
-  return status === 'draft'
-    ? { bg: 'var(--mk-canvas-100)', fg: 'var(--mk-ink-600)' }
-    : { bg: 'var(--mk-jade-50)', fg: 'var(--mk-jade-700)' };
-}
-
-const CHANNEL_LABELS: Record<OrderChannel, string> = {
-  storefront: 'Storefront',
-  qr_dinein: 'QR Dine-in',
-  kiosk: 'Kiosk',
-  walk_in: 'Walk-in',
-  api: 'API',
-};
-
-const WEEKDAY_LABELS: Record<Weekday, string> = {
-  mon: 'Mon',
-  tue: 'Tue',
-  wed: 'Wed',
-  thu: 'Thu',
-  fri: 'Fri',
-  sat: 'Sat',
-  sun: 'Sun',
-};
-
-const ALLERGEN_LABELS: Record<Allergen, string> = {
-  celery: 'Celery',
-  cereals_gluten: 'Gluten',
-  crustaceans: 'Crustaceans',
-  eggs: 'Eggs',
-  fish: 'Fish',
-  lupin: 'Lupin',
-  milk: 'Milk',
-  molluscs: 'Molluscs',
-  mustard: 'Mustard',
-  peanuts: 'Peanuts',
-  sesame: 'Sesame',
-  soybeans: 'Soy',
-  sulphites: 'Sulphites',
-  tree_nuts: 'Tree nuts',
-};
-
 // ─── Root ────────────────────────────────────────────────────────────────────
 
 export function MenuManagerClient({
   menus,
   currencyLabel,
-  availableItems: _availableItems,
-  availableCategories,
-  taxClasses = [],
+  availableItems,
   canEdit,
   canToggleAvailability,
 }: Props) {
@@ -209,48 +152,12 @@ export function MenuManagerClient({
   const [editingItem, setEditingItem] = useState<ManagerItem | null>(null);
 
   const selectedMenu = menus.find((m) => m.id === selectedMenuId) ?? menus[0];
-  const menuNameById = new Map(menus.map((menu) => [menu.id, menu.name]));
-  const allCategories = Array.from(
-    new Map(
-      menus
-        .flatMap((m) => m.categories)
-        .map((category) => [
-          category.id,
-          {
-            ...category,
-            menuId: category.menuIds[0],
-            menuNames: category.menuIds.map((menuId) => menuNameById.get(menuId) ?? 'Menu'),
-          },
-        ]),
-    ).values(),
+  const allCategories = menus.flatMap((m) =>
+    m.categories.map((c) => ({ ...c, menuId: m.id, menuName: m.name })),
   );
-  const categoryChoices =
-    availableCategories ??
-    allCategories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      menuNames: category.menuNames,
-    }));
   const selectedCat =
     allCategories.find((c) => c.id === selectedCatId) ?? selectedMenu?.categories[0];
   const soldOutCount = selectedCat ? selectedCat.items.filter((i) => i.soldOut).length : 0;
-
-  function reorderSelectedCategoryItem(itemId: string, direction: -1 | 1) {
-    if (!selectedCat) return;
-    const currentIndex = selectedCat.items.findIndex((item) => item.id === itemId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= selectedCat.items.length) return;
-    const reordered = [...selectedCat.items];
-    const [moved] = reordered.splice(currentIndex, 1);
-    if (!moved) return;
-    reordered.splice(nextIndex, 0, moved);
-    run(() =>
-      reorderCategoryItemsAction({
-        categoryId: selectedCat.id,
-        itemIds: reordered.map((item) => item.id),
-      }),
-    );
-  }
 
   function run<T>(fn: () => Promise<{ ok: true; data?: T } | { ok: false; error: string }>) {
     setError(null);
@@ -388,16 +295,8 @@ export function MenuManagerClient({
                 menus={menus}
                 defaultMenuId={selectedMenuId}
                 pending={isPending}
-                onSubmit={(menuIds, name, description) => {
-                  run(() =>
-                    createCategoryAction({
-                      menuId: menuIds[0],
-                      menuIds,
-                      name,
-                      description,
-                      order: 0,
-                    }),
-                  );
+                onSubmit={(menuId, name) => {
+                  run(() => createCategoryAction({ menuId, name, order: 0 }));
                   setAddCatOpen(false);
                 }}
                 onCancel={() => setAddCatOpen(false)}
@@ -540,7 +439,6 @@ export function MenuManagerClient({
             ) : null}
             {menus.map((menu) => {
               const isScheduled = Boolean(menu.schedule);
-              const menuStatus = statusBadgeColors(menu.status);
               return (
                 <div
                   key={menu.id}
@@ -601,46 +499,6 @@ export function MenuManagerClient({
                     ) : null}
                     {isScheduled ? 'Scheduled' : 'Live'}
                   </span>
-                  <button
-                    type="button"
-                    disabled={!canEdit || isPending}
-                    onClick={() =>
-                      run(() =>
-                        updateMenuAction({
-                          id: menu.id,
-                          status: menu.status === 'published' ? 'draft' : 'published',
-                        }),
-                      )
-                    }
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      flexShrink: 0,
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      padding: '2px 6px',
-                      borderRadius: 99,
-                      background: menuStatus.bg,
-                      color: menuStatus.fg,
-                      border: 'none',
-                      cursor: canEdit && !isPending ? 'pointer' : 'default',
-                    }}
-                  >
-                    {menu.status === 'draft' ? 'Draft' : 'Published'}
-                  </button>
-                  {canEdit ? (
-                    <MenuActionsMenu
-                      menu={menu}
-                      pending={isPending}
-                      run={run}
-                      onDeleted={() => {
-                        const nextMenu = menus.find((entry) => entry.id !== menu.id);
-                        setSelectedMenuId(nextMenu?.id ?? '');
-                        setSelectedCatId(nextMenu?.categories[0]?.id ?? '');
-                      }}
-                    />
-                  ) : null}
                 </div>
               );
             })}
@@ -704,19 +562,6 @@ export function MenuManagerClient({
                       </span>
                     ) : null}
                   </div>
-                  {selectedCat.description ? (
-                    <p
-                      style={{
-                        margin: '8px 0 0',
-                        maxWidth: 560,
-                        fontSize: 13,
-                        lineHeight: 1.5,
-                        color: 'var(--mk-ink-500)',
-                      }}
-                    >
-                      {selectedCat.description}
-                    </p>
-                  ) : null}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {/* Search */}
@@ -762,12 +607,7 @@ export function MenuManagerClient({
                   </div>
                   {canEdit ? (
                     <>
-                      <CategoryActionsMenu
-                        category={selectedCat}
-                        menus={menus}
-                        pending={isPending}
-                        run={run}
-                      />
+                      <CategoryActionsMenu category={selectedCat} pending={isPending} run={run} />
                     </>
                   ) : null}
                 </div>
@@ -778,8 +618,7 @@ export function MenuManagerClient({
                 {editingItem ? (
                   <ItemEditPanel
                     item={editingItem}
-                    categoryChoices={categoryChoices}
-                    taxClasses={taxClasses}
+                    availableItems={availableItems}
                     pending={isPending}
                     run={run}
                     onClose={() => setEditingItem(null)}
@@ -807,17 +646,14 @@ export function MenuManagerClient({
                       gap: 14,
                     }}
                   >
-                    {selectedCat.items.map((item, index) => (
+                    {selectedCat.items.map((item) => (
                       <ItemCard
                         key={item.id}
                         item={item}
-                        index={index}
-                        total={selectedCat.items.length}
                         pending={isPending}
                         run={run}
                         canEdit={canEdit}
                         canToggleAvailability={canToggleAvailability}
-                        onReorder={reorderSelectedCategoryItem}
                         onEdit={(it) => setEditingItem(it)}
                       />
                     ))}
@@ -828,8 +664,7 @@ export function MenuManagerClient({
                         <div style={{ gridColumn: '1 / -1' }}>
                           <AddItemForm
                             categoryId={selectedCat.id}
-                            categoryChoices={categoryChoices}
-                            taxClasses={taxClasses}
+                            availableItems={availableItems}
                             pending={isPending}
                             run={run}
                             onClose={() => setAddItemOpen(false)}
@@ -911,23 +746,17 @@ export function MenuManagerClient({
 
 function ItemCard({
   item,
-  index,
-  total,
   pending,
   run,
   canEdit,
   canToggleAvailability,
-  onReorder,
   onEdit,
 }: {
   item: ManagerItem;
-  index: number;
-  total: number;
   pending: boolean;
   run: ActionRunner;
   canEdit: boolean;
   canToggleAvailability: boolean;
-  onReorder: (itemId: string, direction: -1 | 1) => void;
   onEdit: (item: ManagerItem) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1004,28 +833,6 @@ function ItemCard({
             </span>
           </div>
         ) : null}
-        {item.status === 'draft' ? (
-          <div
-            style={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              borderRadius: 99,
-              background: 'white',
-              color: 'var(--mk-ink-700)',
-              padding: '4px 8px',
-              fontSize: 10.5,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Draft
-          </div>
-        ) : null}
       </div>
 
       {/* Body */}
@@ -1084,13 +891,7 @@ function ItemCard({
         ) : null}
 
         {/* Tags */}
-        {item.dietaryTags.length > 0 ||
-        item.soldOut ||
-        item.isHidden ||
-        item.schedule ||
-        item.featured ||
-        item.variants.length > 0 ||
-        item.allergens.length > 0 ? (
+        {item.dietaryTags.length > 0 || item.soldOut ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
             {item.dietaryTags.map((tag) => {
               const ts = tagStyle(tag);
@@ -1124,91 +925,6 @@ function ItemCard({
                 Sold out
               </span>
             ) : null}
-            {item.status === 'draft' ? (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-canvas-100)',
-                  color: 'var(--mk-ink-600)',
-                }}
-              >
-                Draft
-              </span>
-            ) : null}
-            {item.isHidden ? (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-ink-100)',
-                  color: 'var(--mk-ink-600)',
-                }}
-              >
-                Hidden
-              </span>
-            ) : null}
-            {item.schedule ? (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-lapis-50)',
-                  color: 'var(--mk-lapis-700)',
-                }}
-              >
-                Timed
-              </span>
-            ) : null}
-            {item.featured ? (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-saffron-50)',
-                  color: 'var(--mk-saffron-700)',
-                }}
-              >
-                Featured
-              </span>
-            ) : null}
-            {item.variants.length > 0 ? (
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-canvas-100)',
-                  color: 'var(--mk-ink-600)',
-                }}
-              >
-                {item.variants.length} variants
-              </span>
-            ) : null}
-            {item.allergens.slice(0, 2).map((allergen) => (
-              <span
-                key={allergen}
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  background: 'var(--mk-rose-50)',
-                  color: 'var(--mk-rose-700)',
-                }}
-              >
-                {ALLERGEN_LABELS[allergen]}
-              </span>
-            ))}
           </div>
         ) : null}
       </div>
@@ -1220,56 +936,33 @@ function ItemCard({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 10,
           marginTop: 'auto',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {canToggleAvailability ? (
-            <label
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+        {canToggleAvailability ? (
+          <label
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+          >
+            <AvailToggle
+              available={!item.soldOut}
+              pending={pending}
+              onChange={() =>
+                run(() => toggleItemSoldOutAction({ id: item.id, soldOut: !item.soldOut }))
+              }
+            />
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: item.soldOut ? 'var(--mk-ink-400)' : 'var(--mk-ink-600)',
+              }}
             >
-              <AvailToggle
-                available={!item.soldOut}
-                pending={pending}
-                onChange={() =>
-                  run(() => toggleItemSoldOutAction({ id: item.id, soldOut: !item.soldOut }))
-                }
-              />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: item.soldOut ? 'var(--mk-ink-400)' : 'var(--mk-ink-600)',
-                }}
-              >
-                {item.soldOut ? 'Hidden' : 'Available'}
-              </span>
-            </label>
-          ) : null}
-          {canEdit ? (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <button
-                type="button"
-                disabled={pending || index === 0}
-                onClick={() => onReorder(item.id, -1)}
-                style={iconBtn(pending || index === 0)}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                disabled={pending || index >= total - 1}
-                onClick={() => onReorder(item.id, 1)}
-                style={iconBtn(pending || index >= total - 1)}
-                title="Move down"
-              >
-                ↓
-              </button>
-            </div>
-          ) : null}
-        </div>
+              {item.soldOut ? 'Hidden' : 'Available'}
+            </span>
+          </label>
+        ) : (
+          <div />
+        )}
 
         {/* More button */}
         {canEdit ? (
@@ -1477,43 +1170,26 @@ function MoreItem({
 
 function CategoryActionsMenu({
   category,
-  menus,
   pending,
   run,
 }: {
-  category: ManagerCategory & { menuId?: string; menuNames?: string[] };
-  menus: ManagerMenu[];
+  category: ManagerCategory & { menuId?: string; menuName?: string };
   pending: boolean;
   run: ActionRunner;
 }) {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState(category.name);
-  const [description, setDescription] = useState(category.description ?? '');
-  const [selectedMenuIds, setSelectedMenuIds] = useState(category.menuIds);
   const manageRef = useRef<HTMLButtonElement>(null);
 
   if (editOpen) {
     return (
       <form
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          gap: 8,
-          minWidth: 320,
-        }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         onSubmit={(e) => {
           e.preventDefault();
           run(() =>
-            updateCategoryAction({
-              id: category.id,
-              menuId: selectedMenuIds[0],
-              menuIds: selectedMenuIds,
-              name: name.trim(),
-              description: description.trim() || null,
-              order: category.order,
-            }),
+            updateCategoryAction({ id: category.id, name: name.trim(), order: category.order }),
           );
           setEditOpen(false);
         }}
@@ -1533,41 +1209,19 @@ function CategoryActionsMenu({
           }}
           autoFocus
         />
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          placeholder="Optional category description…"
-          style={{
-            ...fieldInput,
-            height: 'auto',
-            padding: '8px 10px',
-            resize: 'vertical',
-            lineHeight: 1.5,
+        <button type="submit" disabled={pending} style={smallBtn(false)}>
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditOpen(false);
+            setName(category.name);
           }}
-        />
-        <MenuLinkSelector
-          menus={menus.map((menu) => ({ id: menu.id, name: menu.name }))}
-          selectedMenuIds={selectedMenuIds}
-          onChange={setSelectedMenuIds}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button type="submit" disabled={pending} style={smallBtn(false)}>
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditOpen(false);
-              setName(category.name);
-              setDescription(category.description ?? '');
-              setSelectedMenuIds(category.menuIds);
-            }}
-            style={ghostSmallBtn}
-          >
-            Cancel
-          </button>
-        </div>
+          style={ghostSmallBtn}
+        >
+          Cancel
+        </button>
       </form>
     );
   }
@@ -1646,21 +1300,16 @@ function AddCategoryInline({
   menus: ManagerMenu[];
   defaultMenuId: string;
   pending: boolean;
-  onSubmit: (menuIds: string[], name: string, description?: string) => void;
+  onSubmit: (menuId: string, name: string) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedMenuIds, setSelectedMenuIds] = useState<string[]>(
-    defaultMenuId ? [defaultMenuId] : [],
-  );
+  const [menuId, setMenuId] = useState(defaultMenuId);
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (name.trim() && selectedMenuIds.length > 0) {
-          onSubmit(selectedMenuIds, name.trim(), description.trim() || undefined);
-        }
+        if (name.trim()) onSubmit(menuId, name.trim());
       }}
       style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
     >
@@ -1683,28 +1332,30 @@ function AddCategoryInline({
           boxSizing: 'border-box',
         }}
       />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Optional short description…"
-        rows={2}
-        style={{
-          ...fieldInput,
-          height: 'auto',
-          padding: '8px 10px',
-          resize: 'vertical',
-          lineHeight: 1.5,
-        }}
-      />
-      <MenuLinkSelector
-        menus={menus.map((menu) => ({ id: menu.id, name: menu.name }))}
-        selectedMenuIds={selectedMenuIds}
-        onChange={setSelectedMenuIds}
-      />
+      {menus.length > 1 ? (
+        <select
+          value={menuId}
+          onChange={(e) => setMenuId(e.target.value)}
+          style={{
+            height: 28,
+            fontSize: 11.5,
+            border: '1px solid var(--mk-ink-200)',
+            borderRadius: 7,
+            padding: '0 8px',
+            fontFamily: 'inherit',
+          }}
+        >
+          {menus.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <div style={{ display: 'flex', gap: 6 }}>
         <button
           type="submit"
-          disabled={pending || !name.trim() || selectedMenuIds.length === 0}
+          disabled={pending || !name.trim()}
           style={{ ...smallBtn(pending || !name.trim()), flex: 1 }}
         >
           Add
@@ -1714,63 +1365,6 @@ function AddCategoryInline({
         </button>
       </div>
     </form>
-  );
-}
-
-function MenuLinkSelector({
-  menus,
-  selectedMenuIds,
-  onChange,
-}: {
-  menus: Array<{ id: string; name: string }>;
-  selectedMenuIds: string[];
-  onChange: (menuIds: string[]) => void;
-}) {
-  if (menus.length <= 1) return null;
-
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 6,
-        padding: '8px 0 2px',
-      }}
-    >
-      {menus.map((menu) => {
-        const active = selectedMenuIds.includes(menu.id);
-        return (
-          <label
-            key={menu.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              padding: '7px 8px',
-              borderRadius: 8,
-              border: `1px solid ${active ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
-              background: active ? 'var(--mk-saffron-50)' : 'white',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={() =>
-                onChange(
-                  active
-                    ? selectedMenuIds.length === 1
-                      ? selectedMenuIds
-                      : selectedMenuIds.filter((id) => id !== menu.id)
-                    : [...selectedMenuIds, menu.id],
-                )
-              }
-            />
-            <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>{menu.name}</span>
-          </label>
-        );
-      })}
-    </div>
   );
 }
 
@@ -1837,807 +1431,17 @@ function AddMenuForm({
   );
 }
 
-function MenuActionsMenu({
-  menu,
-  pending,
-  run,
-  onDeleted,
-}: {
-  menu: ManagerMenu;
-  pending: boolean;
-  run: ActionRunner;
-  onDeleted: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(menu.name);
-  const [status, setStatus] = useState<'draft' | 'published'>(menu.status);
-  const [schedule, setSchedule] = useState<ScheduleDraft>(
-    createDefaultScheduleDraft(menu.schedule),
-  );
-  const manageRef = useRef<HTMLButtonElement>(null);
-
-  function resetDraft(): void {
-    setName(menu.name);
-    setStatus(menu.status);
-    setSchedule(createDefaultScheduleDraft(menu.schedule));
-  }
-
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <button
-        ref={manageRef}
-        type="button"
-        disabled={pending}
-        onClick={() => {
-          resetDraft();
-          setOpen((value) => !value);
-        }}
-        title="Menu settings"
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: 7,
-          border: '1px solid var(--mk-ink-200)',
-          background: open ? 'var(--mk-ink-950)' : 'white',
-          color: open ? 'white' : 'var(--mk-ink-500)',
-          cursor: pending ? 'default' : 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 16,
-          lineHeight: 1,
-        }}
-      >
-        ...
-      </button>
-      {open ? (
-        <MoreMenu anchor={manageRef.current} onClose={() => setOpen(false)}>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!name.trim()) return;
-              run(() =>
-                updateMenuAction({
-                  id: menu.id,
-                  name: name.trim(),
-                  status,
-                  schedule: schedule.enabled ? buildSchedulePayload(schedule) : null,
-                }),
-              );
-              setOpen(false);
-            }}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              width: 360,
-              padding: 4,
-            }}
-          >
-            <FieldLabel label="Menu name">
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                style={fieldInput}
-              />
-            </FieldLabel>
-            <FieldLabel label="Publishing">
-              <div style={{ display: 'flex', gap: 8 }}>
-                {(['published', 'draft'] as const).map((option) => {
-                  const active = status === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setStatus(option)}
-                      style={{
-                        height: 30,
-                        padding: '0 10px',
-                        borderRadius: 999,
-                        border: `1px solid ${active ? 'var(--mk-saffron-300)' : 'var(--mk-ink-200)'}`,
-                        background: active ? 'var(--mk-saffron-50)' : 'white',
-                        color: active ? 'var(--mk-saffron-800)' : 'var(--mk-ink-600)',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {option === 'published' ? 'Published' : 'Draft'}
-                    </button>
-                  );
-                })}
-              </div>
-            </FieldLabel>
-            <ScheduleEditor
-              schedule={schedule}
-              onChange={setSchedule}
-              label="Restrict this menu to a schedule"
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  if (
-                    !window.confirm(
-                      `Delete "${menu.name}"? Shared categories will be unlinked from this menu.`,
-                    )
-                  ) {
-                    return;
-                  }
-                  run(() => deleteMenuAction(menu.id));
-                  onDeleted();
-                  setOpen(false);
-                }}
-                style={{
-                  ...ghostSmallBtn,
-                  color: 'var(--mk-rose-700)',
-                  borderColor: 'var(--mk-rose-200)',
-                }}
-              >
-                Delete
-              </button>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" onClick={() => setOpen(false)} style={ghostSmallBtn}>
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    pending || !name.trim() || (schedule.enabled && schedule.days.length === 0)
-                  }
-                  style={smallBtn(
-                    pending || !name.trim() || (schedule.enabled && schedule.days.length === 0),
-                  )}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </form>
-        </MoreMenu>
-      ) : null}
-    </div>
-  );
-}
-
-type ScheduleDraft = {
-  enabled: boolean;
-  days: Weekday[];
-  startTime: string;
-  endTime: string;
-};
-
-function createDefaultScheduleDraft(schedule?: ManagerItem['schedule']): ScheduleDraft {
-  return schedule
-    ? {
-        enabled: true,
-        days: schedule.days,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-      }
-    : {
-        enabled: false,
-        days: ['mon', 'tue', 'wed', 'thu', 'fri'],
-        startTime: '09:00',
-        endTime: '17:00',
-      };
-}
-
-function buildSchedulePayload(schedule: ScheduleDraft): ManagerItem['schedule'] | undefined {
-  if (!schedule.enabled) return undefined;
-  return {
-    days: schedule.days,
-    startTime: schedule.startTime,
-    endTime: schedule.endTime,
-  };
-}
-
-function sanitizeModifiers(groups: ManagerModifierGroup[]): ManagerModifierGroup[] {
-  return groups
-    .map((group) => ({
-      name: group.name.trim(),
-      required: (group.min ?? 0) > 0,
-      min: Math.max(0, group.min ?? 0),
-      max: Math.max(0, group.max),
-      options: group.options
-        .map((option) => ({
-          name: option.name.trim(),
-          priceMinor: Math.max(0, option.priceMinor),
-        }))
-        .filter((option) => option.name.length > 0),
-    }))
-    .filter((group) => group.name.length > 0 && group.options.length > 0);
-}
-
-function parseListInput(value: string): string[] {
-  return [
-    ...new Set(
-      value
-        .split(',')
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    ),
-  ];
-}
-
-function sanitizeVariants(variants: ManagerVariant[]): ManagerVariant[] {
-  const sanitized = variants
-    .map((variant, index) => ({
-      ...variant,
-      name: variant.name.trim(),
-      priceMinor: Math.max(0, variant.priceMinor),
-      order: index,
-    }))
-    .filter((variant) => variant.name.length > 0);
-  if (sanitized.length === 0) return [];
-  let defaultSet = false;
-  return sanitized
-    .map((variant, index) => {
-      const isDefault = variant.isDefault && !defaultSet;
-      if (isDefault) defaultSet = true;
-      return { ...variant, order: index, isDefault };
-    })
-    .map((variant, index) =>
-      defaultSet || index !== 0 ? variant : { ...variant, isDefault: true },
-    );
-}
-
-function ChannelSelector({
-  selected,
-  onChange,
-}: {
-  selected: OrderChannel[];
-  onChange: (channels: OrderChannel[]) => void;
-}) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-      {ORDER_CHANNELS.map((channel) => {
-        const active = selected.includes(channel);
-        return (
-          <label
-            key={channel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              padding: '7px 8px',
-              borderRadius: 8,
-              border: `1px solid ${active ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
-              background: active ? 'var(--mk-saffron-50)' : 'white',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={() =>
-                onChange(
-                  active
-                    ? selected.length === 1
-                      ? selected
-                      : selected.filter((value) => value !== channel)
-                    : [...selected, channel],
-                )
-              }
-            />
-            <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-              {CHANNEL_LABELS[channel]}
-            </span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-function AllergenSelector({
-  selected,
-  onChange,
-}: {
-  selected: Allergen[];
-  onChange: (allergens: Allergen[]) => void;
-}) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-      {ALLERGENS.map((allergen) => {
-        const active = selected.includes(allergen);
-        return (
-          <label
-            key={allergen}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              padding: '7px 8px',
-              borderRadius: 8,
-              border: `1px solid ${active ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
-              background: active ? 'var(--mk-saffron-50)' : 'white',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={() =>
-                onChange(
-                  active ? selected.filter((entry) => entry !== allergen) : [...selected, allergen],
-                )
-              }
-            />
-            <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-              {ALLERGEN_LABELS[allergen]}
-            </span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-function TaxClassSelector({
-  taxClasses,
-  selected,
-  onChange,
-}: {
-  taxClasses: Array<{ id: string; name: string }>;
-  selected?: string;
-  onChange: (taxClassId?: string) => void;
-}) {
-  return (
-    <select
-      value={selected ?? ''}
-      onChange={(e) => onChange(e.target.value || undefined)}
-      style={fieldInput}
-    >
-      <option value="">No item-specific tax class</option>
-      {taxClasses.map((taxClass) => (
-        <option key={taxClass.id} value={taxClass.id}>
-          {taxClass.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function ScheduleEditor({
-  schedule,
-  onChange,
-  label = 'Restrict this item to a schedule',
-}: {
-  schedule: ScheduleDraft;
-  onChange: (schedule: ScheduleDraft) => void;
-  label?: string;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        padding: '10px 14px',
-        borderRadius: 9,
-        border: '1px dashed var(--mk-ink-200)',
-        background: 'white',
-      }}
-    >
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={schedule.enabled}
-          onChange={(e) => onChange({ ...schedule, enabled: e.target.checked })}
-        />
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--mk-ink-700)' }}>{label}</span>
-      </label>
-      {schedule.enabled ? (
-        <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {WEEKDAYS.map((day) => {
-              const active = schedule.days.includes(day);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => {
-                    const nextDays = active
-                      ? schedule.days.length === 1
-                        ? schedule.days
-                        : schedule.days.filter((value) => value !== day)
-                      : [...schedule.days, day];
-                    onChange({ ...schedule, days: nextDays });
-                  }}
-                  style={{
-                    height: 28,
-                    padding: '0 10px',
-                    borderRadius: 999,
-                    border: `1px solid ${active ? 'var(--mk-saffron-300)' : 'var(--mk-ink-200)'}`,
-                    background: active ? 'var(--mk-saffron-50)' : 'white',
-                    color: active ? 'var(--mk-saffron-800)' : 'var(--mk-ink-600)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {WEEKDAY_LABELS[day]}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <FieldLabel label="Start time">
-              <input
-                type="time"
-                value={schedule.startTime}
-                onChange={(e) => onChange({ ...schedule, startTime: e.target.value })}
-                style={fieldInput}
-              />
-            </FieldLabel>
-            <FieldLabel label="End time">
-              <input
-                type="time"
-                value={schedule.endTime}
-                onChange={(e) => onChange({ ...schedule, endTime: e.target.value })}
-                style={fieldInput}
-              />
-            </FieldLabel>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function ModifierBuilder({
-  groups,
-  onChange,
-}: {
-  groups: ManagerModifierGroup[];
-  onChange: (groups: ManagerModifierGroup[]) => void;
-}) {
-  function updateGroup(index: number, patch: Partial<ManagerModifierGroup>) {
-    onChange(
-      groups.map((group, groupIndex) => (groupIndex === index ? { ...group, ...patch } : group)),
-    );
-  }
-
-  function updateOption(
-    groupIndex: number,
-    optionIndex: number,
-    patch: Partial<ManagerModifierOption>,
-  ) {
-    onChange(
-      groups.map((group, index) =>
-        index === groupIndex
-          ? {
-              ...group,
-              options: group.options.map((option, idx) =>
-                idx === optionIndex ? { ...option, ...patch } : option,
-              ),
-            }
-          : group,
-      ),
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {groups.map((group, groupIndex) => (
-        <div
-          key={`${group.name}-${groupIndex}`}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            padding: '12px 14px',
-            borderRadius: 10,
-            border: '1px solid var(--mk-ink-100)',
-            background: 'white',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <input
-              type="text"
-              value={group.name}
-              onChange={(e) => updateGroup(groupIndex, { name: e.target.value })}
-              placeholder="Group name"
-              style={{ ...fieldInput, flex: 1 }}
-            />
-            <button
-              type="button"
-              onClick={() => onChange(groups.filter((_, index) => index !== groupIndex))}
-              style={ghostSmallBtn}
-            >
-              Remove
-            </button>
-          </div>
-          <div
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}
-          >
-            <FieldLabel label="Min">
-              <input
-                type="number"
-                min="0"
-                value={group.min ?? 0}
-                onChange={(e) =>
-                  updateGroup(groupIndex, { min: Number.parseInt(e.target.value || '0', 10) || 0 })
-                }
-                style={fieldInput}
-              />
-            </FieldLabel>
-            <FieldLabel label="Max" hint="0 = unlimited">
-              <input
-                type="number"
-                min="0"
-                value={group.max}
-                onChange={(e) =>
-                  updateGroup(groupIndex, { max: Number.parseInt(e.target.value || '0', 10) || 0 })
-                }
-                style={fieldInput}
-              />
-            </FieldLabel>
-            <div style={{ display: 'flex', alignItems: 'end' }}>
-              <label
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  fontSize: 12.5,
-                  color: 'var(--mk-ink-700)',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={(group.min ?? 0) > 0}
-                  onChange={(e) =>
-                    updateGroup(groupIndex, {
-                      min: e.target.checked ? Math.max(1, group.min ?? 0) : 0,
-                    })
-                  }
-                />
-                Required
-              </label>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {group.options.map((option, optionIndex) => (
-              <div
-                key={`${option.name}-${optionIndex}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 100px auto',
-                  gap: 8,
-                  alignItems: 'center',
-                }}
-              >
-                <input
-                  type="text"
-                  value={option.name}
-                  onChange={(e) => updateOption(groupIndex, optionIndex, { name: e.target.value })}
-                  placeholder="Option name"
-                  style={fieldInput}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={(option.priceMinor / 100).toFixed(2)}
-                  onChange={(e) =>
-                    updateOption(groupIndex, optionIndex, {
-                      priceMinor: Math.max(
-                        0,
-                        Math.round((Number.parseFloat(e.target.value || '0') || 0) * 100),
-                      ),
-                    })
-                  }
-                  style={fieldInput}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    onChange(
-                      groups.map((current, index) =>
-                        index === groupIndex
-                          ? {
-                              ...current,
-                              options: current.options.filter((_, idx) => idx !== optionIndex),
-                            }
-                          : current,
-                      ),
-                    )
-                  }
-                  style={ghostSmallBtn}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                onChange(
-                  groups.map((group, index) =>
-                    index === groupIndex
-                      ? {
-                          ...group,
-                          options: [...group.options, { name: '', priceMinor: 0 }],
-                        }
-                      : group,
-                  ),
-                )
-              }
-              style={outlineBtn}
-            >
-              Add option
-            </button>
-          </div>
-        </div>
-      ))}
-
-      <button
-        type="button"
-        onClick={() =>
-          onChange([
-            ...groups,
-            {
-              name: '',
-              required: false,
-              min: 0,
-              max: 1,
-              options: [{ name: '', priceMinor: 0 }],
-            },
-          ])
-        }
-        style={outlineBtn}
-      >
-        Add modifier group
-      </button>
-    </div>
-  );
-}
-
-function VariantBuilder({
-  variants,
-  onChange,
-}: {
-  variants: ManagerVariant[];
-  onChange: (variants: ManagerVariant[]) => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {variants.map((variant) => (
-        <div
-          key={variant.id}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 100px auto auto auto',
-            gap: 8,
-            alignItems: 'center',
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: '1px solid var(--mk-ink-100)',
-            background: 'white',
-          }}
-        >
-          <input
-            type="text"
-            value={variant.name}
-            onChange={(e) =>
-              onChange(
-                variants.map((entry) =>
-                  entry.id === variant.id ? { ...entry, name: e.target.value } : entry,
-                ),
-              )
-            }
-            placeholder="Variant name"
-            style={fieldInput}
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={(variant.priceMinor / 100).toFixed(2)}
-            onChange={(e) =>
-              onChange(
-                variants.map((entry) =>
-                  entry.id === variant.id
-                    ? {
-                        ...entry,
-                        priceMinor: Math.max(
-                          0,
-                          Math.round((Number.parseFloat(e.target.value || '0') || 0) * 100),
-                        ),
-                      }
-                    : entry,
-                ),
-              )
-            }
-            style={fieldInput}
-          />
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
-            <input
-              type="radio"
-              checked={variant.isDefault}
-              onChange={() =>
-                onChange(
-                  variants.map((entry) => ({
-                    ...entry,
-                    isDefault: entry.id === variant.id,
-                  })),
-                )
-              }
-            />
-            Default
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
-            <input
-              type="checkbox"
-              checked={variant.soldOut}
-              onChange={(e) =>
-                onChange(
-                  variants.map((entry) =>
-                    entry.id === variant.id ? { ...entry, soldOut: e.target.checked } : entry,
-                  ),
-                )
-              }
-            />
-            Sold out
-          </label>
-          <button
-            type="button"
-            onClick={() => onChange(variants.filter((entry) => entry.id !== variant.id))}
-            style={ghostSmallBtn}
-          >
-            Remove
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() =>
-          onChange([
-            ...variants,
-            {
-              id: `variant-${Date.now()}-${variants.length}`,
-              name: '',
-              priceMinor: 0,
-              order: variants.length,
-              isDefault: variants.length === 0,
-              soldOut: false,
-            },
-          ])
-        }
-        style={outlineBtn}
-      >
-        Add variant
-      </button>
-    </div>
-  );
-}
-
 // ─── Add item form ────────────────────────────────────────────────────────────
 
 function AddItemForm({
   categoryId,
-  categoryChoices,
-  taxClasses,
+  availableItems,
   pending,
   run,
   onClose,
 }: {
   categoryId: string;
-  categoryChoices: Array<{ id: string; name: string; menuNames?: string[] }>;
-  taxClasses: Array<{ id: string; name: string }>;
+  availableItems: ManagerItemChoice[];
   pending: boolean;
   run: ActionRunner;
   onClose: () => void;
@@ -2646,18 +1450,9 @@ function AddItemForm({
   const [priceMajor, setPriceMajor] = useState('');
   const [description, setDescription] = useState('');
   const [dietaryTags, setDietaryTags] = useState('');
-  const [allergens, setAllergens] = useState<Allergen[]>([]);
-  const [searchKeywords, setSearchKeywords] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [status, setStatus] = useState<'draft' | 'published'>('published');
-  const [isHidden, setIsHidden] = useState(false);
-  const [availableFor, setAvailableFor] = useState<OrderChannel[]>([...ORDER_CHANNELS]);
-  const [schedule, setSchedule] = useState<ScheduleDraft>(createDefaultScheduleDraft());
-  const [featured, setFeatured] = useState(false);
-  const [taxClassId, setTaxClassId] = useState<string | undefined>();
-  const [variants, setVariants] = useState<ManagerVariant[]>([]);
-  const [modifiers, setModifiers] = useState<ManagerModifierGroup[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([categoryId]);
+  const [modifierJson, setModifierJson] = useState('[]');
+  const [comboOf, setComboOf] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -2678,37 +1473,25 @@ function AddItemForm({
           e.preventDefault();
           const priceMinor = Math.round(Number.parseFloat(priceMajor) * 100);
           if (!name.trim() || !Number.isFinite(priceMinor)) return;
-          if (availableFor.length === 0) {
-            setLocalError('Select at least one channel.');
-            return;
+          try {
+            const modifiers = parseModifiers(modifierJson);
+            setLocalError(null);
+            run(() =>
+              createItemAction({
+                categoryId,
+                name: name.trim(),
+                priceMinor,
+                ...(description.trim() ? { description: description.trim() } : {}),
+                ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
+                dietaryTags: parseDietaryTags(dietaryTags),
+                modifiers,
+                comboOf,
+              }),
+            );
+            onClose();
+          } catch (err) {
+            setLocalError(err instanceof Error ? err.message : 'Invalid modifiers JSON.');
           }
-          if (schedule.enabled && schedule.days.length === 0) {
-            setLocalError('Select at least one schedule day.');
-            return;
-          }
-          setLocalError(null);
-          run(() =>
-            createItemAction({
-              categoryId,
-              categoryIds: selectedCategoryIds,
-              name: name.trim(),
-              status,
-              priceMinor,
-              isHidden,
-              availableFor,
-              ...(schedule.enabled ? { schedule: buildSchedulePayload(schedule) } : {}),
-              ...(description.trim() ? { description: description.trim() } : {}),
-              ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
-              dietaryTags: parseDietaryTags(dietaryTags),
-              allergens,
-              searchKeywords: parseListInput(searchKeywords),
-              taxClassId,
-              featured,
-              variants: sanitizeVariants(variants),
-              modifiers: sanitizeModifiers(modifiers),
-            }),
-          );
-          onClose();
         }}
         style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
       >
@@ -2746,13 +1529,6 @@ function AddItemForm({
           onChange={(e) => setDietaryTags(e.target.value)}
           style={fieldInput}
         />
-        <input
-          type="text"
-          placeholder="Search keywords e.g. peri peri, fries, finger chips"
-          value={searchKeywords}
-          onChange={(e) => setSearchKeywords(e.target.value)}
-          style={fieldInput}
-        />
 
         <button
           type="button"
@@ -2767,7 +1543,7 @@ function AddItemForm({
             padding: 0,
           }}
         >
-          {showAdvanced ? '▾' : '▸'} Advanced (image, modifiers)
+          {showAdvanced ? '▾' : '▸'} Advanced (image, modifiers, combos)
         </button>
 
         {showAdvanced ? (
@@ -2795,133 +1571,45 @@ function AddItemForm({
               onRemove={() => setImageUrl('')}
               aspectRatio={1}
             />
+            {availableItems.length > 0 ? (
+              <>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
+                  Combo contents
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  {availableItems.map((c) => (
+                    <label
+                      key={c.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Checkbox
+                        checked={comboOf.includes(c.id)}
+                        onChange={() => setComboOf((prev) => toggleComboId(prev, c.id))}
+                      />
+                      <span>
+                        {c.name}{' '}
+                        <span style={{ color: 'var(--mk-ink-400)' }}>· {c.categoryName}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : null}
             <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Status
+              Modifiers JSON
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {(['published', 'draft'] as const).map((option) => {
-                const active = status === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setStatus(option)}
-                    style={{
-                      height: 30,
-                      padding: '0 10px',
-                      borderRadius: 999,
-                      border: `1px solid ${active ? 'var(--mk-saffron-300)' : 'var(--mk-ink-200)'}`,
-                      background: active ? 'var(--mk-saffron-50)' : 'white',
-                      color: active ? 'var(--mk-saffron-800)' : 'var(--mk-ink-600)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {option === 'published' ? 'Published' : 'Draft'}
-                  </button>
-                );
-              })}
-            </div>
-            <label
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            >
-              <input
-                type="checkbox"
-                checked={isHidden}
-                onChange={(e) => setIsHidden(e.target.checked)}
-              />
-              <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                Hidden from guests until enabled
-              </span>
-            </label>
-            <label
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            >
-              <input
-                type="checkbox"
-                checked={featured}
-                onChange={(e) => setFeatured(e.target.checked)}
-              />
-              <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                Feature this item in discovery surfaces
-              </span>
-            </label>
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Categories
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {categoryChoices.map((category) => {
-                const active = selectedCategoryIds.includes(category.id);
-                return (
-                  <label
-                    key={category.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      cursor: 'pointer',
-                      padding: '7px 8px',
-                      borderRadius: 8,
-                      border: `1px solid ${active ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
-                      background: active ? 'var(--mk-saffron-50)' : 'white',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() =>
-                        setSelectedCategoryIds((prev) => {
-                          if (prev.includes(category.id)) {
-                            return prev.length === 1
-                              ? prev
-                              : prev.filter((id) => id !== category.id);
-                          }
-                          return [...prev, category.id];
-                        })
-                      }
-                    />
-                    <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                      {category.name}
-                      {category.menuNames && category.menuNames.length > 0 ? (
-                        <span style={{ color: 'var(--mk-ink-400)' }}>
-                          {' '}
-                          · {category.menuNames.join(', ')}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Visible on channels
-            </div>
-            <ChannelSelector selected={availableFor} onChange={setAvailableFor} />
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Availability window
-            </div>
-            <ScheduleEditor schedule={schedule} onChange={setSchedule} />
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Allergens
-            </div>
-            <AllergenSelector selected={allergens} onChange={setAllergens} />
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Tax class
-            </div>
-            <TaxClassSelector
-              taxClasses={taxClasses}
-              selected={taxClassId}
-              onChange={setTaxClassId}
+            <Textarea
+              value={modifierJson}
+              onChange={(e) => setModifierJson(e.target.value)}
+              rows={5}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}
             />
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Variants
-            </div>
-            <VariantBuilder variants={variants} onChange={setVariants} />
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--mk-ink-600)' }}>
-              Modifiers
-            </div>
-            <ModifierBuilder groups={modifiers} onChange={setModifiers} />
           </div>
         ) : null}
 
@@ -2941,22 +1629,8 @@ function AddItemForm({
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             type="submit"
-            disabled={
-              pending ||
-              !name.trim() ||
-              !priceMajor ||
-              selectedCategoryIds.length === 0 ||
-              availableFor.length === 0 ||
-              (schedule.enabled && schedule.days.length === 0)
-            }
-            style={darkBtn(
-              pending ||
-                !name.trim() ||
-                !priceMajor ||
-                selectedCategoryIds.length === 0 ||
-                availableFor.length === 0 ||
-                (schedule.enabled && schedule.days.length === 0),
-            )}
+            disabled={pending || !name.trim() || !priceMajor}
+            style={darkBtn(pending || !name.trim() || !priceMajor)}
           >
             Add item
           </button>
@@ -2973,15 +1647,13 @@ function AddItemForm({
 
 function ItemEditPanel({
   item,
-  categoryChoices,
-  taxClasses,
+  availableItems,
   pending,
   run,
   onClose,
 }: {
   item: ManagerItem;
-  categoryChoices: Array<{ id: string; name: string; menuNames?: string[] }>;
-  taxClasses: Array<{ id: string; name: string }>;
+  availableItems: ManagerItemChoice[];
   pending: boolean;
   run: ActionRunner;
   onClose: () => void;
@@ -2990,23 +1662,11 @@ function ItemEditPanel({
   const [priceMajor, setPriceMajor] = useState((item.priceMinor / 100).toFixed(2));
   const [description, setDescription] = useState(item.description ?? '');
   const [dietaryTags, setDietaryTags] = useState(item.dietaryTags.join(', '));
-  const [allergens, setAllergens] = useState<Allergen[]>(item.allergens);
-  const [searchKeywords, setSearchKeywords] = useState(item.searchKeywords.join(', '));
   const [imageUrl, setImageUrl] = useState(item.imageUrl ?? '');
-  const [status, setStatus] = useState<'draft' | 'published'>(item.status);
-  const [isHidden, setIsHidden] = useState(item.isHidden);
-  const [availableFor, setAvailableFor] = useState<OrderChannel[]>(
-    item.availableFor ?? [...ORDER_CHANNELS],
-  );
-  const [schedule, setSchedule] = useState<ScheduleDraft>(
-    createDefaultScheduleDraft(item.schedule),
-  );
-  const [featured, setFeatured] = useState(item.featured);
-  const [taxClassId, setTaxClassId] = useState<string | undefined>(item.taxClassId);
-  const [variants, setVariants] = useState<ManagerVariant[]>(item.variants);
-  const [modifiers, setModifiers] = useState<ManagerModifierGroup[]>(item.modifiers);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState(item.categoryIds);
+  const [modifierJson, setModifierJson] = useState(formatModifiers(item.modifiers));
+  const [comboOf, setComboOf] = useState(item.comboOf);
   const [localError, setLocalError] = useState<string | null>(null);
+  const comboChoices = availableItems.filter((c) => c.id !== item.id);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -3081,37 +1741,25 @@ function ItemEditPanel({
             e.preventDefault();
             const priceMinor = Math.round(Number.parseFloat(priceMajor) * 100);
             if (!name.trim() || !Number.isFinite(priceMinor)) return;
-            if (availableFor.length === 0) {
-              setLocalError('Select at least one channel.');
-              return;
+            try {
+              const modifiers = parseModifiers(modifierJson);
+              setLocalError(null);
+              run(() =>
+                updateItemAction({
+                  id: item.id,
+                  name: name.trim(),
+                  description: description.trim() || undefined,
+                  priceMinor,
+                  imageUrl: imageUrl.trim() ? imageUrl.trim() : item.imageUrl ? null : undefined,
+                  dietaryTags: parseDietaryTags(dietaryTags),
+                  modifiers,
+                  comboOf,
+                }),
+              );
+              onClose();
+            } catch (err) {
+              setLocalError(err instanceof Error ? err.message : 'Invalid modifiers JSON.');
             }
-            if (schedule.enabled && schedule.days.length === 0) {
-              setLocalError('Select at least one schedule day.');
-              return;
-            }
-            setLocalError(null);
-            run(() =>
-              updateItemAction({
-                id: item.id,
-                name: name.trim(),
-                categoryIds: selectedCategoryIds,
-                status,
-                isHidden,
-                featured,
-                availableFor,
-                schedule: schedule.enabled ? buildSchedulePayload(schedule) : null,
-                description: description.trim() || undefined,
-                priceMinor,
-                imageUrl: imageUrl.trim() ? imageUrl.trim() : item.imageUrl ? null : undefined,
-                dietaryTags: parseDietaryTags(dietaryTags),
-                allergens,
-                searchKeywords: parseListInput(searchKeywords),
-                taxClassId: taxClassId ?? null,
-                variants: sanitizeVariants(variants),
-                modifiers: sanitizeModifiers(modifiers),
-              }),
-            );
-            onClose();
           }}
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}
         >
@@ -3184,15 +1832,6 @@ function ItemEditPanel({
                   </div>
                 ) : null}
               </FieldLabel>
-              <FieldLabel label="Search keywords" hint="Comma-separated synonyms for search.">
-                <input
-                  type="text"
-                  value={searchKeywords}
-                  onChange={(e) => setSearchKeywords(e.target.value)}
-                  placeholder="e.g. peri peri, finger chips"
-                  style={fieldInput}
-                />
-              </FieldLabel>
             </EditSection>
 
             <EditSection title="Photo">
@@ -3206,146 +1845,72 @@ function ItemEditPanel({
                 onRemove={() => setImageUrl('')}
                 aspectRatio={1}
               />
-              <FieldLabel label="Status">
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(['published', 'draft'] as const).map((option) => {
-                    const active = status === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setStatus(option)}
-                        style={{
-                          height: 30,
-                          padding: '0 10px',
-                          borderRadius: 999,
-                          border: `1px solid ${active ? 'var(--mk-saffron-300)' : 'var(--mk-ink-200)'}`,
-                          background: active ? 'var(--mk-saffron-50)' : 'white',
-                          color: active ? 'var(--mk-saffron-800)' : 'var(--mk-ink-600)',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {option === 'published' ? 'Published' : 'Draft'}
-                      </button>
-                    );
-                  })}
-                </div>
-              </FieldLabel>
-              <label
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isHidden}
-                  onChange={(e) => setIsHidden(e.target.checked)}
-                />
-                <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                  Hide this item from guests
-                </span>
-              </label>
-              <label
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              >
-                <input
-                  type="checkbox"
-                  checked={featured}
-                  onChange={(e) => setFeatured(e.target.checked)}
-                />
-                <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                  Feature this item on discovery surfaces
-                </span>
-              </label>
             </EditSection>
           </div>
 
           {/* Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <EditSection title="Categories" hint="An item can appear in multiple sections.">
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 8,
-                  maxHeight: 220,
-                  overflowY: 'auto',
-                }}
-              >
-                {categoryChoices.map((category) => {
-                  const active = selectedCategoryIds.includes(category.id);
-                  return (
+            {comboChoices.length > 0 ? (
+              <EditSection title="Combo contents" hint="Mark this item as a bundle of other items">
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {comboChoices.map((c) => (
                     <label
-                      key={category.id}
+                      key={c.id}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
+                        fontSize: 12.5,
                         cursor: 'pointer',
-                        padding: '7px 8px',
-                        borderRadius: 8,
-                        border: `1px solid ${active ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
-                        background: active ? 'var(--mk-saffron-50)' : 'white',
+                        padding: '5px 8px',
+                        borderRadius: 7,
+                        background: comboOf.includes(c.id) ? 'var(--mk-saffron-50)' : 'transparent',
+                        border: `1px solid ${comboOf.includes(c.id) ? 'var(--mk-saffron-200)' : 'var(--mk-ink-100)'}`,
+                        transition: 'all 100ms',
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={() =>
-                          setSelectedCategoryIds((prev) => {
-                            if (prev.includes(category.id)) {
-                              return prev.length === 1
-                                ? prev
-                                : prev.filter((id) => id !== category.id);
-                            }
-                            return [...prev, category.id];
-                          })
-                        }
+                      <Checkbox
+                        checked={comboOf.includes(c.id)}
+                        onChange={() => setComboOf((prev) => toggleComboId(prev, c.id))}
                       />
-                      <span style={{ fontSize: 12.5, color: 'var(--mk-ink-700)' }}>
-                        {category.name}
-                        {category.menuNames && category.menuNames.length > 0 ? (
-                          <span style={{ color: 'var(--mk-ink-400)' }}>
-                            {' '}
-                            · {category.menuNames.join(', ')}
-                          </span>
-                        ) : null}
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontWeight: comboOf.includes(c.id) ? 600 : 400,
+                        }}
+                      >
+                        {c.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--mk-ink-400)', flexShrink: 0 }}>
+                        {c.categoryName}
                       </span>
                     </label>
-                  );
-                })}
-              </div>
-            </EditSection>
-
-            <EditSection title="Channels" hint="Choose where this item should appear.">
-              <ChannelSelector selected={availableFor} onChange={setAvailableFor} />
-            </EditSection>
-
-            <EditSection title="Schedule" hint="Optional time-based visibility for this item.">
-              <ScheduleEditor schedule={schedule} onChange={setSchedule} />
-            </EditSection>
-
-            <EditSection title="Allergens" hint="Structured compliance declarations.">
-              <AllergenSelector selected={allergens} onChange={setAllergens} />
-            </EditSection>
-
-            <EditSection title="Tax class" hint="Optional item-specific tax treatment.">
-              <TaxClassSelector
-                taxClasses={taxClasses}
-                selected={taxClassId}
-                onChange={setTaxClassId}
-              />
-            </EditSection>
-
-            <EditSection title="Variants" hint="Sizes or versions with their own base prices.">
-              <VariantBuilder variants={variants} onChange={setVariants} />
-            </EditSection>
+                  ))}
+                </div>
+              </EditSection>
+            ) : null}
 
             <EditSection
               title="Modifiers"
-              hint="Build guest choices with minimum and maximum selection rules."
+              hint="JSON array — each group has name, required, max, options[]"
             >
-              <ModifierBuilder groups={modifiers} onChange={setModifiers} />
+              <Textarea
+                value={modifierJson}
+                onChange={(e) => setModifierJson(e.target.value)}
+                rows={10}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.6 }}
+              />
             </EditSection>
           </div>
         </form>
@@ -3382,22 +1947,8 @@ function ItemEditPanel({
         <button
           type="submit"
           form="item-edit-form"
-          disabled={
-            pending ||
-            !name.trim() ||
-            !priceMajor ||
-            selectedCategoryIds.length === 0 ||
-            availableFor.length === 0 ||
-            (schedule.enabled && schedule.days.length === 0)
-          }
-          style={darkBtn(
-            pending ||
-              !name.trim() ||
-              !priceMajor ||
-              selectedCategoryIds.length === 0 ||
-              availableFor.length === 0 ||
-              (schedule.enabled && schedule.days.length === 0),
-          )}
+          disabled={pending || !name.trim() || !priceMajor}
+          style={darkBtn(pending || !name.trim() || !priceMajor)}
         >
           Save changes
         </button>
@@ -3499,24 +2050,6 @@ function darkBtn(disabled: boolean): CSSProperties {
     background: disabled ? 'var(--mk-ink-200)' : 'var(--mk-ink-950)',
     color: disabled ? 'var(--mk-ink-500)' : 'var(--mk-canvas-50)',
     cursor: disabled ? 'not-allowed' : 'pointer',
-  };
-}
-
-function iconBtn(disabled: boolean): CSSProperties {
-  return {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
-    border: '1px solid var(--mk-ink-200)',
-    background: disabled ? 'var(--mk-canvas-100)' : 'white',
-    color: disabled ? 'var(--mk-ink-300)' : 'var(--mk-ink-600)',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    fontSize: 13,
-    fontWeight: 700,
-    lineHeight: 1,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   };
 }
 const outlineBtn: CSSProperties = {

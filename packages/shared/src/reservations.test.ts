@@ -53,44 +53,6 @@ describe('computeAvailableSlots', () => {
     expect(slots).toHaveLength(12);
   });
 
-  it('spaces slots by the configured buffer while preserving slot duration', () => {
-    const slots = computeAvailableSlots({
-      date: '2026-01-05',
-      hours,
-      settings: { ...settings, slotMinutes: 60, bufferMinutes: 15 },
-      bookings: [],
-    });
-    expect(slots.map((slot) => `${slot.slotStart}-${slot.slotEnd}`)).toEqual([
-      '09:00-10:00',
-      '10:15-11:15',
-    ]);
-  });
-
-  it('does not offer past slots for the restaurant local day', () => {
-    const slots = computeAvailableSlots({
-      date: '2026-01-06',
-      hours,
-      settings,
-      bookings: [],
-      timeZone: 'UTC',
-      now: new Date('2026-01-06T10:30:00.000Z'),
-    });
-    expect(slots.at(0)).toEqual({ slotStart: '11:00', slotEnd: '12:00', hasBookings: false });
-  });
-
-  it('returns no slots for past dates in the restaurant timezone', () => {
-    expect(
-      computeAvailableSlots({
-        date: '2026-01-05',
-        hours,
-        settings,
-        bookings: [],
-        timeZone: 'UTC',
-        now: new Date('2026-01-06T00:01:00.000Z'),
-      }),
-    ).toEqual([]);
-  });
-
   it('returns an empty list when reservations are disabled', () => {
     expect(
       computeAvailableSlots({
@@ -118,17 +80,6 @@ describe('computeAvailableSlots', () => {
       computeAvailableSlots({
         date: '2026-01-11',
         hours,
-        settings,
-        bookings: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it('returns an empty list when restaurant hours contain invalid HH:mm values', () => {
-    expect(
-      computeAvailableSlots({
-        date: '2026-01-06',
-        hours: [{ day: 'tue', closed: false, open: '25:00', close: '27:00' }],
         settings,
         bookings: [],
       }),
@@ -193,19 +144,6 @@ describe('isReservationSlotValid', () => {
       slotEnd: '11:15',
       hours,
       settings,
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it('rejects past slots when a timezone-aware clock is supplied', () => {
-    const result = isReservationSlotValid({
-      date: '2026-01-06',
-      slotStart: '10:00',
-      slotEnd: '11:00',
-      hours,
-      settings,
-      timeZone: 'UTC',
-      now: new Date('2026-01-06T10:30:00.000Z'),
     });
     expect(result.ok).toBe(false);
   });

@@ -29,59 +29,6 @@ export function startOfTodayInTimezone(
   return new Date(asIfUtc - zoneOffsetMinutes * 60_000);
 }
 
-export function dateKeyInTimezone(
-  timezone: string | undefined | null,
-  now: Date = new Date(),
-): string {
-  const zone = timezone && timezone.length > 0 ? timezone : 'UTC';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: zone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-}
-
-export function localDateTimeInTimezoneToUtc(
-  date: string,
-  time: string,
-  timezone: string | undefined | null,
-): Date | null {
-  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
-  if (!dateMatch || !timeMatch) return null;
-
-  const [, yearRaw, monthRaw, dayRaw] = dateMatch;
-  const [, hourRaw, minuteRaw] = timeMatch;
-  const year = Number(yearRaw);
-  const month = Number(monthRaw);
-  const day = Number(dayRaw);
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(day) ||
-    !Number.isInteger(hour) ||
-    !Number.isInteger(minute) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31 ||
-    hour < 0 ||
-    hour > 23 ||
-    minute < 0 ||
-    minute > 59
-  ) {
-    return null;
-  }
-
-  const zone = timezone && timezone.length > 0 ? timezone : 'UTC';
-  const asIfUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
-  const zoneOffsetMinutes = tzOffsetMinutes(zone, new Date(asIfUtc));
-  return new Date(asIfUtc - zoneOffsetMinutes * 60_000);
-}
-
 /**
  * Minutes that `zone` is offset from UTC at `at` (east = positive).
  * Implemented without third-party tz libraries by comparing the same instant

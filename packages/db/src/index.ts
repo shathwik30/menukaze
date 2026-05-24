@@ -12,7 +12,6 @@ export {
   staffMembershipModel,
   menuModel,
   categoryModel,
-  categoryItemMembershipModel,
   itemModel,
   tableModel,
   generateQrToken,
@@ -38,8 +37,6 @@ export {
   type MenuModel,
   type CategoryDoc,
   type CategoryModel,
-  type CategoryItemMembershipDoc,
-  type CategoryItemMembershipModel,
   type ItemDoc,
   type ItemModel,
   type ItemModifierGroup,
@@ -128,23 +125,8 @@ export { envelopeEncrypt, envelopeDecrypt } from './crypto';
 export { readMongoEnv, readSeedMongoEnv, readEncryptionEnv } from './env';
 export { isObjectIdString, parseObjectId, parseObjectIds } from './object-id';
 export { CAPACITY_ORDER_STATUSES, restaurantHasReachedOrderCapacity } from './order-capacity';
-export {
-  loadMenuProjection,
-  loadPrimaryCategoryStationIdsByItemId,
-  type MenuProjection,
-  type MenuProjectionCategory,
-  type MenuProjectionItem,
-  type MenuProjectionMenu,
-} from './menu-projection';
 export { getRestaurantSupportRecipients, type SupportRecipientsResult } from './support-recipients';
 export { upsertCustomerFromOrder, type CustomerUpsertInput } from './customers';
 export { enqueueWebhookEvent, type EnqueueEventInput } from './webhooks';
 export { reserveDailyPickupNumber } from './order-reference';
 export { pickLeastLoadedStationId } from './station-load';
-export {
-  buildMenuCommercePricing,
-  type MenuCommerceLineInput,
-  type MenuCommercePricing,
-  type MenuCommerceRestaurantConfig,
-  type MenuCommerceSnapshotLine,
-} from './menu-commerce';

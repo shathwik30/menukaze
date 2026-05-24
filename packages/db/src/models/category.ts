@@ -3,11 +3,8 @@ import { tenantScopedPlugin } from '../plugins/tenant-scoped';
 
 export interface CategoryDoc {
   restaurantId: Types.ObjectId;
-  /** Legacy primary menu field retained for compatibility. */
   menuId: Types.ObjectId;
-  menuIds?: Types.ObjectId[];
   name: string;
-  description?: string;
   order: number;
   /** Empty/missing = default station. */
   stationIds?: Types.ObjectId[];
@@ -19,9 +16,7 @@ const categorySchema = new Schema<CategoryDoc>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     menuId: { type: Schema.Types.ObjectId, ref: 'Menu', required: true },
-    menuIds: { type: [Schema.Types.ObjectId], default: undefined },
     name: { type: String, required: true, maxlength: 120 },
-    description: { type: String, maxlength: 300 },
     order: { type: Number, default: 0 },
     stationIds: { type: [Schema.Types.ObjectId], default: undefined },
   },
@@ -30,7 +25,6 @@ const categorySchema = new Schema<CategoryDoc>(
 
 categorySchema.plugin(tenantScopedPlugin);
 categorySchema.index({ restaurantId: 1, menuId: 1, order: 1 });
-categorySchema.index({ restaurantId: 1, menuIds: 1, order: 1 });
 categorySchema.index({ restaurantId: 1, order: 1 });
 
 export type CategoryHydratedDoc = HydratedDocument<CategoryDoc>;

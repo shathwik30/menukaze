@@ -14,28 +14,16 @@ interface ModifierOption {
 interface ModifierGroup {
   name: string;
   required: boolean;
-  min: number;
   max: number;
   options: ModifierOption[];
-}
-
-interface VariantOption {
-  id: string;
-  name: string;
-  priceMinor: number;
-  priceLabel: string;
-  isDefault: boolean;
-  soldOut: boolean;
 }
 
 interface Props {
   itemId: string;
   name: string;
   priceMinor: number;
-  taxClassId?: string;
   currency: string;
   locale: string;
-  variants: VariantOption[];
   modifiers: ModifierGroup[];
   disabled?: boolean;
   /** Overlay mode: small circular button on top of a food image */
@@ -46,10 +34,8 @@ export function RoundItemAddButton({
   itemId,
   name,
   priceMinor,
-  taxClassId,
   currency,
   locale,
-  variants,
   modifiers,
   disabled,
   compact,
@@ -62,19 +48,10 @@ export function RoundItemAddButton({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
-  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
-    defaultVariant?.id,
-  );
-
-  const selectedVariant =
-    variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
-  const basePriceMinor = selectedVariant?.priceMinor ?? priceMinor;
 
   // Find matching lines in cart (item without modifiers = single key)
-  const matchingLines = lines.filter((line) => line.itemId === itemId);
-  const totalQty = matchingLines.reduce((sum, line) => sum + line.quantity, 0);
-  const hasConfiguration = variants.length > 0 || modifiers.length > 0;
+  const matchingLines = lines.filter((l) => l.itemId === itemId);
+  const totalQty = matchingLines.reduce((sum, l) => sum + l.quantity, 0);
 
   function fmt(minor: number) {
     return new Intl.NumberFormat(locale, {
@@ -88,14 +65,13 @@ export function RoundItemAddButton({
     setSheetOpen(false);
     setError(null);
     setSelected({});
-    setSelectedVariantId(defaultVariant?.id);
   }
 
   function toggleOption(group: ModifierGroup, optionName: string) {
     setError(null);
     const current = selected[group.name] ?? [];
     if (current.includes(optionName)) {
-      const next = current.filter((value) => value !== optionName);
+      const next = current.filter((v) => v !== optionName);
       if (next.length === 0) {
         const { [group.name]: _removed, ...rest } = selected;
         setSelected(rest);
@@ -117,11 +93,6 @@ export function RoundItemAddButton({
   }
 
   function addConfigured() {
-    if (selectedVariant?.soldOut) {
-      setError(`${selectedVariant.name} is sold out.`);
-      return;
-    }
-
     const result = validateModifierSelection(
       modifiers,
       Object.entries(selected).flatMap(([groupName, optionNames]) =>
@@ -133,28 +104,12 @@ export function RoundItemAddButton({
       setError(result.error);
       return;
     }
-
-    addLine({
-      itemId,
-      name,
-      priceMinor: basePriceMinor,
-      ...(selectedVariant
-        ? { variantId: selectedVariant.id, variantName: selectedVariant.name }
-        : {}),
-      ...(taxClassId ? { taxClassId } : {}),
-      modifiers: result.modifiers,
-    });
+    addLine({ itemId, name, priceMinor, modifiers: result.modifiers });
     resetSheet();
   }
 
   function handleSimpleAdd() {
-    addLine({
-      itemId,
-      name,
-      priceMinor,
-      ...(taxClassId ? { taxClassId } : {}),
-      modifiers: [],
-    });
+    addLine({ itemId, name, priceMinor, modifiers: [] });
   }
 
   function handleSimpleDecrement() {
@@ -173,15 +128,13 @@ export function RoundItemAddButton({
   }
 
   const previewTotalMinor =
-    basePriceMinor +
+    priceMinor +
     modifiers.reduce((sum, group) => {
       const optionNames = selected[group.name] ?? [];
       return (
         sum +
         optionNames.reduce(
-          (groupSum, optionName) =>
-            groupSum +
-            (group.options.find((option) => option.name === optionName)?.priceMinor ?? 0),
+          (gs, on) => gs + (group.options.find((o) => o.name === on)?.priceMinor ?? 0),
           0,
         )
       );
@@ -189,14 +142,14 @@ export function RoundItemAddButton({
 
   if (disabled) return null;
 
-  // -- COMPACT overlay mode (on food image) ---------------------------------
+  // ── COMPACT overlay mode (on food image) ──────────────────────────────────
   if (compact) {
     if (totalQty === 0) {
       return (
         <>
           <button
             type="button"
-            onClick={() => (hasConfiguration ? setSheetOpen(true) : handleSimpleAdd())}
+            onClick={() => (modifiers.length > 0 ? setSheetOpen(true) : handleSimpleAdd())}
             className="shadow-ink-950/20 flex size-8 items-center justify-center rounded-full bg-white shadow-md transition-transform active:scale-95"
             aria-label={`Add ${name}`}
           >
@@ -205,13 +158,11 @@ export function RoundItemAddButton({
           {sheetOpen ? (
             <ModifierSheet
               name={name}
-              variants={variants}
-              selectedVariantId={selectedVariantId}
+              priceMinor={priceMinor}
               modifiers={modifiers}
               selected={selected}
               previewTotal={fmt(previewTotalMinor)}
               error={error}
-              onVariantChange={setSelectedVariantId}
               onToggle={toggleOption}
               onAdd={addConfigured}
               onClose={resetSheet}
@@ -221,13 +172,13 @@ export function RoundItemAddButton({
       );
     }
 
-    // Compact stepper -- shown when item is already in cart
+    // Compact stepper — shown when item is already in cart
     return (
       <>
         <div className="shadow-ink-950/20 flex h-8 items-center gap-0 overflow-hidden rounded-full bg-white shadow-md">
           <button
             type="button"
-            onClick={hasConfiguration ? () => setSheetOpen(true) : handleSimpleDecrement}
+            onClick={modifiers.length > 0 ? () => setSheetOpen(true) : handleSimpleDecrement}
             className="text-ink-950 active:bg-canvas-100 flex size-8 items-center justify-center transition-colors"
             aria-label="Remove one"
           >
@@ -238,7 +189,7 @@ export function RoundItemAddButton({
           </span>
           <button
             type="button"
-            onClick={hasConfiguration ? () => setSheetOpen(true) : handleSimpleIncrement}
+            onClick={modifiers.length > 0 ? () => setSheetOpen(true) : handleSimpleIncrement}
             className="text-ink-950 active:bg-canvas-100 flex size-8 items-center justify-center transition-colors"
             aria-label="Add one"
           >
@@ -248,13 +199,11 @@ export function RoundItemAddButton({
         {sheetOpen ? (
           <ModifierSheet
             name={name}
-            variants={variants}
-            selectedVariantId={selectedVariantId}
+            priceMinor={priceMinor}
             modifiers={modifiers}
             selected={selected}
             previewTotal={fmt(previewTotalMinor)}
             error={error}
-            onVariantChange={setSelectedVariantId}
             onToggle={toggleOption}
             onAdd={addConfigured}
             onClose={resetSheet}
@@ -264,8 +213,8 @@ export function RoundItemAddButton({
     );
   }
 
-  // -- REGULAR mode (no image, inline in row) -------------------------------
-  if (!hasConfiguration) {
+  // ── REGULAR mode (no image, inline in row) ────────────────────────────────
+  if (modifiers.length === 0) {
     if (totalQty === 0) {
       return (
         <button
@@ -302,7 +251,7 @@ export function RoundItemAddButton({
     );
   }
 
-  // Has variants or modifiers, regular mode
+  // Has modifiers, regular mode
   return (
     <>
       {totalQty === 0 ? (
@@ -330,13 +279,11 @@ export function RoundItemAddButton({
       {sheetOpen ? (
         <ModifierSheet
           name={name}
-          variants={variants}
-          selectedVariantId={selectedVariantId}
+          priceMinor={priceMinor}
           modifiers={modifiers}
           selected={selected}
           previewTotal={fmt(previewTotalMinor)}
           error={error}
-          onVariantChange={setSelectedVariantId}
           onToggle={toggleOption}
           onAdd={addConfigured}
           onClose={resetSheet}
@@ -346,29 +293,25 @@ export function RoundItemAddButton({
   );
 }
 
-// -- Modifier bottom sheet ----------------------------------------------------
+// ── Modifier bottom sheet ─────────────────────────────────────────────────────
 
 function ModifierSheet({
   name,
-  variants,
-  selectedVariantId,
+  priceMinor: _priceMinor,
   modifiers,
   selected,
   previewTotal,
   error,
-  onVariantChange,
   onToggle,
   onAdd,
   onClose,
 }: {
   name: string;
-  variants: VariantOption[];
-  selectedVariantId?: string;
+  priceMinor: number;
   modifiers: ModifierGroup[];
   selected: Record<string, string[]>;
   previewTotal: string;
   error: string | null;
-  onVariantChange: (variantId: string) => void;
   onToggle: (group: ModifierGroup, optionName: string) => void;
   onAdd: () => void;
   onClose: () => void;
@@ -406,72 +349,17 @@ function ModifierSheet({
           </button>
         </div>
 
+        {/* Modifier groups */}
         <div className="max-h-[55vh] overflow-y-auto px-5">
           <div className="flex flex-col gap-4 pb-4">
-            {variants.length > 0 ? (
-              <section>
-                <div className="mb-2.5 flex items-center justify-between">
-                  <div>
-                    <p className="text-ink-950 text-sm font-semibold">Variant</p>
-                    <p className="text-ink-400 text-[11px]">Choose one</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  {variants.map((variant) => {
-                    const active = variant.id === selectedVariantId;
-                    return (
-                      <label
-                        key={variant.id}
-                        className={cn(
-                          'flex cursor-pointer items-center justify-between rounded-2xl border px-4 py-3 transition-all',
-                          active
-                            ? 'border-ink-950 bg-ink-950'
-                            : 'border-ink-100 bg-canvas-50 hover:border-ink-200',
-                          variant.soldOut && 'cursor-not-allowed opacity-50',
-                        )}
-                      >
-                        <span className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            checked={active}
-                            disabled={variant.soldOut}
-                            onChange={() => onVariantChange(variant.id)}
-                            className="accent-current"
-                          />
-                          <span
-                            className={cn(
-                              'text-sm font-medium',
-                              active ? 'text-white' : 'text-ink-800',
-                            )}
-                          >
-                            {variant.name}
-                          </span>
-                        </span>
-                        <span
-                          className={cn(
-                            'font-mono text-xs',
-                            active ? 'text-ink-300' : 'text-ink-500',
-                          )}
-                        >
-                          {variant.soldOut ? 'Sold out' : variant.priceLabel}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
-
             {modifiers.map((group) => {
               const optionNames = selected[group.name] ?? [];
               const limit = maxSelectionsForModifierGroup(group);
-              const min = group.min ?? (group.required ? 1 : 0);
               const label =
-                min > 0 && limit === min
-                  ? `Required · choose ${min}`
-                  : min > 0
-                    ? `Required · choose ${min}-${limit}`
+                group.required && limit === 1
+                  ? 'Required · choose 1'
+                  : group.required
+                    ? `Required · choose up to ${limit}`
                     : limit === 1
                       ? 'Optional'
                       : `Optional · up to ${limit}`;
@@ -483,16 +371,16 @@ function ModifierSheet({
                       <p className="text-ink-950 text-sm font-semibold">{group.name}</p>
                       <p className="text-ink-400 text-[11px]">{label}</p>
                     </div>
-                    {min > 0 ? (
+                    {group.required ? (
                       <span
                         className={cn(
                           'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          optionNames.length >= min
+                          optionNames.length > 0
                             ? 'bg-jade-100 text-jade-700'
                             : 'bg-mkrose-50 text-mkrose-600',
                         )}
                       >
-                        {optionNames.length >= min ? 'Done' : 'Required'}
+                        {optionNames.length > 0 ? 'Done' : 'Required'}
                       </span>
                     ) : null}
                   </div>
@@ -560,7 +448,7 @@ function ModifierSheet({
   );
 }
 
-// -- Icons -------------------------------------------------------------------
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function PlusIcon({ className }: { className?: string }) {
   return (

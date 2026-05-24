@@ -1,17 +1,24 @@
 import type { NextRequest } from 'next/server';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import {
-  buildMenuCommercePricing,
   enqueueWebhookEvent,
   generatePublicOrderId,
   getModels,
   getMongoConnection,
+  pickLeastLoadedStationId,
   reserveDailyPickupNumber,
   restaurantHasReachedOrderCapacity,
   upsertCustomerFromOrder,
 } from '@menukaze/db';
 import { parseObjectIds } from '@menukaze/db/object-id';
-import { orderWebhookApiChannel } from '@menukaze/shared';
+import {
+  computeTax,
+  DEFAULT_PREP_MINUTES,
+  orderWebhookApiChannel,
+  resolvePrimaryStationId,
+  validateModifierSelection,
+} from '@menukaze/shared';
 import { apiError, corsOptions, jsonOk, resolveApiKey, withApiCors } from '../_lib/auth';
 import { withIdempotency } from '../_lib/idempotency';
 import { rateLimitFor, rateLimitHeaders } from '../_lib/rate-limit';
@@ -26,7 +33,6 @@ const modifierInput = z.object({
 
 const lineInput = z.object({
   item_id: z.string().min(1),
-  variant_id: z.string().min(1).optional(),
   quantity: z.number().int().min(1).max(99),
   modifiers: z.array(modifierInput).max(20).default([]),
   notes: z.string().max(500).optional(),
@@ -41,6 +47,17 @@ const orderInput = z.object({
   }),
   items: z.array(lineInput).min(1).max(50),
 });
+
+interface SnapshotLine {
+  itemId: Types.ObjectId;
+  name: string;
+  priceMinor: number;
+  quantity: number;
+  modifiers: { groupName: string; optionName: string; priceMinor: number }[];
+  notes?: string;
+  lineTotalMinor: number;
+  stationId?: Types.ObjectId;
+}
 
 export async function OPTIONS(request: NextRequest): Promise<Response> {
   return corsOptions(request);
@@ -100,7 +117,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       routeId: 'v1:orders:create',
       body: input,
       handler: async () => {
-        const { Restaurant, Order } = getModels(conn);
+        const { Restaurant, Item, Order, Category } = getModels(conn);
         const restaurant = await Restaurant.findById(ctx.restaurantId).exec();
         if (!restaurant) return apiError('not_found', 'Restaurant not found.');
         if (!restaurant.liveAt) {
@@ -121,34 +138,83 @@ export async function POST(request: NextRequest): Promise<Response> {
           if (atCapacity) return apiError('service_unavailable', 'Kitchen is at capacity.');
         }
 
-        const pricing = await buildMenuCommercePricing({
-          connection: conn,
+        const items = await Item.find({
           restaurantId: ctx.restaurantId,
-          restaurant,
-          lines: input.items.map((line) => ({
-            itemId: line.item_id,
-            variantId: line.variant_id,
-            quantity: line.quantity,
-            modifiers: line.modifiers.map((m) => ({
+          _id: { $in: itemIds },
+        }).exec();
+        const itemsById = new Map(items.map((item) => [String(item._id), item]));
+        const categoryIds = Array.from(new Set(items.map((item) => String(item.categoryId))));
+        const categories =
+          categoryIds.length > 0
+            ? await Category.find(
+                { restaurantId: ctx.restaurantId, _id: { $in: categoryIds } },
+                { stationIds: 1 },
+              )
+                .lean()
+                .exec()
+            : [];
+        const categoryStationsById = new Map(
+          categories.map((c) => [String(c._id), c.stationIds ?? []]),
+        );
+
+        const snapshotLines: SnapshotLine[] = [];
+        let subtotalMinor = 0;
+        for (const line of input.items) {
+          const item = itemsById.get(line.item_id);
+          if (!item) return apiError('item_unavailable', 'Item no longer available.');
+          if (item.soldOut) return apiError('item_unavailable', `${item.name} is sold out.`);
+          if (item.currency !== restaurant.currency) {
+            return apiError('invalid_request', `Currency mismatch for ${item.name}.`);
+          }
+
+          const modResult = validateModifierSelection(
+            item.modifiers,
+            line.modifiers.map((m) => ({
               groupName: m.group_name,
               optionName: m.option_name,
               priceMinor: m.price_minor,
             })),
-            notes: line.notes,
-          })),
-          channel: 'api',
-        });
-        if ('error' in pricing) return apiError('item_unavailable', pricing.error);
+            item.name,
+          );
+          if (!modResult.ok) return apiError('invalid_request', modResult.error);
+          const unitMinor =
+            item.priceMinor + modResult.modifiers.reduce((s, m) => s + m.priceMinor, 0);
+          const lineTotalMinor = unitMinor * line.quantity;
+          subtotalMinor += lineTotalMinor;
+
+          const itemStations = item.stationIds ?? [];
+          const categoryStations = categoryStationsById.get(String(item.categoryId)) ?? [];
+          const candidates = itemStations.length > 0 ? itemStations : categoryStations;
+          const stationId =
+            candidates.length > 1
+              ? await pickLeastLoadedStationId(conn, ctx.restaurantId, candidates)
+              : resolvePrimaryStationId(item.stationIds ?? null, categoryStations);
+
+          snapshotLines.push({
+            itemId: item._id,
+            name: item.name,
+            priceMinor: item.priceMinor,
+            quantity: line.quantity,
+            modifiers: modResult.modifiers,
+            ...(line.notes ? { notes: line.notes } : {}),
+            lineTotalMinor,
+            ...(stationId ? { stationId } : {}),
+          });
+        }
+
+        if (subtotalMinor <= 0) {
+          return apiError('order_items_empty', 'Order has no items.');
+        }
         const minimumOrderMinor = restaurant.minimumOrderMinor ?? 0;
-        if (minimumOrderMinor > 0 && pricing.subtotalMinor < minimumOrderMinor) {
+        if (minimumOrderMinor > 0 && subtotalMinor < minimumOrderMinor) {
           return apiError(
             'below_minimum_order',
             `Minimum order is ${minimumOrderMinor} (minor units).`,
           );
         }
 
-        const { surchargeMinor, taxMinor } = pricing;
-        const totalMinor = pricing.subtotalMinor + surchargeMinor;
+        const { surchargeMinor, taxMinor } = computeTax(subtotalMinor, restaurant.taxRules ?? []);
+        const totalMinor = subtotalMinor + surchargeMinor;
 
         const publicOrderId = generatePublicOrderId();
         const pickupNumber = await reserveDailyPickupNumber(
@@ -157,7 +223,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           restaurant.timezone,
         );
         const now = new Date();
-        const prepMinutes = pricing.prepMinutes;
+        const prepMinutes = restaurant.estimatedPrepMinutes ?? DEFAULT_PREP_MINUTES;
         const estimatedReadyAt = new Date(now.getTime() + prepMinutes * 60_000);
 
         const order = await Order.create({
@@ -168,8 +234,8 @@ export async function POST(request: NextRequest): Promise<Response> {
           apiKeyId: ctx.keyId,
           type: input.type,
           customer: input.customer,
-          items: pricing.snapshotLines,
-          subtotalMinor: pricing.subtotalMinor,
+          items: snapshotLines,
+          subtotalMinor,
           taxMinor,
           tipMinor: 0,
           totalMinor,
@@ -219,7 +285,7 @@ export async function POST(request: NextRequest): Promise<Response> {
             channel: ctx.channel,
             type: input.type,
             status: 'received',
-            subtotal_minor: pricing.subtotalMinor,
+            subtotal_minor: subtotalMinor,
             tax_minor: taxMinor,
             total_minor: totalMinor,
             currency: restaurant.currency,

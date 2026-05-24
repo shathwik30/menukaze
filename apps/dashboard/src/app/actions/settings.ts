@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getMongoConnection, getModels } from '@menukaze/db';
-import { APIError, taxClassSchema, taxRuleSchema } from '@menukaze/shared';
+import { APIError, taxRuleSchema } from '@menukaze/shared';
 import { runRestaurantAction, validationError, type ActionResult } from '@/lib/action-helpers';
 import { recordAudit } from '@/lib/audit';
 
@@ -474,41 +474,6 @@ export async function updateTaxRulesAction(raw: unknown): Promise<ActionResult> 
         metadata: { ruleCount: parsed.data.taxRules.length },
       });
       revalidatePath('/admin/settings');
-      return { ok: true };
-    },
-  );
-}
-
-const taxClassesInput = z.object({
-  taxClasses: z.array(taxClassSchema).max(20),
-});
-export async function updateTaxClassesAction(raw: unknown): Promise<ActionResult> {
-  const parsed = taxClassesInput.safeParse(raw);
-  if (!parsed.success) return validationError(parsed.error);
-
-  return runRestaurantAction(
-    ['settings.edit_profile'],
-    { onError: 'Failed to update tax classes.', onForbidden: SETTINGS_PERMISSION_ERROR },
-    async ({ restaurantId, session, role }) => {
-      const conn = await getMongoConnection('live');
-      const { Restaurant } = getModels(conn);
-      const taxClasses = parsed.data.taxClasses.map((taxClass) => ({
-        ...taxClass,
-        rules: taxClass.rules.map((rule) => ({ ...rule, scope: 'item' as const })),
-      }));
-      await Restaurant.updateOne({ _id: restaurantId }, { $set: { taxClasses } }).exec();
-      await recordAudit({
-        restaurantId,
-        userId: session.user.id,
-        userEmail: session.user.email,
-        role,
-        action: 'settings.tax_classes.updated',
-        resourceType: 'restaurant',
-        resourceId: String(restaurantId),
-        metadata: { classCount: taxClasses.length },
-      });
-      revalidatePath('/admin/settings');
-      revalidatePath('/admin/menu');
       return { ok: true };
     },
   );

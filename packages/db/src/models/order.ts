@@ -42,14 +42,9 @@ export interface OrderLineItem {
   itemId: Types.ObjectId;
   name: string;
   priceMinor: number;
-  variantId?: Types.ObjectId;
-  variantName?: string;
   quantity: number;
   modifiers: OrderModifierSnapshot[];
   notes?: string;
-  taxClassId?: string;
-  taxClassName?: string;
-  taxMinor?: number;
   /** (priceMinor + sum(modifier priceMinor)) * quantity */
   lineTotalMinor: number;
   stationId?: Types.ObjectId;
@@ -153,14 +148,9 @@ const lineItemSchema = new Schema<OrderLineItem>(
     itemId: { type: Schema.Types.ObjectId, ref: 'Item', required: true },
     name: { type: String, required: true },
     priceMinor: { type: Number, required: true, min: 0 },
-    variantId: { type: Schema.Types.ObjectId },
-    variantName: { type: String, maxlength: 120 },
     quantity: { type: Number, required: true, min: 1 },
     modifiers: { type: [modifierSnapshotSchema], default: [] },
     notes: { type: String, maxlength: 500 },
-    taxClassId: { type: String, maxlength: 64 },
-    taxClassName: { type: String, maxlength: 64 },
-    taxMinor: { type: Number, min: 0 },
     lineTotalMinor: { type: Number, required: true, min: 0 },
     stationId: { type: Schema.Types.ObjectId, ref: 'Station' },
     lineStatus: {

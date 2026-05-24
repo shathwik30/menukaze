@@ -19,7 +19,6 @@ export default async function KioskCheckoutPage() {
       locale={restaurant.locale}
       razorpayReady={razorpayReady}
       taxRules={serializeTaxRules(restaurant.taxRules)}
-      taxClasses={restaurant.taxClasses ?? []}
       minimumOrderMinor={restaurant.minimumOrderMinor ?? 0}
       estimatedPrepMinutes={restaurant.estimatedPrepMinutes ?? 20}
     />

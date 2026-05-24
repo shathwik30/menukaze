@@ -6,30 +6,6 @@ import { ReservationsBoard } from './reservations-board';
 
 export const dynamic = 'force-dynamic';
 
-function dateKeyInTimeZone(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-  return `${get('year')}-${get('month')}-${get('day')}`;
-}
-
-function timeMinutesInTimeZone(date: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).formatToParts(date);
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0);
-  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0);
-  return hour * 60 + minute;
-}
-
 export default async function DashboardReservationsPage() {
   const { restaurantId, permissions } = await requirePageFlag(['reservations.view']);
 
@@ -38,10 +14,7 @@ export default async function DashboardReservationsPage() {
   const restaurant = await Restaurant.findById(restaurantId).exec();
   if (!restaurant) notFound();
 
-  const timezone = restaurant.timezone ?? 'UTC';
-  const now = new Date();
-  const today = dateKeyInTimeZone(now, timezone);
-  const nowMinutes = timeMinutesInTimeZone(now, timezone);
+  const today = new Date().toISOString().slice(0, 10);
   const upcoming = await Reservation.find({
     restaurantId,
     date: { $gte: today },
@@ -160,12 +133,7 @@ export default async function DashboardReservationsPage() {
         </div>
       </div>
       <div style={{ padding: '14px 40px 48px' }}>
-        <ReservationsBoard
-          reservations={all}
-          today={today}
-          nowMinutes={nowMinutes}
-          canEdit={permissions.includes('reservations.edit')}
-        />
+        <ReservationsBoard reservations={all} canEdit={permissions.includes('reservations.edit')} />
       </div>
     </div>
   );

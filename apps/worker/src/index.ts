@@ -8,7 +8,6 @@ import {
 } from '@menukaze/monitoring';
 import { env } from './env';
 import { startHealthServer, type WorkerHealthState } from './health-server';
-import { sendReservationReminders } from './reservation-reminders';
 import { sweepTimedOutSessions } from './session-sweeper';
 import { drainWebhookOutbox } from './webhook-drainer';
 
@@ -18,23 +17,18 @@ const healthState: WorkerHealthState = {
   startedAt: new Date(),
   lastSweepAt: null,
   lastWebhookDrainAt: null,
-  lastReservationReminderAt: null,
   lastSweepResult: null,
   lastWebhookDrainResult: null,
-  lastReservationReminderResult: null,
 };
 
 const sweepIntervalMs = env.WORKER_SESSION_SWEEP_INTERVAL_MS;
 const webhookIntervalMs = env.WORKER_WEBHOOK_INTERVAL_MS;
-const reservationReminderIntervalMs = env.WORKER_RESERVATION_REMINDER_INTERVAL_MS;
 const healthPort = env.WORKER_HEALTH_PORT;
 let shuttingDown = false;
 let sweepInFlight = false;
 let webhookInFlight = false;
-let reservationReminderInFlight = false;
 let timer: NodeJS.Timeout | null = null;
 let webhookTimer: NodeJS.Timeout | null = null;
-let reservationReminderTimer: NodeJS.Timeout | null = null;
 let healthServer: Server | null = null;
 
 function log(message: string, extra?: Record<string, unknown>): void {
@@ -88,27 +82,6 @@ async function runWebhookDrain(): Promise<void> {
   }
 }
 
-async function runReservationReminders(): Promise<void> {
-  if (shuttingDown || reservationReminderInFlight) return;
-  reservationReminderInFlight = true;
-  try {
-    const result = await sendReservationReminders();
-    healthState.lastReservationReminderAt = new Date();
-    healthState.lastReservationReminderResult = result;
-    if (result.scanned > 0 || result.failed > 0) {
-      log('reservation reminders processed', { ...result });
-    }
-  } catch (error) {
-    captureException(error, {
-      surface: 'worker:reservations',
-      message: 'reservation reminders failed',
-    });
-    log('reservation reminders failed', { error: errorMessage(error) });
-  } finally {
-    reservationReminderInFlight = false;
-  }
-}
-
 async function closeHealthServer(): Promise<void> {
   if (!healthServer) return;
   const server = healthServer;
@@ -123,7 +96,6 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   shuttingDown = true;
   if (timer) clearInterval(timer);
   if (webhookTimer) clearInterval(webhookTimer);
-  if (reservationReminderTimer) clearInterval(reservationReminderTimer);
   await closeHealthServer();
   await closeAllConnections().catch((error: unknown) => {
     captureException(error, { surface: 'worker:shutdown', message: 'connection shutdown failed' });
@@ -146,7 +118,6 @@ log('worker ready', {
   env: env.NODE_ENV,
   sweepIntervalMs,
   webhookIntervalMs,
-  reservationReminderIntervalMs,
   healthPort,
 });
 
@@ -161,8 +132,3 @@ void runWebhookDrain();
 webhookTimer = setInterval(() => {
   void runWebhookDrain();
 }, webhookIntervalMs);
-
-void runReservationReminders();
-reservationReminderTimer = setInterval(() => {
-  void runReservationReminders();
-}, reservationReminderIntervalMs);

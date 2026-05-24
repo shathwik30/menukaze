@@ -168,24 +168,6 @@ export type ApiKeyEnv = (typeof API_KEY_ENVS)[number];
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export const ALLERGENS = [
-  'celery',
-  'cereals_gluten',
-  'crustaceans',
-  'eggs',
-  'fish',
-  'lupin',
-  'milk',
-  'molluscs',
-  'mustard',
-  'peanuts',
-  'sesame',
-  'soybeans',
-  'sulphites',
-  'tree_nuts',
-] as const;
-export type Allergen = (typeof ALLERGENS)[number];
-
 export const PAYMENT_MODE_REQUESTED_OPTIONS = ['online', 'counter'] as const;
 export type PaymentModeRequested = (typeof PAYMENT_MODE_REQUESTED_OPTIONS)[number];
 

@@ -18,12 +18,9 @@ const DAY_TO_INDEX: Record<MenuScheduleDay, number> = {
 
 const INDEX_TO_DAY: MenuScheduleDay[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-function parseMinutes(value: string): number | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+function parseMinutes(value: string): number {
+  const [hour = 0, minute = 0] = value.split(':').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
   return hour * 60 + minute;
 }
 
@@ -70,7 +67,6 @@ export function isMenuScheduleActive(
   const { day, minutes } = getZonedDateParts(now, timeZone);
   const start = parseMinutes(schedule.startTime);
   const end = parseMinutes(schedule.endTime);
-  if (start === null || end === null) return false;
 
   if (start === end) {
     return schedule.days.includes(day);

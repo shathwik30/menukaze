@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
-import { getMongoConnection, getModels, loadMenuProjection } from '@menukaze/db';
+import { getMongoConnection, getModels } from '@menukaze/db';
 import { parseObjectId } from '@menukaze/db/object-id';
 import {
+  filterActiveMenus,
   formatMoney,
   normalizeDineInSessionTimeoutMinutes,
   parseCurrencyCode,
@@ -17,7 +18,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   if (!sessionObjectId) notFound();
 
   const conn = await getMongoConnection('live');
-  const { TableSession, Restaurant, Order, Table } = getModels(conn);
+  const { TableSession, Restaurant, Menu, Category, Item, Order, Table } = getModels(conn);
 
   const session = await TableSession.findOne({ _id: sessionObjectId }, null, {
     skipTenantGuard: true,
@@ -29,50 +30,44 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   }
 
   const restaurantId = session.restaurantId;
-  const [restaurant, table, orders] = await Promise.all([
+  const [restaurant, table, menus, categories, items, orders] = await Promise.all([
     Restaurant.findById(restaurantId).exec(),
     Table.findOne({ restaurantId, _id: session.tableId }).exec(),
+    Menu.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
+    Category.find({ restaurantId }).sort({ order: 1 }).lean().exec(),
+    Item.find({ restaurantId }).sort({ createdAt: 1 }).lean().exec(),
     Order.find({ restaurantId, sessionId: session._id }).sort({ createdAt: 1 }).lean().exec(),
   ]);
   if (!restaurant || !table) notFound();
-  const projection = await loadMenuProjection(conn, {
-    restaurantId,
-    timeZone: restaurant.timezone,
-    channel: 'qr_dinein',
-  });
+  const activeMenus = filterActiveMenus(menus, restaurant.timezone);
+  const activeMenuIds = new Set(activeMenus.map((menu) => String(menu._id)));
+  const activeCategories = categories.filter((category) =>
+    activeMenuIds.has(String(category.menuId)),
+  );
+  const activeCategoryIds = new Set(activeCategories.map((category) => String(category._id)));
+  const activeItems = items.filter((item) => activeCategoryIds.has(String(item.categoryId)));
+  const itemNameById = new Map(items.map((item) => [String(item._id), item.name]));
 
   const currency = parseCurrencyCode(restaurant.currency);
   const locale = restaurant.locale;
 
-  const sessionItems: SessionItem[] = projection.items.map((i) => {
-    const category = projection.categories.find((c) => c.id === i.categoryId);
+  const sessionItems: SessionItem[] = activeItems.map((i) => {
+    const category = activeCategories.find((c) => String(c._id) === String(i.categoryId));
     return {
-      id: i.id,
+      id: String(i._id),
       name: i.name,
       description: i.description,
       priceMinor: i.priceMinor,
       priceLabel: formatMoney(i.priceMinor, currency, locale),
-      categoryId: i.categoryId,
+      categoryId: String(i.categoryId),
       categoryName: category?.name ?? 'Menu',
-      allergens: i.allergens,
-      featured: i.featured,
-      searchKeywords: i.searchKeywords,
-      taxClassId: i.taxClassId,
-      variants: i.variants.map((variant) => ({
-        id: variant.id,
-        name: variant.name,
-        priceMinor: variant.priceMinor,
-        priceLabel: formatMoney(variant.priceMinor, currency, locale),
-        isDefault: variant.isDefault,
-        soldOut: variant.soldOut,
-      })),
       soldOut: i.soldOut,
       imageUrl: i.imageUrl,
-      comboItemNames: [],
+      comboItemNames:
+        i.comboOf?.map((comboId) => itemNameById.get(String(comboId)) ?? 'Unknown item') ?? [],
       modifiers: i.modifiers.map((group) => ({
         name: group.name,
-        required: group.min > 0,
-        min: group.min,
+        required: group.required,
         max: group.max,
         options: group.options.map((option) => ({
           name: option.name,
@@ -83,13 +78,11 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
     };
   });
 
-  const menuTabs = projection.menus.map((m) => ({ id: m.id, name: m.name }));
-  const categoryList = projection.categories.map((c) => ({
-    id: c.id,
+  const menuTabs = activeMenus.map((m) => ({ id: String(m._id), name: m.name }));
+  const categoryList = activeCategories.map((c) => ({
+    id: String(c._id),
     name: c.name,
-    description: c.description,
-    menuId: c.menuId,
-    menuIds: c.menuIds,
+    menuId: String(c.menuId),
   }));
 
   const rounds: SessionRound[] = orders.map((o) => ({
