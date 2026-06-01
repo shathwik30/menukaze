@@ -31,15 +31,15 @@
     "@menukaze/monitoring": "workspace:*",
     "@react-email/render": "2.0.8",
     "razorpay": "2.9.6",
-    "react": "19.2.5",
-    "resend": "6.12.2",
-    "zod": "4.4.2"
+    "react": "19.2.6",
+    "resend": "6.12.4",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@menukaze/tsconfig": "workspace:*",
     "@menukaze/vitest-config": "workspace:*",
     "@types/node": "22.12.0",
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.15",
     "typescript": "6.0.3"
   }
 }

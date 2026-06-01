@@ -17,11 +17,11 @@
   ],
   "dependencies": {
     "@eslint/js": "10.0.1",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.6",
     "eslint-plugin-boundaries": "6.0.2",
     "eslint-plugin-unicorn": "64.0.0",
     "globals": "17.6.0",
-    "typescript-eslint": "8.59.1"
+    "typescript-eslint": "8.60.0"
   },
   "peerDependencies": {
     "eslint": "^9.15.0",
